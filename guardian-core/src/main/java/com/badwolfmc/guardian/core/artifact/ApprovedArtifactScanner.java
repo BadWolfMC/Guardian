@@ -26,16 +26,26 @@ import java.util.zip.ZipFile;
 public final class ApprovedArtifactScanner {
     public static final int MAX_IMPORT_JARS = 256;
     public static final int MAX_FABRIC_METADATA_BYTES = 128 * 1024;
-    public static final int MAX_ARCHIVE_ENTRIES = 4096;
+    public static final int MAX_ARCHIVE_ENTRIES = 16_384;
     public static final long MAX_TOTAL_IMPORT_BYTES = 2L * 1024L * 1024L * 1024L;
     private static final String FABRIC_METADATA = "fabric.mod.json";
+    private final int maxArchiveEntries;
+
+    public ApprovedArtifactScanner() {
+        this(MAX_ARCHIVE_ENTRIES);
+    }
+
+    ApprovedArtifactScanner(int maxArchiveEntries) {
+        if (maxArchiveEntries < 1) throw new IllegalArgumentException("maxArchiveEntries must be positive");
+        this.maxArchiveEntries = maxArchiveEntries;
+    }
 
     public ScanResult scan(Path directory) throws ArtifactCatalogException {
         validateDirectory(directory);
         List<Path> candidates = listCandidates(directory);
         if (candidates.size() > MAX_IMPORT_JARS) {
             throw new ArtifactCatalogException(
-                "approved-artifacts contains " + candidates.size() + " JARs; maximum is " + MAX_IMPORT_JARS);
+                "artifact-import contains " + candidates.size() + " JARs; maximum is " + MAX_IMPORT_JARS);
         }
         validateAggregateSize(candidates);
 
@@ -64,16 +74,16 @@ public final class ApprovedArtifactScanner {
                 size = Files.size(candidate);
             } catch (IOException ex) {
                 throw new ArtifactCatalogException(
-                    "could not read size of approved artifact '" + candidate.getFileName() + "'", ex);
+                    "could not read size of artifact candidate '" + candidate.getFileName() + "'", ex);
             }
             if (size > GuardianProtocol.MAX_ARTIFACT_BYTES) {
                 throw new ArtifactCatalogException(
-                    "approved artifact '" + candidate.getFileName() + "' exceeds "
+                    "artifact candidate '" + candidate.getFileName() + "' exceeds "
                         + GuardianProtocol.MAX_ARTIFACT_BYTES + " byte safety limit");
             }
             if (total > MAX_TOTAL_IMPORT_BYTES - size) {
                 throw new ArtifactCatalogException(
-                    "approved-artifacts exceeds " + MAX_TOTAL_IMPORT_BYTES + " aggregate bytes");
+                    "artifact-import exceeds " + MAX_TOTAL_IMPORT_BYTES + " aggregate bytes");
             }
             total += size;
         }
@@ -81,10 +91,10 @@ public final class ApprovedArtifactScanner {
 
     private static void validateDirectory(Path directory) throws ArtifactCatalogException {
         if (Files.isSymbolicLink(directory)) {
-            throw new ArtifactCatalogException("approved-artifacts directory must not be a symbolic link");
+            throw new ArtifactCatalogException("artifact-import directory must not be a symbolic link");
         }
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-            throw new ArtifactCatalogException("approved-artifacts path is not a directory");
+            throw new ArtifactCatalogException("artifact-import path is not a directory");
         }
     }
 
@@ -97,18 +107,18 @@ public final class ApprovedArtifactScanner {
                 if (Files.isSymbolicLink(path)
                     || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
                     throw new ArtifactCatalogException(
-                        "approved artifact '" + name + "' must be a regular non-symlink file");
+                        "artifact candidate '" + name + "' must be a regular non-symlink file");
                 }
                 candidates.add(path);
             }
         } catch (IOException ex) {
-            throw new ArtifactCatalogException("could not list approved-artifacts directory", ex);
+            throw new ArtifactCatalogException("could not list artifact-import directory", ex);
         }
         candidates.sort(Comparator.comparing(path -> path.getFileName().toString()));
         return candidates;
     }
 
-    private static ApprovedArtifact inspect(Path jar) throws ArtifactCatalogException {
+    private ApprovedArtifact inspect(Path jar) throws ArtifactCatalogException {
         final BasicFileAttributes before;
         try {
             before = Files.readAttributes(jar, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
@@ -126,9 +136,9 @@ public final class ApprovedArtifactScanner {
 
         FabricModMetadataParser.Metadata metadata;
         try (ZipFile zip = new ZipFile(jar.toFile())) {
-            if (zip.size() > MAX_ARCHIVE_ENTRIES) {
+            if (zip.size() > maxArchiveEntries) {
                 throw new ArtifactCatalogException(
-                    "JAR contains " + zip.size() + " entries; maximum is " + MAX_ARCHIVE_ENTRIES);
+                    "JAR contains " + zip.size() + " entries; maximum is " + maxArchiveEntries);
             }
             ZipEntry entry = zip.getEntry(FABRIC_METADATA);
             if (entry == null || entry.isDirectory()) {
@@ -158,7 +168,7 @@ public final class ApprovedArtifactScanner {
             }
             return new ApprovedArtifact(metadata.modId(), metadata.version(), hash);
         } catch (IOException | IllegalArgumentException ex) {
-            throw new ArtifactCatalogException("could not hash approved artifact: " + ex.getMessage(), ex);
+            throw new ArtifactCatalogException("could not hash artifact candidate: " + ex.getMessage(), ex);
         }
     }
 

@@ -3,6 +3,7 @@ package com.badwolfmc.guardian.velocity;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionOutcome;
 import com.badwolfmc.guardian.core.GuardianDecision;
+import com.badwolfmc.guardian.core.policy.ResolvedAdmissionProfile;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import com.badwolfmc.guardian.protocol.Presence;
 
@@ -14,11 +15,14 @@ final class VelocityAdmissionSession {
     private final CompletableFuture<GuardianDecision> decisionFuture = new CompletableFuture<>();
     private final AtomicReference<GuardianDecision> decision = new AtomicReference<>();
     private final AtomicReference<ClientClassification> classification = new AtomicReference<>();
+    private final AtomicReference<GuardianDecision> configurationAttestationFailure = new AtomicReference<>();
     private final AtomicBoolean challengeSent = new AtomicBoolean();
+    private final AtomicBoolean cerberusRequired = new AtomicBoolean();
     private final AtomicBoolean responseReceived = new AtomicBoolean();
     private final byte[] proxySessionId;
     private volatile byte[] nonce;
     private volatile Presence cerberusPresence;
+    private volatile ResolvedAdmissionProfile resolvedProfile;
 
     VelocityAdmissionSession(byte[] proxySessionId) {
         if (proxySessionId == null || proxySessionId.length != GuardianProtocol.PROXY_SESSION_ID_BYTES) {
@@ -61,6 +65,16 @@ final class VelocityAdmissionSession {
 
     boolean cerberusPresent() { return cerberusPresence != null; }
 
+    void requireCerberus() { cerberusRequired.set(true); }
+
+    boolean cerberusRequired() { return cerberusRequired.get(); }
+
+    GuardianDecision configurationAttestationFailure() { return configurationAttestationFailure.get(); }
+
+    void recordConfigurationAttestationFailure(GuardianDecision failure) {
+        configurationAttestationFailure.compareAndSet(null, java.util.Objects.requireNonNull(failure, "failure"));
+    }
+
     boolean tryMarkResponseReceived() { return responseReceived.compareAndSet(false, true); }
 
     boolean challengeSent() {
@@ -77,6 +91,12 @@ final class VelocityAdmissionSession {
 
     void setNonce(byte[] value) {
         nonce = value.clone();
+    }
+
+    ResolvedAdmissionProfile resolvedProfile() { return resolvedProfile; }
+
+    synchronized void setResolvedProfile(ResolvedAdmissionProfile value) {
+        if (resolvedProfile == null) resolvedProfile = java.util.Objects.requireNonNull(value, "value");
     }
 
     byte[] proxySessionId() {

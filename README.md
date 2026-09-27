@@ -95,11 +95,29 @@ The Phase 2 closeout baseline is green at 85 tests. Phase 2.5 now revises the st
 
 BRIDGE-001 and BRIDGE-002 are retired. BRIDGE-003 through BRIDGE-005 remain intentionally owned by later phases.
 
-## Phase 2.5 status: implementation candidate
+## Phase 2.5 status: complete
 
-Phase 2.5 requires `CAP_ARTIFACT_SHA256`, hashes each top-level archive once per Cerberus environment snapshot, and keeps nested/built-in/development/ambiguous origins explicitly unhashed. Guardian-Paper adds `approved-artifacts/`, the asynchronous `/guardian artifacts scan` command, and deterministic add-only `artifacts.yml` identity storage. The catalog is separate from admission policy and no supplied JAR is executed, installed, extracted, or loaded.
+Phase 2.5 requires `CAP_ARTIFACT_SHA256`, hashes each top-level archive once per Cerberus environment snapshot, and keeps nested/built-in/development/ambiguous origins explicitly unhashed. Guardian-Paper adds `artifact-import/`, the asynchronous `/guardian artifacts scan` command, and deterministic add-only `artifacts.yml` identity storage. The catalog is separate from admission policy and no supplied JAR is executed, installed, extracted, or loaded.
 
-The source test inventory is 102 tests. Run the clean Java 25 / Gradle 9.7.1 gate in `docs/PHASE_2_5_VERIFICATION.md`; once green, Phase 3 proceeds from the revised `docs/PHASE_3_HANDOFF.md` and consumes exact artifact identity without changing protocol v1 again.
+For administrators, the artifact workflow is deliberately two-step: **scan identifies; policy approves**. A successful scan also writes `artifact-import-rules.yml` with self-contained direct-SHA-256 `ALLOW` blocks that can be copied into the appropriate profile in `admission/policy.yml`. Guardian never treats an imported/catalogued artifact as automatically allowed.
+
+Phase 2.5 is complete at `0.1.0-phase2.5`: the Java 25 / Gradle 9.7.1 gate is green at 102 tests and live verification confirmed the administrator artifact workflow, durable historical catalog entries, multiple versions per mod ID, revised 166-entry SHA-256 manifest, standalone admission, and Velocity-authoritative trusted backend admission.
+
+## Phase 3 status: complete
+
+Phase 3 adds one portable Admission policy system for both possible authorities:
+
+- shared `admission/policy.yml` schema parsed/validated in `guardian-core` without Bukkit/Velocity configuration types;
+- immutable policy snapshots and atomic candidate activation;
+- default/named profiles with deterministic priorities and exact UUID overrides;
+- optional asynchronous LuckPerms 5.5 profile/bypass providers on Paper and Velocity;
+- client `ALLOW` / `DENY` / `REQUIRE_CERBERUS` policy plus `JAVA_UNKNOWN` brand rules;
+- `ALLOWLIST` / `DENYLIST`, baseline, required, explicit allow/deny, containment, development-origin, bounded version, and exact SHA-256/catalog mod semantics;
+- structured policy violations and policy-scoped bypasses that cannot defeat protocol/session/proxy-assertion integrity;
+- standalone Guardian-Paper consumption of the shared evaluator; and
+- Guardian-Velocity consumption of the same evaluator, removing its feasibility-era independent admission-policy branch while leaving Phase 5 operational productionization bridges intact.
+
+Phase 3 is complete at `0.1.0-phase3`. The final Java 25 / Gradle 9.7.1 gate is green at **134 tests** with zero failures/errors/skips (Core 53, Paper 31, Protection 20, Protocol 21, Velocity 9). Live verification confirmed Velocity ordinary allow, explicit deny, required-mod version mismatch, genuinely absent required mod (`REQUIRED_MOD_MISSING`), exact-hash denial, trusted proxy assertion without backend re-attestation, standalone Paper parity, player-facing actionable denial text plus help URL, and successful import of the four previously rejected real-world Fabric JARs including Replay Mod. Configuration semantics are documented in `docs/GUARDIAN_ADMISSION.md`.
 
 See:
 
@@ -115,6 +133,9 @@ See:
 - `docs/PHASE_2_5_IMPLEMENTATION.md`
 - `docs/PHASE_2_5_VERIFICATION.md`
 - `docs/PHASE_3_HANDOFF.md`
+- `docs/PHASE_3_IMPLEMENTATION.md`
+- `docs/PHASE_3_VERIFICATION.md`
+- `docs/GUARDIAN_ADMISSION.md`
 - `docs/GUARDIAN_PROTECTION.md`
 - `docs/EZPROTECTOR_MIGRATION.md`
 - `docs/PROVENANCE.md`

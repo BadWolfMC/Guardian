@@ -32,7 +32,7 @@ Signed official Cerberus release identity and hostile-client hardening remain Ph
 
 ## Approved-artifact administration
 
-Guardian-Paper creates `plugins/Guardian/approved-artifacts/` as an administrator input surface and maintains `plugins/Guardian/artifacts.yml` as the durable identity catalog.
+Guardian-Paper creates `plugins/Guardian/artifact-import/` as an administrator input surface and maintains `plugins/Guardian/artifacts.yml` as the durable identity catalog.
 
 Import is explicit:
 
@@ -50,7 +50,7 @@ The command executes JAR inspection/hashing asynchronously. Startup creates the 
 
 The scanner treats every JAR as untrusted data. It:
 
-- scans only the flat `approved-artifacts/` directory;
+- scans only the flat `artifact-import/` directory;
 - considers `.jar` files only;
 - rejects symlink/non-regular JAR candidates;
 - never recursively walks subdirectories;

@@ -23,11 +23,25 @@ class FabricModMetadataParserTest {
     }
 
     @Test
-    void rejectsUnsupportedSchemaDuplicateKeysAndInvalidIdentity() {
+    void matchesFabricMetadataCompatibilityForLiteralNewlinesAndDuplicateKeys() throws Exception {
+        var metadata = FabricModMetadataParser.parse("""
+            {
+              "schemaVersion": 1,
+              "id": "old-id",
+              "id": "actual-id",
+              "version": "1.2.3",
+              "description": "line one
+            line two"
+            }
+            """);
+        assertEquals("actual-id", metadata.modId());
+        assertEquals("1.2.3", metadata.version());
+    }
+
+    @Test
+    void rejectsUnsupportedSchemaAndInvalidIdentity() {
         assertThrows(ArtifactCatalogException.class,
             () -> FabricModMetadataParser.parse("{\"schemaVersion\":2,\"id\":\"aa\",\"version\":\"1\"}"));
-        assertThrows(ArtifactCatalogException.class,
-            () -> FabricModMetadataParser.parse("{\"schemaVersion\":1,\"id\":\"aa\",\"id\":\"bb\",\"version\":\"1\"}"));
         assertThrows(ArtifactCatalogException.class,
             () -> FabricModMetadataParser.parse("{\"schemaVersion\":1,\"id\":\"Bad.ID\",\"version\":\"1\"}"));
         assertThrows(ArtifactCatalogException.class,

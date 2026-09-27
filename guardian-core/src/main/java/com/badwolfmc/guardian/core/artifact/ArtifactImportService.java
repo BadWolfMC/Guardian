@@ -5,43 +5,47 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 
-/** Transactional scan -> validate -> merge -> atomic catalog-write service. */
+/** Transactional scan -> validate -> merge service with atomic catalog and policy-fragment outputs. */
 public final class ArtifactImportService {
-    private final Path approvedArtifactsDirectory;
+    private final Path artifactImportDirectory;
     private final ArtifactCatalogStore catalogStore;
+    private final ArtifactPolicyFragmentStore policyFragmentStore;
     private final ApprovedArtifactScanner scanner;
 
     public ArtifactImportService(Path dataDirectory) {
         this(
-            dataDirectory.resolve("approved-artifacts"),
+            dataDirectory.resolve("artifact-import"),
             new ArtifactCatalogStore(dataDirectory.resolve("artifacts.yml")),
+            new ArtifactPolicyFragmentStore(dataDirectory.resolve("artifact-import-rules.yml")),
             new ApprovedArtifactScanner()
         );
     }
 
     ArtifactImportService(
-        Path approvedArtifactsDirectory,
+        Path artifactImportDirectory,
         ArtifactCatalogStore catalogStore,
+        ArtifactPolicyFragmentStore policyFragmentStore,
         ApprovedArtifactScanner scanner
     ) {
-        this.approvedArtifactsDirectory = approvedArtifactsDirectory;
+        this.artifactImportDirectory = artifactImportDirectory;
         this.catalogStore = catalogStore;
+        this.policyFragmentStore = policyFragmentStore;
         this.scanner = scanner;
     }
 
     public synchronized void ensureInputDirectory() throws ArtifactCatalogException {
-        if (Files.exists(approvedArtifactsDirectory, LinkOption.NOFOLLOW_LINKS)) {
-            if (Files.isSymbolicLink(approvedArtifactsDirectory)
-                || !Files.isDirectory(approvedArtifactsDirectory, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.exists(artifactImportDirectory, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(artifactImportDirectory)
+                || !Files.isDirectory(artifactImportDirectory, LinkOption.NOFOLLOW_LINKS)) {
                 throw new ArtifactCatalogException(
-                    "approved-artifacts must be a real directory, not a symlink or other file type");
+                    "artifact-import must be a real directory, not a symlink or other file type");
             }
             return;
         }
         try {
-            Files.createDirectories(approvedArtifactsDirectory);
+            Files.createDirectories(artifactImportDirectory);
         } catch (IOException ex) {
-            throw new ArtifactCatalogException("could not create approved-artifacts directory", ex);
+            throw new ArtifactCatalogException("could not create artifact-import directory", ex);
         }
     }
 
@@ -50,14 +54,15 @@ public final class ArtifactImportService {
         return catalogStore.load();
     }
 
-    /** No catalog bytes are changed unless every candidate JAR validates successfully. */
+    /** No catalog bytes are changed unless every candidate JAR validates and convenience output is written successfully. */
     public synchronized ArtifactImportResult scanAndMerge() throws ArtifactCatalogException {
         ensureInputDirectory();
         ArtifactCatalog existing = catalogStore.load();
-        ApprovedArtifactScanner.ScanResult scan = scanner.scan(approvedArtifactsDirectory);
+        ApprovedArtifactScanner.ScanResult scan = scanner.scan(artifactImportDirectory);
         ArtifactCatalog merged = existing.merge(scan.artifacts());
         int added = merged.size() - existing.size();
         boolean changed = added != 0 || !catalogStore.exists();
+        policyFragmentStore.store(scan.artifacts());
         if (changed) {
             catalogStore.store(merged);
         }

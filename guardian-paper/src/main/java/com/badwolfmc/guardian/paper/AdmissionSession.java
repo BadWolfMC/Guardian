@@ -3,6 +3,7 @@ package com.badwolfmc.guardian.paper;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
+import com.badwolfmc.guardian.core.policy.ResolvedAdmissionProfile;
 import com.badwolfmc.guardian.protocol.ProxyAdmissionAssertion;
 import com.badwolfmc.guardian.protocol.Response;
 import com.badwolfmc.guardian.protocol.Presence;
@@ -27,6 +28,7 @@ final class AdmissionSession {
     private volatile boolean playHandshakeRequired;
     private volatile boolean quarantined;
     private volatile ClientClassification classification;
+    private volatile ResolvedAdmissionProfile resolvedProfile;
 
     AdmissionSession(UUID playerId, GuardianRuntimeSnapshot snapshot) {
         this.playerId = playerId;
@@ -104,6 +106,15 @@ final class AdmissionSession {
 
     void setClassification(ClientClassification classification) {
         this.classification = classification;
+    }
+
+
+    ResolvedAdmissionProfile resolvedProfile() {
+        return resolvedProfile;
+    }
+
+    synchronized void setResolvedProfile(ResolvedAdmissionProfile value) {
+        if (resolvedProfile == null) resolvedProfile = java.util.Objects.requireNonNull(value, "value");
     }
 
     GuardianDecision configurationPresenceFailure() {

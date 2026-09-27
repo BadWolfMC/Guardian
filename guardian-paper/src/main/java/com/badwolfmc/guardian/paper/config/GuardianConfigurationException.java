@@ -9,6 +9,7 @@ public final class GuardianConfigurationException extends Exception {
         MISSING,
         MALFORMED,
         INVALID,
+        ADMISSION_POLICY,
         UNSUPPORTED_SCHEMA
     }
 

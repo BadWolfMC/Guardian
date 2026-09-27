@@ -1,6 +1,5 @@
 package com.badwolfmc.guardian.paper.config;
 
-import com.badwolfmc.guardian.core.AdmissionPolicy;
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.protection.ProtectionPolicy;
 
@@ -15,14 +14,12 @@ public record GuardianPaperSettings(
     PaperAuthorityMode authorityMode,
     int handshakeTimeoutSeconds,
     int challengeChannelWaitTicks,
-    AdmissionPolicy admissionPolicy,
     ProtectionPolicy protectionPolicy
 ) {
     public GuardianPaperSettings {
         Objects.requireNonNull(locale, "locale");
         Objects.requireNonNull(helpUrl, "helpUrl");
         Objects.requireNonNull(authorityMode, "authorityMode");
-        Objects.requireNonNull(admissionPolicy, "admissionPolicy");
         Objects.requireNonNull(protectionPolicy, "protectionPolicy");
     }
 

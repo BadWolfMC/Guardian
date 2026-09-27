@@ -8,6 +8,7 @@ dependencies {
     implementation project(':guardian-protection')
     compileOnly "io.papermc.paper:paper-api:${paper_api_version}"
     compileOnly "org.geysermc.floodgate:api:${floodgate_api_version}"
+    compileOnly "net.luckperms:api:${luckperms_api_version}"
 
     testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -20,6 +21,7 @@ base {
 }
 
 tasks.named('jar') {
+    from { configurations.runtimeClasspath.findAll { it.name.startsWith('snakeyaml-engine-') }.collect { zipTree(it) } }
     dependsOn project(':guardian-core').tasks.named('classes')
     dependsOn project(':guardian-protocol').tasks.named('classes')
     dependsOn project(':guardian-protection').tasks.named('classes')

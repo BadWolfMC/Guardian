@@ -2,11 +2,6 @@ package com.badwolfmc.guardian.paper.config;
 
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
 
-import com.badwolfmc.guardian.core.AdmissionPolicy;
-import com.badwolfmc.guardian.core.BrandRuleMode;
-import com.badwolfmc.guardian.core.ClientAction;
-import com.badwolfmc.guardian.core.ClientClassification;
-import com.badwolfmc.guardian.core.UnknownBrandPolicy;
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.protection.ProtectionPolicy;
 import com.badwolfmc.guardian.protection.ProtectionRule;
@@ -18,11 +13,8 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.EnumMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 public final class GuardianConfigLoader {
     public static final int SCHEMA_VERSION = 1;
@@ -76,24 +68,6 @@ public final class GuardianConfigLoader {
             throw error(path, "admission.standalone.challenge-channel-wait-ticks must be between 1 and " + maxWait);
         }
 
-        EnumMap<ClientClassification, ClientAction> actions = new EnumMap<>(ClientClassification.class);
-        actions.put(ClientClassification.BEDROCK, requireAction(yaml, path, "admission.clients.bedrock"));
-        actions.put(ClientClassification.JAVA_VANILLA, requireAction(yaml, path, "admission.clients.vanilla"));
-        actions.put(ClientClassification.JAVA_OPTIFINE, requireAction(yaml, path, "admission.clients.optifine"));
-        actions.put(ClientClassification.JAVA_FABRIC, requireAction(yaml, path, "admission.clients.fabric"));
-        actions.put(ClientClassification.JAVA_UNKNOWN, requireAction(yaml, path, "admission.clients.unknown"));
-
-        BrandRuleMode brandMode = requireEnum(
-            yaml, path, "admission.unknown-brands.mode", BrandRuleMode.class);
-        Set<String> brands = requireStringSet(yaml, path, "admission.unknown-brands.brands");
-
-        final AdmissionPolicy policy;
-        try {
-            policy = new AdmissionPolicy(actions, new UnknownBrandPolicy(brandMode, brands));
-        } catch (IllegalArgumentException ex) {
-            throw error(path, "admission policy invalid: " + ex.getMessage());
-        }
-
         final ProtectionPolicy protectionPolicy;
         try {
             protectionPolicy = new ProtectionPolicy(
@@ -131,14 +105,8 @@ public final class GuardianConfigLoader {
             authority,
             timeoutSeconds,
             challengeWait,
-            policy,
             protectionPolicy
         );
-    }
-
-    private static ClientAction requireAction(YamlConfiguration yaml, Path path, String key)
-        throws GuardianConfigurationException {
-        return requireEnum(yaml, path, key, ClientAction.class);
     }
 
     private static <E extends Enum<E>> E requireEnum(
@@ -200,26 +168,6 @@ public final class GuardianConfigLoader {
             result.add(string.trim());
         }
         return List.copyOf(result);
-    }
-
-    private static Set<String> requireStringSet(YamlConfiguration yaml, Path path, String key)
-        throws GuardianConfigurationException {
-        Object raw = yaml.get(key);
-        if (!(raw instanceof List<?> list)) {
-            throw error(path, key + " must be a YAML list");
-        }
-        LinkedHashSet<String> result = new LinkedHashSet<>();
-        for (int i = 0; i < list.size(); i++) {
-            Object value = list.get(i);
-            if (!(value instanceof String string) || string.isBlank()) {
-                throw error(path, key + "[" + i + "] must be a non-blank string");
-            }
-            String normalized = string.trim().toLowerCase(Locale.ROOT);
-            if (!result.add(normalized)) {
-                throw error(path, key + " contains duplicate normalized value '" + normalized + "'");
-            }
-        }
-        return Set.copyOf(result);
     }
 
     private static GuardianConfigurationException error(Path path, String message) {

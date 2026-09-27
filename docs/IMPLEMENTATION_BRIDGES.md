@@ -38,12 +38,15 @@ Every active bridge must identify the source locations, the reason it exists, th
 
 - `guardian-velocity/.../GuardianVelocityPlugin.java`
 - Phase 0B-labelled logs/Javadocs and fixed `HANDSHAKE_TIMEOUT_SECONDS`
+- feasibility-era Velocity operational/configuration hosting retained around the now-shared Phase 3 policy engine
 
-**Why it exists:** The Velocity CONFIGURATION lifecycle, channel-consumption boundary, session reuse, Bedrock classification, and proxy assertion flow were live-proven in Phase 0B and intentionally retained during Phase 1A. The adapter has not yet received its full production configuration/diagnostics pass.
+**Why it exists:** The Velocity CONFIGURATION lifecycle, channel-consumption boundary, session reuse, Bedrock classification, and proxy assertion flow were live-proven in Phase 0B and intentionally retained during Phase 1A. The adapter has not yet received its full production configuration/diagnostics pass. Phase 3 additionally owns removal of the feasibility-era **independent policy behavior** so Guardian-Velocity consumes the same platform-neutral policy schema, immutable snapshot, profile-resolution contract, and evaluator as standalone Guardian-Paper. Phase 5 must productionize the Velocity host rather than port or reimplement Phase 3 policy.
 
-**Owner:** Phase 5.
+**Owners:** Phase 3 for shared-policy consumption; Phase 5 for the remaining Velocity production adapter/operations work.
 
-**Retirement condition:** Velocity authority has production configuration ownership, configurable operational timing where appropriate, final diagnostics/naming, finalized assertion provisioning, and tests for the Phase 5 acceptance matrix. Phase 0B wording is removed from production logs/Javadocs.
+**Phase 3 checkpoint:** **CLOSED in `0.1.0-phase3` on 2026-09-27.** Guardian-Velocity no longer makes admission decisions from its own hard-coded client-class switch/branching. It loads the portable shared `admission/policy.yml`, resolves the shared profile model, and invokes the canonical Phase 3 evaluator used by standalone Paper. The parser/validator/snapshot path lives in `guardian-core` and has no Bukkit/Paper or Velocity configuration dependency. The final Java 25 / Gradle 9.7.1 gate is green at 134 tests, and live parity verification includes ordinary allow, explicit deny, required-version mismatch, genuinely absent required mod, exact-hash denial, trusted backend assertion without re-attestation, and standalone Paper parity.
+
+**Final retirement condition (Phase 5):** Velocity authority has production configuration ownership and file-location/UX, configurable operational timing where appropriate, final diagnostics/naming, finalized assertion provisioning, explicit deployment-mode diagnostics, and tests for the Phase 5 acceptance matrix. Phase 0B wording is removed from production logs/Javadocs. Phase 5 MUST NOT require a second Velocity-specific policy schema/evaluator or a port of Paper-owned policy logic.
 
 ### BRIDGE-005 — Early Geyser/Floodgate integration behavior
 
@@ -117,12 +120,20 @@ BRIDGE-001 through BRIDGE-005 remain intentionally active under their existing l
 
 As of 2026-09-26, the Phase 2 implementation and live protocol-v1 verification are complete. BRIDGE-001 and BRIDGE-002 are retired by the real Loader-backed canonical manifest, production protocol-v1 negotiation/validation, and renamed `guardian.cerberus.dev.*` diagnostics. The closeout hardening pass introduces no new implementation bridge.
 
-BRIDGE-003, BRIDGE-004, and BRIDGE-005 remain intentionally active under their existing Phase 5 / Phase 4 owners. In particular, the retained Velocity adapter's Phase 0B-labelled diagnostics and current OptiFine denial are still BRIDGE-004 behavior; they must not be misread as Phase 2 protocol failures or opportunistically rewritten during Phase 3.
+At the Phase 2 closeout point, BRIDGE-003, BRIDGE-004, and BRIDGE-005 remained later-phase work. The retained Velocity adapter's Phase 0B-labelled diagnostics and OptiFine denial were correctly treated as bridge behavior rather than Phase 2 protocol failures. The subsequent Phase 3 portability revision below now deliberately assigns BRIDGE-004's **independent policy-behavior** portion to Phase 3 while leaving the genuinely Velocity-specific production work in Phase 5.
 
-The Java 25 / Gradle 9.7.1 Phase 2 closeout gate passed at project version `0.1.0-phase2`. Phase 2.5 does not change bridge ownership; Phase 3 may proceed after the Phase 2.5 gate passes.
+The Java 25 / Gradle 9.7.1 Phase 2 closeout gate passed at project version `0.1.0-phase2`.
 
 ## Phase 2.5 bridge review
 
 Phase 2.5 exact artifact identity and approved-artifact catalog work introduces no new implementation bridge. The artifact digest is part of the unreleased protocol-v1 canonical contract and the catalog is a permanent administrator identity-data surface, not temporary compatibility scaffolding.
 
-BRIDGE-003, BRIDGE-004, and BRIDGE-005 remain unchanged under their Phase 5 / Phase 4 owners. Phase 2.5 does not rewrite Velocity production configuration, proxy-secret provisioning, or Geyser/Floodgate production behavior.
+BRIDGE-003 and BRIDGE-005 retain their existing Phase 5 / Phase 4 owners. BRIDGE-004 remains active, but its ownership is now deliberately split: Phase 3 removes the feasibility-era independent Velocity policy behavior by wiring Guardian-Velocity to the shared policy engine; Phase 5 retains final Velocity configuration ownership/UX, timings, diagnostics/naming, deployment-mode behavior, and assertion-secret productionization. Phase 2.5 itself did not rewrite any of those surfaces.
+
+## Phase 3 implementation-candidate bridge review
+
+The `0.1.0-phase3` implementation candidate introduces no new bridge. BRIDGE-003 and BRIDGE-005 are unchanged.
+
+BRIDGE-004's Phase 3 checkpoint is implemented in source: both authoritative adapters now consume the same platform-neutral policy parser/snapshot/profile-resolution/evaluator system, and Guardian-Velocity's independent feasibility-era admission policy branch is removed. BRIDGE-004 remains active solely because its final retirement condition is Phase 5 operational productionization: final Velocity data/config ownership UX, configurable timing where appropriate, assertion provisioning, deployment diagnostics, and removal of Phase 0B naming/logging.
+
+Phase 3 closeout still requires the Java 25 / Gradle 9.7.1 gate and focused live policy matrix before the checkpoint is considered operator-verified.

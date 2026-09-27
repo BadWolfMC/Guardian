@@ -1,0 +1,65 @@
+# Guardian shared Admission policy schema.
+# This file is portable between standalone Guardian-Paper authority and Guardian-Velocity authority.
+schema-version: 1
+
+default-profile: default
+
+# Exact UUID -> profile overrides have the highest profile-resolution precedence.
+identity-overrides: {}
+
+profiles:
+  default:
+    # Named-profile permissions are guardian.admission.profile.<profile-id>.
+    # Priorities must be unique so multiple permission matches always resolve deterministically.
+    priority: 0
+
+    clients:
+      bedrock: ALLOW
+      vanilla: ALLOW
+      optifine: ALLOW
+      fabric: REQUIRE_CERBERUS
+      unknown: DENY
+
+    # Exact normalized brand rules apply only to otherwise JAVA_UNKNOWN clients.
+    # ALLOWLIST requires clients.unknown=DENY; DENYLIST requires clients.unknown=ALLOW.
+    unknown-brands:
+      mode: ALLOWLIST
+      brands: []
+
+    mods:
+      # ALLOWLIST denies an otherwise policy-addressable top-level mod unless it has
+      # an explicit ALLOW rule or is required/baseline. DENYLIST permits unlisted mods.
+      mode: ALLOWLIST
+
+      # Development/non-archive top-level origins require an explicit policy choice.
+      origins:
+        directory: DENY
+        mixed-or-unknown: DENY
+
+      # Explicit bootstrap/runtime entries that need not be duplicated as ALLOW rules.
+      # BUILTIN entries such as minecraft/java are handled intrinsically and need not be listed.
+      baseline:
+        - fabricloader
+        - cerberus
+
+      # Required mods are orthogonal to allow/deny membership. A required mod counts as
+      # permitted for allowlist membership, so no duplicate ALLOW rule is necessary.
+      required: {}
+
+      # Explicit rules are keyed by administrator-owned stable rule IDs.
+      # Example:
+      # rules:
+      #   allow-sodium:
+      #     mod: sodium
+      #     action: ALLOW
+      #     accept:
+      #       - version: "0.9.*"
+      #         verification: VERSION_ONLY
+      #   allow-iris-exact:
+      #     mod: iris
+      #     action: ALLOW
+      #     accept:
+      #       - version: "2.0.0+mc26.2"
+      #         verification: HASH_REQUIRED
+      #         catalog: true
+      rules: {}

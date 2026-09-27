@@ -30,6 +30,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         ensureAdministratorFile("config.yml");
+        ensureAdministratorFile("admission/policy.yml");
         ensureAdministratorFile("locales/" + GuardianLocaleLoader.FALLBACK_LOCALE + ".properties");
 
         Path data = getDataFolder().toPath();
@@ -91,15 +92,16 @@ public final class GuardianPaperPlugin extends JavaPlugin {
     private void reconcileAdmission(GuardianRuntimeSnapshot previous, GuardianRuntimeSnapshot current) {
         boolean wasEnabled = previous.settings().admissionEnabled();
         boolean nowEnabled = current.settings().admissionEnabled();
-        if (wasEnabled == nowEnabled) {
-            return;
-        }
-        if (nowEnabled) {
-            admissionAdapter = new PaperAdmissionAdapter(this, runtimeManager, new GuardianMessageRenderer());
-            admissionAdapter.enable();
-        } else if (admissionAdapter != null) {
+        boolean authorityChanged = previous.settings().authorityMode() != current.settings().authorityMode();
+
+        if (wasEnabled && (!nowEnabled || authorityChanged) && admissionAdapter != null) {
             admissionAdapter.disable();
             admissionAdapter = null;
+        }
+
+        if (nowEnabled && (!wasEnabled || authorityChanged)) {
+            admissionAdapter = new PaperAdmissionAdapter(this, runtimeManager, new GuardianMessageRenderer());
+            admissionAdapter.enable();
         }
     }
 
@@ -217,8 +219,9 @@ public final class GuardianPaperPlugin extends JavaPlugin {
                 getLogger().info("Guardian artifact catalog validated with " + entries + " exact artifact entries.");
             }
         } catch (ArtifactCatalogException ex) {
-            // Phase 2.5 catalog data is not yet an admission-policy authority. Surface the problem
-            // clearly, but do not disable otherwise valid Admission/Protection domains.
+            // In Phase 3, standalone Admission policy validation has already rejected an invalid catalog
+            // when policy authority needs it. Keep this later surface warning non-fatal for deployments
+            // where Admission is disabled or policy authority lives at Velocity.
             getLogger().warning("Guardian artifact catalog is not ready for import: " + ex.getMessage());
         }
     }

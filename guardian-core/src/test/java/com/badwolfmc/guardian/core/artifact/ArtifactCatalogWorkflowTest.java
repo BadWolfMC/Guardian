@@ -1,5 +1,6 @@
 package com.badwolfmc.guardian.core.artifact;
 
+import com.badwolfmc.guardian.core.policy.AdmissionPolicyLoader;
 import com.badwolfmc.guardian.protocol.ArtifactSha256;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,7 +23,7 @@ class ArtifactCatalogWorkflowTest {
 
     @Test
     void scannerUsesFabricMetadataNotFilenameAndSupportsMultipleExactArtifacts() throws Exception {
-        Path approved = temp.resolve("approved-artifacts");
+        Path approved = temp.resolve("artifact-import");
         Files.createDirectories(approved);
         writeFabricJar(approved.resolve("not-sodium-at-all.jar"), "sodium", "0.9.1+mc26.2", "build-a");
         writeFabricJar(approved.resolve("second-copy.jar"), "sodium", "0.9.1+mc26.2", "build-b");
@@ -37,17 +38,56 @@ class ArtifactCatalogWorkflowTest {
         assertEquals(2, result.artifacts().stream()
             .filter(entry -> entry.version().equals("0.9.1+mc26.2"))
             .map(ApprovedArtifact::sha256).distinct().count());
+
+        String fragment = ArtifactPolicyFragmentStore.render(result.artifacts());
+        assertTrue(fragment.contains("allow-sodium:"));
+        assertTrue(fragment.contains("verification: HASH_REQUIRED"));
+        assertTrue(fragment.contains(result.artifacts().getFirst().sha256().hex()));
+        assertFalse(fragment.contains("catalog: true"),
+            "generated copy/paste rules must use direct hashes rather than catalog references");
+
+        Path policy = temp.resolve("policy.yml");
+        Files.writeString(policy, """
+            schema-version: 1
+            default-profile: default
+            identity-overrides: {}
+            profiles:
+              default:
+                priority: 0
+                clients:
+                  bedrock: ALLOW
+                  vanilla: ALLOW
+                  optifine: ALLOW
+                  fabric: REQUIRE_CERBERUS
+                  unknown: DENY
+                unknown-brands:
+                  mode: ALLOWLIST
+                  brands: []
+                mods:
+                  mode: ALLOWLIST
+                  origins:
+                    directory: DENY
+                    mixed-or-unknown: DENY
+                  baseline: []
+                  required: {}
+                  rules:
+            """ + fragment.lines()
+                .filter(line -> !line.startsWith("#") && !line.isBlank())
+                .collect(java.util.stream.Collectors.joining("\n", "", "\n")));
+        var snapshot = new AdmissionPolicyLoader().load(policy, temp.resolve("missing-artifacts.yml"));
+        assertTrue(snapshot.defaultProfile().modPolicy().rulesByModId().containsKey("sodium"));
     }
 
     @Test
     void rescanningIsIdempotentAndDeletedInputsDoNotDeleteCatalogHistory() throws Exception {
         ArtifactImportService service = new ArtifactImportService(temp);
         service.ensureInputDirectory();
-        Path approved = temp.resolve("approved-artifacts");
+        Path approved = temp.resolve("artifact-import");
         Path v1 = approved.resolve("first.jar");
         writeFabricJar(v1, "examplemod", "1.0.0", "one");
 
         ArtifactImportResult first = service.scanAndMerge();
+        assertTrue(Files.readString(temp.resolve("artifact-import-rules.yml")).contains("allow-examplemod:"));
         assertEquals(1, first.addedCatalogEntries());
         assertEquals(1, first.totalCatalogEntries());
         assertTrue(first.catalogChanged());
@@ -77,7 +117,7 @@ class ArtifactCatalogWorkflowTest {
     void anyMalformedCandidateRejectsWholeImportWithoutCatalogMutation() throws Exception {
         ArtifactImportService service = new ArtifactImportService(temp);
         service.ensureInputDirectory();
-        Path approved = temp.resolve("approved-artifacts");
+        Path approved = temp.resolve("artifact-import");
         writeFabricJar(approved.resolve("accepted.jar"), "accepted", "1.0.0", "one");
         service.scanAndMerge();
         byte[] before = Files.readAllBytes(temp.resolve("artifacts.yml"));
@@ -96,7 +136,7 @@ class ArtifactCatalogWorkflowTest {
 
     @Test
     void malformedArchiveAndOversizedMetadataAreRejected() throws Exception {
-        Path approved = temp.resolve("approved-artifacts");
+        Path approved = temp.resolve("artifact-import");
         Files.createDirectories(approved);
         Files.writeString(approved.resolve("broken.jar"), "this is not a zip");
         assertThrows(ArtifactCatalogException.class, () -> new ApprovedArtifactScanner().scan(approved));
@@ -114,20 +154,20 @@ class ArtifactCatalogWorkflowTest {
         Files.delete(approved.resolve("oversized.jar"));
         try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(approved.resolve("too-many-entries.jar")))) {
             put(zip, "fabric.mod.json", "{\"schemaVersion\":1,\"id\":\"entrybound\",\"version\":\"1\"}");
-            for (int i = 0; i < ApprovedArtifactScanner.MAX_ARCHIVE_ENTRIES; i++) {
+            for (int i = 0; i < 8; i++) {
                 put(zip, "fixture/entry-" + i, "");
             }
         }
         ArtifactCatalogException entriesError = assertThrows(
             ArtifactCatalogException.class,
-            () -> new ApprovedArtifactScanner().scan(approved)
+            () -> new ApprovedArtifactScanner(8).scan(approved)
         );
-        assertTrue(entriesError.getMessage().contains("entries; maximum is "));
+        assertTrue(entriesError.getMessage().contains("entries; maximum is 8"));
     }
 
     @Test
     void scannerIsFlatAndIgnoresNonJarFilesAndNestedTrees() throws Exception {
-        Path approved = temp.resolve("approved-artifacts");
+        Path approved = temp.resolve("artifact-import");
         Files.createDirectories(approved.resolve("nested"));
         Files.writeString(approved.resolve("notes.txt"), "administrator note");
         writeFabricJar(approved.resolve("root.jar"), "rootmod", "1", "root");
@@ -140,7 +180,7 @@ class ArtifactCatalogWorkflowTest {
 
     @Test
     void scannerRejectsCandidateCountAboveBoundBeforeArchiveInspection() throws Exception {
-        Path approved = temp.resolve("approved-artifacts");
+        Path approved = temp.resolve("artifact-import");
         Files.createDirectories(approved);
         for (int i = 0; i <= ApprovedArtifactScanner.MAX_IMPORT_JARS; i++) {
             Files.write(approved.resolve("candidate-%03d.jar".formatted(i)), new byte[0]);
@@ -197,7 +237,7 @@ class ArtifactCatalogWorkflowTest {
         ArtifactImportService service = new ArtifactImportService(temp);
         service.ensureInputDirectory();
         Files.write(temp.resolve("artifacts.yml"), new byte[] {(byte) 0xC3, (byte) 0x28});
-        writeFabricJar(temp.resolve("approved-artifacts/new.jar"), "newmod", "1", "new");
+        writeFabricJar(temp.resolve("artifact-import/new.jar"), "newmod", "1", "new");
 
         ArtifactCatalogException error = assertThrows(ArtifactCatalogException.class, service::scanAndMerge);
         assertTrue(error.getMessage().contains("not valid UTF-8"));

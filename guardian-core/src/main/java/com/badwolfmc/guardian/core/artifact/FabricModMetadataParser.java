@@ -90,11 +90,9 @@ final class FabricModMetadataParser {
                 throw error("JSON object key must be a string");
             }
             String key = parseString();
-            if (result.containsKey(key)) {
-                throw error("duplicate JSON object key '" + key + "'");
-            }
             skipWhitespace();
             expect(':');
+            // Match Fabric Loader's metadata behavior: later duplicate keys replace earlier values.
             result.put(key, parseValue(depth));
             skipWhitespace();
             if (consume('}')) return result;
@@ -135,7 +133,9 @@ final class FabricModMetadataParser {
                     default -> throw error("invalid JSON escape");
                 }
             } else {
-                if (c < 0x20) throw error("unescaped JSON control character");
+                // Fabric Loader's JsonReader accepts literal control characters (notably raw line breaks)
+                // inside quoted metadata strings. We only retain bounded metadata and use id/version, so mirror
+                // that compatibility rather than rejecting otherwise loadable Fabric artifacts.
                 out.append(c);
             }
         }

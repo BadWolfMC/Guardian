@@ -6,9 +6,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Minimal Phase 1A client-admission policy.
+ * Platform-neutral client-class and JAVA_UNKNOWN brand policy used by each named admission profile.
  *
- * <p>This intentionally stops before named profiles and Fabric mod policy. Those remain Phase 3.</p>
+ * <p>Phase 3 composes this immutable client-policy component with mod/artifact policy in
+ * {@code com.badwolfmc.guardian.core.policy.AdmissionProfile}.</p>
  */
 public final class AdmissionPolicy {
     private final Map<ClientClassification, ClientAction> clientActions;

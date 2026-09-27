@@ -116,3 +116,49 @@ Phase 2.5 implementation is based on the exact repository archive supplied after
 - supplied Phase 2 live baseline: standalone Paper and Velocity-authoritative protocol-v1 verification complete
 
 The Phase 2.5 candidate revises unreleased protocol v1 in place with required exact top-level archive SHA-256, adds the bounded Guardian-managed approved-artifact importer/catalog, advances the project version to `0.1.0-phase2.5`, and expands the source test inventory to 102 `@Test` cases. The final clean Java 25 / Gradle 9.7.1 gate for this exact patched source remains the operator confirmation required for Phase 2.5 closeout.
+
+## Phase 3 policy-engine source — 2026-09-26
+
+The Phase 3 implementation candidate is based on the exact repository archive supplied for this pass:
+
+- archive: `Guardian(8).zip`
+- SHA-256: `65fcbb7d5df00549e2af7c9722eea0c8371052521c8b4569492fdd0c4c7f066f`
+- starting project version: `0.1.0-phase2.5`
+- supplied Phase 2.5 baseline: Java 25 / Gradle 9.7.1 clean gate green at 102 tests and live standalone/Velocity exact-artifact verification complete
+
+The Phase 3 candidate advances the project version to `0.1.0-phase3`, adds the platform-neutral shared Admission policy schema/parser/snapshot/evaluator, optional LuckPerms profile-provider adapters for Paper and Velocity, and replaces Guardian-Velocity's feasibility-era independent admission-policy branch with the shared engine. The source test inventory is 131 `@Test` cases before the operator closeout gate.
+
+Phase 3 introduces SnakeYAML Engine 2.10 as the platform-neutral runtime YAML parser for shared Admission policy. It is an external dependency obtained through Maven Central; no SnakeYAML source is incorporated into Guardian. Paper/Velocity package the runtime library because both may host the shared parser. LuckPerms API 5.5 is compile-only/optional and no LuckPerms implementation code is bundled.
+
+The implementation sandbox could not download the Gradle 9.7.1 distribution and exposed Java 21 rather than the project-required Java 25. Therefore provenance records this pass as an implementation candidate only; `PHASE_3_VERIFICATION.md` defines the clean Java 25 / Gradle 9.7.1 and live checks required for closeout.
+
+## Phase 3 closeout-hardening source — 2026-09-27
+
+The Phase 3 live-verification and closeout-hardening pass is based on the exact repository archive supplied after the initial policy-engine patch and loader-fixture correction:
+
+- archive: `Guardian(10).zip`
+- SHA-256: `27c94d694b8dd9eadebb3c2a26c05f1b937fedfd8fb34a35b2f9045cb4ded8d7`
+- project version: `0.1.0-phase3`
+- operator result before this hardening patch: Java 25 / Gradle 9.7.1 build returned green after the focused Phase 3 loader-test fixture fix
+- retained Gradle XML reports in the supplied archive: 131 tests, 0 failures, 0 errors, 0 skipped (Core 52, Paper 30, Protection 20, Protocol 21, Velocity 8)
+- operator live result: Velocity configured allow + trusted Paper assertion, explicit mod denial, required-mod version mismatch, exact-hash denial, and standalone Paper parity all behaved according to the shared Phase 3 evaluator
+
+Additional operator-supplied verification inputs for this pass are:
+
+- `rejected_mods.zip` — SHA-256 `9ed714ee29ceb86ebf013989fb0ee4f3fc4fda8fc515578a90bba55cedba3059`; contains four unmodified developer-distributed Fabric mod JARs used only to exercise scanner compatibility. These third-party binaries are not incorporated into or redistributed with Guardian.
+- `velocity-policy.yml` — SHA-256 `7bf4929c1a3f80041aa1ced6b05f874bea829160d142be715569e026fd7a2f0c`; operator-created Phase 3 policy used as live configuration evidence only.
+
+The real scanner fixtures showed that the original importer was stricter than the Fabric environment it was intended to inventory: three metadata files contain literal line breaks in human-readable JSON strings, and Replay Mod contains 7,882 archive entries. The closeout hardening aligns metadata compatibility with the current Fabric Loader behavior while retaining Guardian's explicit metadata/size/depth/filesystem bounds, raises the administrative archive-entry ceiling conservatively, and adds generated non-loaded copy/paste policy fragments. No supplied third-party mod JAR is added to repository source or test resources.
+
+## Phase 3 final closeout repository — 2026-09-27
+
+The final Phase 3 closeout evidence is based on the operator-supplied repository after the scanner/message hardening and artifact-test documentation correction:
+
+- archive: `Guardian(20260927-120358).zip`
+- SHA-256: `f4dfcf75d76a63ff458537fff80fdb2c418552d43ec51265e12b2d0cd1325f45`
+- project version: `0.1.0-phase3`
+- retained Gradle XML reports: **134 tests, 0 failures, 0 errors, 0 skipped** (Core 53, Paper 31, Protection 20, Protocol 21, Velocity 9)
+- operator live result: genuinely absent required mod produced `MANIFEST_DENIED / REQUIRED_MOD_MISSING` at Guardian-Velocity, with actionable player-facing missing-mod text and configured help URL
+- operator live result: the four previously rejected real-world Fabric JARs all import successfully and generate valid `artifact-import-rules.yml` exact-hash blocks; admission succeeds after those reviewed blocks are copied into policy
+
+These results satisfy the remaining Phase 3 portability and closeout conditions. Phase 3 is complete. BRIDGE-004 remains active only for its Phase 5 Velocity operational-productionization scope; BRIDGE-005 remains owned by Phase 4.

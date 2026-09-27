@@ -194,6 +194,8 @@ It MUST NOT become a generic dumping ground for Protection behavior merely becau
 
 It MUST NOT depend on Paper, Bukkit, Velocity, Fabric, Minecraft implementation classes, Geyser, or Floodgate.
 
+Phase 3 admission-policy parsing, validation, normalization, and immutable snapshot/domain construction MUST also be platform-neutral. Adapter-specific code MAY own data-directory discovery, file I/O triggers, logging, and lifecycle wiring, but the path from admission-policy source data to a validated immutable policy snapshot MUST NOT depend on Bukkit/Paper `YamlConfiguration`, Velocity implementation classes, or another adapter-specific configuration API. If a separate internal shared module is introduced for this boundary, it must obey the same dependency rules as `guardian-core`.
+
 ### 6.2 guardian-protocol
 
 `guardian-protocol` MUST contain platform-neutral protocol definitions, including:
@@ -310,15 +312,17 @@ This is useful for generic deployments but MUST NOT compromise correctness or fo
 
 A deployment MUST have one authoritative policy evaluator for a connection.
 
+The **policy system itself is shared**. Phase 3 MUST define one platform-neutral admission-policy schema/model, parser/validator, immutable snapshot representation, profile-resolution contract, and evaluator that can be consumed by either Guardian-Paper or Guardian-Velocity. The two adapters MUST NOT grow independent policy semantics merely because they own different connection lifecycles. Platform-local operational configuration (for example transport timings, data-directory location, proxy assertion provisioning, or diagnostics) MAY remain adapter-specific.
+
 In Velocity-authoritative mode:
 
-- policy definitions belong to Guardian-Velocity;
+- policy definitions are loaded by Guardian-Velocity using the same shared Phase 3 policy format and evaluator used by standalone Guardian-Paper;
 - backend Guardian-Paper instances verify the proxy's trusted admission result;
 - backend copies MUST NOT independently reinterpret the same connection using potentially divergent policy files.
 
-This prevents proxy/backend split-brain.
+This prevents proxy/backend split-brain while also preventing a Phase 5 policy rewrite.
 
-Standalone fallback behavior MAY have its own local Paper policy configuration, but the active deployment mode must be explicit and diagnosable.
+Standalone fallback behavior MAY have its own local copy of the same shared admission-policy format, but the active deployment mode must be explicit and diagnosable. Adapter-specific operational configuration MUST remain separate from the shared admission-policy semantics.
 
 ---
 
@@ -851,15 +855,16 @@ Guardian-Paper provides an administrator-managed, inert import surface:
 
 ```text
 plugins/Guardian/
-├── approved-artifacts/   # temporary input JARs; never executed or installed
-└── artifacts.yml         # durable Guardian-managed exact-artifact catalog
+├── artifact-import/           # temporary input JARs; never executed or installed
+├── artifacts.yml              # durable Guardian-managed exact-artifact catalog
+└── artifact-import-rules.yml  # generated, non-loaded copy/paste direct-hash rules
 ```
 
-`approved-artifacts/` is a flat directory of candidate `.jar` files. Guardian never classloads, executes, installs, copies to a mods directory, invokes Fabric Loader against, or extracts these files. The scanner uses read-only ZIP/JAR access, reads only bounded root `fabric.mod.json` metadata, derives mod ID/version from that metadata rather than the filename, and hashes the exact whole JAR bytes.
+`artifact-import/` is a flat directory of candidate `.jar` files. Guardian never classloads, executes, installs, copies to a mods directory, invokes Fabric Loader against, or extracts these files. The scanner uses read-only ZIP/JAR access, reads only bounded root `fabric.mod.json` metadata, derives mod ID/version from that metadata rather than the filename, and hashes the exact whole JAR bytes.
 
 Import is explicit through `/guardian artifacts scan`, not automatic at startup. Startup creates the input directory and validates an existing catalog; the potentially heavier JAR inspection/hashing work runs only on administrator request and off the Paper primary thread.
 
-The durable catalog is intentionally separate from Phase 3 policy. It is Guardian-managed deterministic YAML with a strict schema and generated-format ownership: administrators may inspect/edit/version-control it, but arbitrary comments/formatting are not promised to survive a subsequent Guardian rewrite. A scan validates the existing catalog and every candidate before mutation, atomically rewrites only on a successful merge, adds newly discovered exact identities, deduplicates existing hashes, and never removes historical identities merely because an input JAR disappeared.
+The durable catalog is intentionally separate from Phase 3 policy. It is Guardian-managed deterministic YAML with a strict schema and generated-format ownership: administrators may inspect/edit/version-control it, but arbitrary comments/formatting are not promised to survive a subsequent Guardian rewrite. A scan validates the existing catalog and every candidate before mutation, atomically rewrites only on a successful merge, adds newly discovered exact identities, deduplicates existing hashes, and never removes historical identities merely because an input JAR disappeared. A successful scan also refreshes `artifact-import-rules.yml`, a non-loaded convenience file containing direct exact-hash ALLOW rule blocks for the JARs currently in `artifact-import/`. Guardian MUST NOT silently edit `admission/policy.yml` as part of identity scanning because policy permission is profile-specific while artifact identity is global.
 
 The catalog supports multiple versions of one mod ID and multiple approved hashes for the same ID/version. It records identity only; it does not make an admission decision. Phase 3 decides whether a catalogued identity is required, optional, allowed, or irrelevant under a particular administrator policy.
 
@@ -1754,7 +1759,7 @@ Implement:
 - exact 32-byte SHA-256 identity for every top-level `ARCHIVE` manifest entry;
 - deterministic unhashed semantics for `NESTED`, `BUILTIN`, `DIRECTORY`, and `MIXED_OR_UNKNOWN` entries;
 - one cached Loader/environment snapshot per Cerberus process so artifact hashes are not recomputed per network challenge;
-- bounded, inert scanning of administrator-supplied Fabric JARs in `approved-artifacts/`;
+- bounded, inert scanning of administrator-supplied Fabric JARs in `artifact-import/`;
 - metadata-derived mod ID/version identity;
 - a durable deterministic `artifacts.yml` supporting multiple versions and multiple hashes per ID/version;
 - add-only merge semantics that retain historical entries after input JAR deletion;
@@ -1770,10 +1775,12 @@ Do **not** implement Phase 3 allowlist/denylist, required-mod, profile, LuckPerm
 
 ## Phase 3 — Guardian policy engine
 
-**Goal:** Turn normalized client classifications and reported manifests into flexible, deterministic admission decisions.
+**Goal:** Turn normalized client classifications and reported manifests into one flexible, deterministic, **platform-neutral** admission policy system that is already consumable by both Paper and Velocity. Phase 5 must productionize Velocity as an authority, not port the policy engine to it.
 
 Implement:
 
+- one shared admission-policy schema/model and administrator-facing file format;
+- a platform-neutral parser/normalizer/validator that produces immutable policy snapshots without Bukkit/Paper or Velocity configuration dependencies;
 - default policy;
 - named profiles with deterministic explicit priority;
 - canonical per-client-class `ALLOW` / `DENY` / `REQUIRE_CERBERUS` actions;
@@ -1790,18 +1797,55 @@ Implement:
 - explicit decision reasons;
 - validation that rejects contradictory rules rather than relying on hidden precedence;
 - policy-scoped admission bypass permissions from Section 11.3;
-- atomic reload;
-- files-only validation.
+- atomic parse → validate → immutable snapshot activation;
+- files-only validation;
+- standalone Guardian-Paper consumption of the shared snapshot/evaluator as authoritative policy; and
+- Guardian-Velocity consumption of the **same** shared snapshot/evaluator during its existing CONFIGURATION admission flow, replacing the feasibility-era hard-coded classification-policy branch without otherwise pulling forward Phase 5 operational productionization.
 
 Implement profile resolution:
 
+- a platform-neutral pre-login `AdmissionProfileProvider`-style contract that receives identity/policy context and resolves profile/bypass inputs asynchronously without embedding Paper or Velocity permission APIs in the evaluator;
 - explicit identity overrides;
-- optional LuckPerms integration;
+- optional LuckPerms integration for both supported authoritative adapters where LuckPerms is available;
 - `guardian.admission.profile.<profile-id>` selection;
 - deterministic profile priority when multiple permissions match;
 - default fallback profile.
 
-Acceptance tests MUST cover both client-class policy and mod-policy modes, including an allowlisted unusual Java brand, a denied unusual Java brand, Fabric remaining attestation-required despite brand rules, required mods under both mod modes, unlisted mods in both modes, conflicting invalid rules, and admission bypass permissions that do not bypass protocol/integrity validation.
+A Velocity admission profile is resolved for the proxy admission session. Backend switching MUST NOT silently re-resolve a different mod policy merely because backend contextual permissions differ; any future backend-specific admission policy requires an explicit architectural design rather than accidental context leakage.
+
+Phase 3 MUST include a **portability gate**:
+
+- the complete policy model/evaluator/version/hash/containment/bypass semantics compile without Paper or Velocity dependencies;
+- admission-policy parsing/validation does not use Bukkit/Paper `YamlConfiguration` or a Velocity-specific config model;
+- Guardian-Paper and Guardian-Velocity both invoke the same evaluator;
+- equivalent normalized inputs plus the same immutable policy snapshot produce the same `GuardianDecision` regardless of adapter;
+- Velocity live/focused tests include at least one ordinary allow, one policy denial, one required-mod failure, and one exact-artifact/hash failure through the shared Phase 3 evaluator; and
+- Paper in Velocity-authoritative mode continues to consume only the authenticated final proxy admission result and does not re-evaluate the player's policy.
+
+Acceptance tests MUST cover both client-class policy and mod-policy modes, including an allowlisted unusual Java brand, a denied unusual Java brand, Fabric remaining attestation-required despite brand rules, required mods under both mod modes, unlisted mods in both modes, conflicting invalid rules, admission bypass permissions that do not bypass protocol/integrity validation, and cross-adapter evaluator parity.
+
+### Phase 3 implementation decisions — `0.1.0-phase3` candidate
+
+The Phase 3 implementation candidate selects one portable file, `admission/policy.yml`, as the administrator-facing Admission policy source for either authoritative adapter. Paper `config.yml` remains operational/local configuration; `artifacts.yml` remains identity data only. Shared policy parsing uses a platform-neutral strict YAML parser in `guardian-core`, not Bukkit `YamlConfiguration`.
+
+The selected policy-addressable manifest model is:
+
+- top-level non-`BUILTIN` entries are independently subject to membership/rules;
+- built-in Java/Minecraft entries are intrinsic runtime baseline;
+- administrator `baseline` IDs and required mods count as allowlist membership;
+- nested entries remain structurally visible and eligible for explicit required/deny/version constraints, but are not rejected solely for being unlisted beneath a containing artifact;
+- the same ID installed top-level becomes independently addressable; and
+- `DIRECTORY` / `MIXED_OR_UNKNOWN` are explicit origin-policy decisions rather than filename/path guesses.
+
+The bounded version predicate language is `*`, exact strings, one trailing prefix wildcard, and conjunctions of dotted-numeric comparisons (for example `>=1.2 <2.0`). Multiple acceptance clauses provide OR semantics. Artifact clauses explicitly choose `VERSION_ONLY` or `HASH_REQUIRED`; exact-hash rules may use direct SHA-256 declarations, `artifacts.yml` catalog matches, or both. Catalog membership by itself has no policy effect.
+
+Profile resolution is exact UUID override → highest unique-priority provider match → default. Optional LuckPerms 5.5 adapters exist for both Paper and Velocity and use pre-login/proxy-static query options. Provider absence/failure falls back to identity/default resolution without granting provider-derived bypasses. Velocity retains the resolved profile for the proxy admission session across backend switching.
+
+Client/mod bypasses are policy exemptions only. Client bypasses cannot remove `REQUIRE_CERBERUS`; mod bypasses run only after protocol/session/manifest integrity validation.
+
+Guardian-Velocity's independent feasibility-era client-class policy branch is removed in the candidate and replaced by the same shared evaluator used by standalone Paper. Early Cerberus traffic is recorded without outrunning asynchronous profile/client-policy resolution, preserving the documented evaluation order. Paper in Velocity-authoritative mode remains assertion-only.
+
+**Phase 3 completion record — 2026-09-27:** the final Java 25 / Gradle 9.7.1 gate is green at 134 tests (Core 53, Paper 31, Protection 20, Protocol 21, Velocity 9), with zero failures/errors/skips. Live verification covers Velocity/standalone ordinary allow, explicit deny, required-version mismatch, genuinely absent required mod (`REQUIRED_MOD_MISSING`), exact-hash denial, trusted proxy assertion without backend re-attestation, actionable player-facing denial text with help URL, and the hardened artifact-import workflow against real-world Fabric distributions including Replay Mod. The Phase 3 shared-policy portion of BRIDGE-004 is closed; the bridge remains active only for Phase 5 Velocity production hosting/operations work.
 
 ---
 
@@ -1825,20 +1869,24 @@ BadWolfMC's legacy username prefix may be recognized for migration diagnostics o
 
 ## Phase 5 — Velocity authoritative mode
 
-**Goal:** Make Velocity the preferred network-edge admission point without making it mandatory.
+**Goal:** Productionize Guardian-Velocity as the preferred network-edge admission host without making it mandatory and **without reimplementing or porting the Phase 3 policy engine**.
 
-Implement:
+Phase 3 has already made Guardian-Velocity consume the shared policy schema/snapshot/evaluator. Phase 5 therefore owns Velocity-specific production hosting and operations, including:
 
-- Guardian-Velocity platform adapter;
-- proxy-side policy authority;
+- final Guardian-Velocity data-directory and policy/config ownership UX;
+- production proxy-side policy authority using the unchanged Phase 3 shared policy system;
 - one attestation per proxy connection;
 - secure proxy → backend assertions;
+- final proxy assertion secret/key provisioning, validation, and diagnostics;
 - server-switch session reuse;
 - backend verification;
 - no client impersonation of proxy channels;
 - explicit deployment modes;
-- policy/config ownership rules;
-- operational diagnostics.
+- configurable Velocity operational timings where appropriate;
+- final diagnostics/logging/naming with Phase 0B wording removed; and
+- production deployment documentation/tests.
+
+Phase 5 MUST NOT introduce a Velocity-specific admission-policy schema/evaluator, duplicate Paper policy logic, or require administrator policy files to be rewritten merely because authority moves from standalone Paper to Guardian-Velocity.
 
 Paper standalone authority MUST remain functional.
 
@@ -1952,6 +2000,8 @@ Before first public production release, testing SHOULD cover at minimum:
 | Java user with Bedrock-style prefix | Remains Java |
 | Bedrock denied by explicit policy | Deny |
 | Velocity-approved Java switches backend | No redundant attestation |
+| Same Phase 3 policy snapshot + equivalent normalized inputs through Paper and Velocity adapters | Same `GuardianDecision` |
+| Velocity Phase 3 shared-policy denial / required-mod failure / exact-hash failure | Same policy reason/semantics as standalone evaluator; denial occurs at proxy |
 | Spoofed client proxy assertion | Deny |
 | Backend direct-connect path | Rejected by network/security posture |
 | Invalid config reload | Prior config remains active |
@@ -2029,7 +2079,10 @@ The following are hard project invariants unless explicitly revised:
 31. **Mod-policy allowlist/denylist semantics, required-mod semantics, and baseline/runtime-entry handling are explicit and deterministic; contradictory rules fail validation.**
 32. **A required mod is not forced to appear redundantly in an allowlist merely to be considered permitted; required-plus-unconditionally-denied is invalid configuration.**
 33. **Admission evaluation follows one documented precedence; raw brand rules and policy bypasses cannot act as late generic overrides of protocol/integrity decisions.**
-34. **Guardian-defined permission nodes remain within a conservative 128-character project limit.**
+34. **Guardian-Paper and Guardian-Velocity consume one shared admission-policy schema, parser/validator, immutable policy model, profile-resolution contract, and evaluator; adapter-specific policy forks are prohibited.**
+35. **Admission-policy parsing/validation must not depend on Bukkit/Paper `YamlConfiguration`, Velocity implementation classes, or another adapter-specific configuration API.**
+36. **Phase 5 productionizes Velocity hosting/ownership/operations; it does not port or redesign the Phase 3 policy engine.**
+37. **Guardian-defined permission nodes remain within a conservative 128-character project limit.**
 
 ---
 
@@ -2145,20 +2198,20 @@ Phase 2 established the production manifest/protocol boundary while preserving t
 - Guardian-Paper in Velocity authority mode verifies the trusted proxy assertion and does not duplicate client attestation;
 - protocol v1 uses explicit version/capability negotiation, a fresh 16-byte nonce, deterministic canonical serialization, bounded fields/count/depth/payload, one accepted response per challenge, and the required `CAP_ARTIFACT_SHA256` capability;
 - Cerberus enumerates Loader-known entries through supported Fabric Loader APIs, preserves immediate containing-parent relationships and privacy-safe origin kinds without transmitting filesystem paths, and includes exact SHA-256 for each top-level archive;
-- `approved-artifacts/` plus the durable add-only `artifacts.yml` catalog provide a separate administrator-facing identity-import workflow without making catalog contents into admission policy;
+- `artifact-import/` plus the durable add-only `artifacts.yml` catalog provide a separate administrator-facing identity-import workflow without making catalog contents into admission policy;
 - live testing distinguished `CERBERUS_REQUIRED`, `CERBERUS_TIMEOUT`, `CERBERUS_PROTOCOL_UNSUPPORTED`, `MANIFEST_INVALID`, and `CERBERUS_VERIFIED`; and
 - BRIDGE-001 and BRIDGE-002 are retired. BRIDGE-003, BRIDGE-004, and BRIDGE-005 retain their later-phase owners.
 
 The representative BadWolfMC Fabric 26.2 client produced 166 Loader-known entries. The manifest included ordinary top-level archives, built-in Java/Minecraft entries, Fabric Loader, Fabric API plus nested API modules, bundled libraries, and multi-level containment. Phase 3 MUST therefore define an explicit deterministic policy-addressable-entry model rather than assuming every Loader-known entry is an administrator-selected mod or deleting nested entries from consideration.
 
-Phase 3 owns the policy semantics described in Sections 10–11 and the Phase 3 roadmap: default and named profiles, deterministic profile priority, client-class actions, unknown-brand compatibility rules, mod allowlist/denylist behavior, required mods, per-mod rules, unlisted behavior, version rules, exact-hash/catalog consumption, contained-mod semantics, baseline/bootstrap/runtime treatment, policy-scoped admission bypasses, optional LuckPerms profile resolution, atomic activation, and files-only validation.
+Phase 3 owns the policy semantics described in Sections 10–11 and the Phase 3 roadmap: default and named profiles, deterministic profile priority, client-class actions, unknown-brand compatibility rules, mod allowlist/denylist behavior, required mods, per-mod rules, unlisted behavior, version rules, exact-hash/catalog consumption, contained-mod semantics, baseline/bootstrap/runtime treatment, policy-scoped admission bypasses, optional LuckPerms profile resolution, atomic activation, and files-only validation. It also owns the **cross-adapter portability boundary**: policy parsing/validation/snapshots and evaluation are platform-neutral, and both Guardian-Paper and Guardian-Velocity must consume the same shared engine before Phase 3 closes.
 
 Do **not** redesign the proven Phase 2/2.5 protocol, transport, or artifact catalog merely to add policy. Structurally valid manifests and the immutable catalog model should cross into the platform-neutral policy layer; protocol/session/integrity failures remain non-bypassable. Raw brand rules remain subordinate `JAVA_UNKNOWN` policy input and cannot turn positively classified Fabric into ordinary `ALLOW` or override trusted Bedrock origin.
 
 Do not opportunistically pull Phase 4/5/6 work into Phase 3. In particular:
 
 - BRIDGE-005 production Geyser/Floodgate behavior remains Phase 4;
-- BRIDGE-003 proxy-secret provisioning and BRIDGE-004 Velocity production configuration/final diagnostics remain Phase 5; and
+- BRIDGE-003 proxy-secret provisioning remains Phase 5; BRIDGE-004 is split deliberately: Phase 3 removes the retained independent/hard-coded Velocity policy behavior by wiring the proxy to the shared engine, while Phase 5 retains final Velocity configuration ownership/UX, timings, diagnostics/naming, deployment-mode polish, and assertion provisioning; and
 - signed official Cerberus artifact identity/hostile-client hardening remains Phase 6.
 
 Guardian Protection is complete for Phase 1B and remains regression-only during Phase 3 unless policy/configuration integration reveals a concrete shared-host defect.
@@ -2183,4 +2236,4 @@ Phase 2.5 revises that unreleased protocol v1 in place so exact top-level archiv
 
 For BadWolfMC's production topology, Guardian-Velocity remains the preferred admission authority and Guardian-Paper the trusted backend verifier. For non-Velocity deployments, Guardian-Paper remains a supported standalone authority using the hybrid CONFIGURATION + bounded PLAY-quarantine path.
 
-The next implementation task after the Phase 2.5 Java 25 / Gradle 9.7.1 gate is Phase 3: turn normalized classifications, structurally valid canonical manifests, and the durable artifact catalog into deterministic, administrator-configurable admission policy without weakening or duplicating the Phase 2/2.5 protocol boundary.
+Phase 3 now has an implementation and closeout-hardening candidate at `0.1.0-phase3`: one portable shared policy schema/parser/snapshot/evaluator, deterministic profile resolution, mod/version/hash/containment/bypass semantics, standalone Paper integration, and Guardian-Velocity consumption of the same engine. The candidate deliberately leaves Phase 5 operational productionization bridges in place. The policy-engine baseline has an operator-reported green Java 25 / Gradle 9.7.1 gate and broad live parity evidence; formal closeout now requires the final hardening gate plus the deliberately absent required-mod Velocity case described in `PHASE_3_VERIFICATION.md`.

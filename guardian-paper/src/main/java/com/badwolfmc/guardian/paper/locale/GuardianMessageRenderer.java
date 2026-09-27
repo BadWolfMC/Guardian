@@ -2,6 +2,7 @@ package com.badwolfmc.guardian.paper.locale;
 
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionReason;
+import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
 import com.badwolfmc.guardian.protection.ProtectionDecision;
 import com.badwolfmc.guardian.protection.ProtectionReason;
@@ -15,14 +16,16 @@ public final class GuardianMessageRenderer {
 
     public Component renderDecision(
         GuardianRuntimeSnapshot snapshot,
-        DecisionReason reason,
+        GuardianDecision decision,
         ClientClassification classification
     ) {
         String classificationValue = classification == null ? "unknown" : classification.policyKey();
-        return render(snapshot, keyFor(reason), TagResolver.builder()
+        return render(snapshot, keyFor(decision), TagResolver.builder()
             .resolver(Placeholder.unparsed("classification", classificationValue))
-            .resolver(Placeholder.unparsed("reason", reason.name()))
+            .resolver(Placeholder.unparsed("reason", decision.reason().name()))
             .resolver(Placeholder.unparsed("help_url", snapshot.settings().helpUrl()))
+            .resolver(Placeholder.unparsed("mod_id", decision.context().getOrDefault("mod_id", "unknown")))
+            .resolver(Placeholder.unparsed("version", decision.context().getOrDefault("version", "unknown")))
             .build());
     }
 
@@ -50,6 +53,20 @@ public final class GuardianMessageRenderer {
     public Component render(GuardianRuntimeSnapshot snapshot, String key, TagResolver resolver) {
         String template = snapshot.localeCatalog().template(key);
         return miniMessage.deserialize(template, resolver);
+    }
+
+    static String keyFor(GuardianDecision decision) {
+        if (decision.reason() != DecisionReason.MANIFEST_DENIED) return keyFor(decision.reason());
+        return switch (decision.context().getOrDefault("policy_violation", "")) {
+            case "REQUIRED_MOD_MISSING" -> "admission.manifest-denied.required-mod-missing";
+            case "EXPLICIT_MOD_DENY" -> "admission.manifest-denied.explicit-mod-deny";
+            case "UNLISTED_MOD" -> "admission.manifest-denied.unlisted-mod";
+            case "VERSION_NOT_ACCEPTED" -> "admission.manifest-denied.version-not-accepted";
+            case "ARTIFACT_NOT_ACCEPTED" -> "admission.manifest-denied.artifact-not-accepted";
+            case "DIRECTORY_ORIGIN_DENIED" -> "admission.manifest-denied.directory-origin";
+            case "MIXED_OR_UNKNOWN_ORIGIN_DENIED" -> "admission.manifest-denied.mixed-origin";
+            default -> "admission.manifest-denied";
+        };
     }
 
     static String keyFor(DecisionReason reason) {

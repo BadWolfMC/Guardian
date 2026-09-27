@@ -33,21 +33,8 @@ admission:
     handshake-timeout-seconds: 10
     challenge-channel-wait-ticks: 40
 
-  # Minimal Phase 1A client-class policy. Named profiles and full Fabric mod
-  # policy remain deliberately deferred to Phase 3.
-  clients:
-    bedrock: ALLOW
-    vanilla: ALLOW
-    optifine: ALLOW
-    fabric: REQUIRE_CERBERUS
-    unknown: DENY
-
-  # Exact normalized rules apply only after a Java connection remains UNKNOWN.
-  # ALLOWLIST requires clients.unknown=DENY; DENYLIST requires clients.unknown=ALLOW.
-  # This preserves BrandBlocker-style allow/deny control without substring matching.
-  unknown-brands:
-    mode: ALLOWLIST
-    brands: []
+  # Shared admission policy lives in admission/policy.yml. This file intentionally
+  # contains only Paper-local operational settings.
 
 # Guardian Protection is Paper-authoritative and applies only to commands initiated
 # through Paper's player command path. Console, command-block, and ordinary plugin

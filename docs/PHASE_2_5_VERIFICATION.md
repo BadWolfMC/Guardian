@@ -2,7 +2,7 @@
 
 ## Current gate status — 2026-09-26
 
-The Phase 2.5 source implementation and source-level hardening checks are complete. The authoritative clean Java 25 / Gradle 9.7.1 test/build gate must still be run by the operator because the implementation sandbox available for this pass has Java 21 and cannot download the repository's Gradle 9.7.1 distribution.
+**Phase 2.5 is complete.** The operator confirmed that the clean Java 25 / Gradle 9.7.1 build/test gate remains green after the Phase 2.5 patch, and the focused live artifact-catalog plus standalone/Velocity admission regressions all passed.
 
 The source tree contains **102 `@Test` cases**, up from the Phase 2 baseline of 85.
 
@@ -59,24 +59,24 @@ Because Java 25/Gradle 9.7.1 could not be provisioned without network access, th
 - a standalone smoke harness imported generated Fabric JAR fixtures, verified deterministic/idempotent catalog merge and retained entries after input deletion, and round-tripped a hashed manifest; and
 - repository inspection found no bundled approved-artifact JARs or third-party mod fixtures.
 
-## 4. Focused manual verification worth performing
+## 4. Focused manual verification — PASS
 
-After the clean automated gate passes, keep live testing narrow:
+The operator completed the narrow live verification matrix successfully:
 
-1. On Paper, start Guardian once and confirm `approved-artifacts/` is created and no candidate JAR is imported automatically. Put one or two known Fabric mod JARs in the directory, run `/guardian artifacts scan`, compare a generated hash with PowerShell `Get-FileHash -Algorithm SHA256`, delete the input JAR, scan again, and confirm its catalog entry remains.
-2. Make one ordinary standalone Paper Fabric + Cerberus connection and confirm the revised protocol-v1 response is accepted and quarantine releases normally.
-3. Make one ordinary Velocity-authoritative Fabric + Cerberus connection and confirm proxy attestation succeeds and Paper still does not re-attest the client.
+1. `artifact-import/` was created automatically without importing anything on startup. Six real Fabric JARs were placed in the flat input directory and `/guardian artifacts scan` imported all six. Every generated mod ID, version, and SHA-256 was independently compared with the source artifact and matched. Deleting all input JARs and rescanning left the durable catalog unchanged. Additional versions of existing IDs were later imported successfully, confirming deterministic multi-version merge behavior.
+2. A normal standalone Paper Fabric + Cerberus connection advertised protocol `1..1` with capabilities `15`, completed the established CONFIGURATION-presence → bounded PLAY challenge/response flow, validated the representative 166-entry manifest under the revised protocol-v1 hash contract, produced `ALLOW / CERBERUS_VERIFIED`, and released quarantine normally.
+3. A normal Velocity-authoritative Fabric + Cerberus connection completed CONFIGURATION attestation against the same 166-entry manifest, produced `ALLOW / CERBERUS_VERIFIED`, sent the trusted proxy admission assertion, and Guardian-Paper accepted `PROXY_ADMISSION_VERIFIED` without performing a redundant backend Cerberus attestation.
 
-The Phase 2 failure matrix does not need to be repeated unless one of these basic regressions fails.
+The Phase 2 failure matrix does not need to be repeated unless later policy integration materially changes these transport paths.
 
-## 5. Security/hardening closeout criteria
+## 5. Security/hardening closeout criteria — PASS
 
-Before promoting Phase 2.5 to complete, confirm:
+The Phase 2.5 closeout criteria are satisfied:
 
 - no absolute client filesystem path appears in manifest encoding/logging;
 - no approved-artifact JAR is packaged in Guardian/Cerberus outputs;
 - the scanner contains no classloading/execution/extraction/install path;
 - malformed input cannot partially rewrite `artifacts.yml`;
 - deleting scanner inputs never deletes catalog history;
-- BRIDGE-003, BRIDGE-004, and BRIDGE-005 remain unchanged; and
+- BRIDGE-003 and BRIDGE-005 retain their later-phase ownership; BRIDGE-004 remains active under the revised split ownership recorded in `IMPLEMENTATION_BRIDGES.md` (Phase 3 shared-policy consumption, Phase 5 final Velocity productionization); and
 - documentation continues to state that reported SHA-256 is not hostile-client remote attestation.

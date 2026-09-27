@@ -2,6 +2,7 @@ package com.badwolfmc.guardian.velocity;
 
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionReason;
+import com.badwolfmc.guardian.core.GuardianDecision;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -33,6 +34,13 @@ final class VelocityMessages {
         "admission.cerberus-timeout",
         "admission.cerberus-protocol-unsupported",
         "admission.manifest-denied",
+        "admission.manifest-denied.required-mod-missing",
+        "admission.manifest-denied.explicit-mod-deny",
+        "admission.manifest-denied.unlisted-mod",
+        "admission.manifest-denied.version-not-accepted",
+        "admission.manifest-denied.artifact-not-accepted",
+        "admission.manifest-denied.directory-origin",
+        "admission.manifest-denied.mixed-origin",
         "admission.manifest-invalid",
         "admission.client-denied",
         "admission.configuration-error",
@@ -73,17 +81,34 @@ final class VelocityMessages {
         return new VelocityMessages(Map.copyOf(loaded));
     }
 
-    Component render(
-        DecisionReason reason,
-        ClientClassification classification
-    ) {
+    Component render(DecisionReason reason, ClientClassification classification) {
+        return render(new GuardianDecision(com.badwolfmc.guardian.core.DecisionOutcome.DENY, reason, ""), classification);
+    }
+
+    Component render(GuardianDecision decision, ClientClassification classification) {
         String classificationValue = classification == null ? "unknown" : classification.policyKey();
         TagResolver resolver = TagResolver.builder()
             .resolver(Placeholder.unparsed("classification", classificationValue))
-            .resolver(Placeholder.unparsed("reason", reason.name()))
+            .resolver(Placeholder.unparsed("reason", decision.reason().name()))
             .resolver(Placeholder.unparsed("help_url", values.get("meta.help-url")))
+            .resolver(Placeholder.unparsed("mod_id", decision.context().getOrDefault("mod_id", "unknown")))
+            .resolver(Placeholder.unparsed("version", decision.context().getOrDefault("version", "unknown")))
             .build();
-        return miniMessage.deserialize(values.get(keyFor(reason)), resolver);
+        return miniMessage.deserialize(values.get(keyFor(decision)), resolver);
+    }
+
+    static String keyFor(GuardianDecision decision) {
+        if (decision.reason() != DecisionReason.MANIFEST_DENIED) return keyFor(decision.reason());
+        return switch (decision.context().getOrDefault("policy_violation", "")) {
+            case "REQUIRED_MOD_MISSING" -> "admission.manifest-denied.required-mod-missing";
+            case "EXPLICIT_MOD_DENY" -> "admission.manifest-denied.explicit-mod-deny";
+            case "UNLISTED_MOD" -> "admission.manifest-denied.unlisted-mod";
+            case "VERSION_NOT_ACCEPTED" -> "admission.manifest-denied.version-not-accepted";
+            case "ARTIFACT_NOT_ACCEPTED" -> "admission.manifest-denied.artifact-not-accepted";
+            case "DIRECTORY_ORIGIN_DENIED" -> "admission.manifest-denied.directory-origin";
+            case "MIXED_OR_UNKNOWN_ORIGIN_DENIED" -> "admission.manifest-denied.mixed-origin";
+            default -> "admission.manifest-denied";
+        };
     }
 
     private static String keyFor(DecisionReason reason) {

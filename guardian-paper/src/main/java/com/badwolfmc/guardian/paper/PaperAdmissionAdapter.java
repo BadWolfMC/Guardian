@@ -1,13 +1,17 @@
 package com.badwolfmc.guardian.paper;
 
-import com.badwolfmc.guardian.core.AdmissionPolicy;
 import com.badwolfmc.guardian.core.BrandClassifier;
-import com.badwolfmc.guardian.core.ClientAction;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionOutcome;
 import com.badwolfmc.guardian.core.DecisionReason;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.core.ProtocolV1ResponseValidator;
+import com.badwolfmc.guardian.core.policy.AdmissionPermissionSnapshot;
+import com.badwolfmc.guardian.core.policy.AdmissionPolicyEvaluator;
+import com.badwolfmc.guardian.core.policy.AdmissionProfileProvider;
+import com.badwolfmc.guardian.core.policy.AdmissionProfileResolver;
+import com.badwolfmc.guardian.core.policy.ClientPolicyResult;
+import com.badwolfmc.guardian.core.policy.ResolvedAdmissionProfile;
 import com.badwolfmc.guardian.core.ProxyAdmissionValidator;
 import com.badwolfmc.guardian.protocol.Challenge;
 import com.badwolfmc.guardian.protocol.ConnectionOrigin;
@@ -51,6 +55,7 @@ import java.util.HexFormat;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Guardian-Paper Admission adapter preserving the Phase 0 proven transport boundaries.
@@ -67,6 +72,8 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
     private final GuardianPaperPlugin plugin;
     private final GuardianRuntimeManager runtimeManager;
     private final GuardianMessageRenderer messageRenderer;
+    private final AdmissionPolicyEvaluator policyEvaluator = new AdmissionPolicyEvaluator();
+    private AdmissionProfileProvider profileProvider = AdmissionProfileProvider.none();
     private byte[] proxySecret;
 
     PaperAdmissionAdapter(
@@ -90,6 +97,13 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             plugin, GuardianProtocol.PROXY_ADMISSION_CHANNEL, this);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         loadProxySecret();
+        try {
+            profileProvider = PaperLuckPermsProfileProvider.create(plugin);
+        } catch (RuntimeException | LinkageError ex) {
+            profileProvider = AdmissionProfileProvider.none();
+            plugin.getLogger().warning("Guardian could not initialize LuckPerms profile integration; "
+                + "default/identity profiles remain available: " + ex.getMessage());
+        }
 
         var settings = runtimeManager.current().settings();
         plugin.getLogger().info("Guardian Admission enabled: authority=" + settings.authorityMode()
@@ -143,6 +157,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
+        resolveProfileAsyncGate(session);
         evaluateStandaloneConfiguration(connection, session, false);
     }
 
@@ -180,7 +195,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
                 + finalDecision.detail() + ")");
             if (finalDecision.outcome() == DecisionOutcome.DENY) {
                 event.kickMessage(messageRenderer.renderDecision(
-                    session.snapshot(), finalDecision.reason(), session.classification()));
+                    session.snapshot(), finalDecision, session.classification()));
             }
             sessions.remove(playerId, session);
             return;
@@ -213,9 +228,44 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
 
         if (finalDecision.outcome() == DecisionOutcome.DENY) {
             event.kickMessage(messageRenderer.renderDecision(
-                    session.snapshot(), finalDecision.reason(), session.classification()));
+                    session.snapshot(), finalDecision, session.classification()));
         }
         sessions.remove(playerId, session);
+    }
+
+    private void resolveProfileAsyncGate(AdmissionSession session) {
+        if (session.resolvedProfile() != null) return;
+        AdmissionPermissionSnapshot permissions;
+        try {
+            permissions = profileProvider.resolve(session.playerId(), session.snapshot().requireAdmissionPolicy())
+                .toCompletableFuture()
+                .orTimeout(session.snapshot().settings().handshakeTimeoutSeconds(), TimeUnit.SECONDS)
+                .exceptionally(throwable -> {
+                    plugin.getLogger().warning("Guardian Admission profile provider failed for "
+                        + session.playerId() + "; falling back to default/identity profile without bypasses: "
+                        + rootMessage(throwable));
+                    return AdmissionPermissionSnapshot.none();
+                })
+                .join();
+        } catch (RuntimeException ex) {
+            plugin.getLogger().warning("Guardian Admission profile provider failed for " + session.playerId()
+                + "; falling back to default/identity profile without bypasses: " + rootMessage(ex));
+            permissions = AdmissionPermissionSnapshot.none();
+        }
+        session.setResolvedProfile(AdmissionProfileResolver.resolve(
+            session.snapshot().requireAdmissionPolicy(), session.playerId(), permissions));
+    }
+
+    private ResolvedAdmissionProfile resolvedProfile(AdmissionSession session) {
+        ResolvedAdmissionProfile resolved = session.resolvedProfile();
+        if (resolved != null) return resolved;
+        // The async CONFIGURATION event is the normal provider-resolution point. If a platform lifecycle
+        // edge reaches final validation without it, fail safely to deterministic identity/default resolution
+        // rather than blocking the final login gate on external storage.
+        resolved = AdmissionProfileResolver.resolve(
+            session.snapshot().requireAdmissionPolicy(), session.playerId(), AdmissionPermissionSnapshot.none());
+        session.setResolvedProfile(resolved);
+        return session.resolvedProfile();
     }
 
     private void evaluateStandaloneConfiguration(
@@ -235,28 +285,23 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
 
         ClientClassification classification = BrandClassifier.classify(brand);
         session.setClassification(classification);
-        AdmissionPolicy policy = session.snapshot().settings().admissionPolicy();
-        ClientAction action = policy.actionFor(classification, brand);
+        ResolvedAdmissionProfile resolved = resolvedProfile(session);
+        ClientPolicyResult clientResult = policyEvaluator.evaluateClient(resolved, classification, brand);
         plugin.getLogger().info(() -> "Guardian standalone policy evaluation for " + displayName(connection)
             + ": brand=" + String.valueOf(brand)
             + ", classification=" + classification
-            + ", action=" + action
-            + ", cerberusPresent=" + session.cerberusPresent()
-            + ", cerberusPresence=" + session.cerberusPresence());
+            + ", profile=" + resolved.profile().id()
+            + ", profileSource=" + resolved.source()
+            + ", action=" + clientResult.action()
+            + ", cerberusPresent=" + session.cerberusPresent());
 
-        if (action == ClientAction.ALLOW) {
-            session.decide(GuardianDecision.allow(allowReason(classification),
-                "client class allowed by active Phase 1A admission snapshot"));
-            return;
-        }
-        if (action == ClientAction.DENY) {
-            session.decide(GuardianDecision.deny(DecisionReason.CLIENT_DENIED,
-                "client class denied by active Phase 1A admission snapshot: " + classification.policyKey()));
+        if (clientResult.terminalDecision() != null) {
+            session.decide(clientResult.terminalDecision());
             return;
         }
 
-        // REQUIRE_CERBERUS is currently valid only for JAVA_FABRIC. Configuration validation
-        // enforces that invariant so raw unknown-brand rules cannot create an attestation path.
+        // REQUIRE_CERBERUS is valid only for JAVA_FABRIC. Shared policy validation enforces that
+        // invariant so raw unknown-brand rules cannot create an attestation path.
         GuardianDecision presenceFailure = session.configurationPresenceFailure();
         if (presenceFailure != null) {
             session.decide(presenceFailure);
@@ -273,14 +318,10 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         session.requirePlayHandshake();
     }
 
-    private static DecisionReason allowReason(ClientClassification classification) {
-        return switch (classification) {
-            case BEDROCK -> DecisionReason.BEDROCK_POLICY;
-            case JAVA_VANILLA -> DecisionReason.VANILLA_POLICY;
-            case JAVA_OPTIFINE -> DecisionReason.OPTIFINE_POLICY;
-            case JAVA_UNKNOWN -> DecisionReason.UNKNOWN_BRAND_POLICY;
-            case JAVA_FABRIC -> DecisionReason.CLIENT_POLICY_ALLOWED;
-        };
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) current = current.getCause();
+        return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -432,8 +473,9 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
         if (GuardianProtocol.RESPONSE_CHANNEL.equals(channel)) {
-            // A CONFIGURATION response is not expected in standalone fallback mode.
-            session.decide(GuardianDecision.deny(DecisionReason.MANIFEST_INVALID,
+            // A CONFIGURATION response is not expected in standalone fallback mode. Record the
+            // protocol failure, but let shared client policy decide first whether Cerberus applies.
+            session.recordConfigurationPresenceFailure(GuardianDecision.deny(DecisionReason.MANIFEST_INVALID,
                 "unexpected Cerberus response during CONFIGURATION fallback mode"));
         }
     }
@@ -697,8 +739,15 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         session.response().complete(response);
-        GuardianDecision decision = ProtocolV1ResponseValidator.validate(session.nonce(), response);
-        finishPlayDecision(player, session, decision);
+        GuardianDecision integrityDecision = ProtocolV1ResponseValidator.validate(session.nonce(), response);
+        if (integrityDecision.outcome() == DecisionOutcome.DENY) {
+            finishPlayDecision(player, session, integrityDecision);
+            return;
+        }
+        GuardianDecision policyDecision = policyEvaluator
+            .evaluateManifest(resolvedProfile(session), response.manifest())
+            .decision();
+        finishPlayDecision(player, session, policyDecision);
     }
 
     private void handleHandshakeTimeout(UUID playerId) {
@@ -737,7 +786,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             plugin.getLogger().info(() -> "Guardian PLAY quarantine released for " + player.getName());
         } else {
             player.kick(messageRenderer.renderDecision(
-                session.snapshot(), finalDecision.reason(), session.classification()));
+                session.snapshot(), finalDecision, session.classification()));
             sessions.remove(player.getUniqueId(), session);
         }
     }

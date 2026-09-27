@@ -1,8 +1,8 @@
 package com.badwolfmc.guardian.paper.locale;
 
-import com.badwolfmc.guardian.core.AdmissionPolicy;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionReason;
+import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.paper.config.GuardianPaperSettings;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
@@ -25,28 +25,40 @@ class GuardianMessageRendererTest {
     void untrustedPlaceholderValuesCannotInjectMiniMessageEvents() {
         String attemptedInjection = "<click:run_command:'/op me'>click me</click>";
         GuardianPaperSettings settings = new GuardianPaperSettings(
-            1, true, false, "en_us", attemptedInjection,
-            PaperAuthorityMode.STANDALONE, 10, 40, AdmissionPolicy.defaults(), ProtectionPolicy.disabled());
+            1, false, false, "en_us", attemptedInjection,
+            PaperAuthorityMode.STANDALONE, 10, 40, ProtectionPolicy.disabled());
         GuardianLocaleCatalog catalog = new GuardianLocaleCatalog(
             "en_us",
             Map.of("admission.cerberus-required", "<red>Need Cerberus</red> <help_url>"),
             Map.of("admission.cerberus-required", "fallback")
         );
-        GuardianRuntimeSnapshot snapshot = new GuardianRuntimeSnapshot(settings, catalog);
+        GuardianRuntimeSnapshot snapshot = new GuardianRuntimeSnapshot(settings, catalog, null);
 
         Component rendered = new GuardianMessageRenderer().renderDecision(
-            snapshot, DecisionReason.CERBERUS_REQUIRED, ClientClassification.JAVA_FABRIC);
+            snapshot, GuardianDecision.deny(DecisionReason.CERBERUS_REQUIRED, "test"),
+            ClientClassification.JAVA_FABRIC);
 
         assertNoClickEvents(rendered);
     }
 
 
+
+    @Test
+    void manifestDenialUsesSpecificLocalizedPolicyProblemKey() {
+        GuardianDecision denied = GuardianDecision.deny(
+            DecisionReason.MANIFEST_DENIED,
+            "internal detail",
+            Map.of("policy_violation", "UNLISTED_MOD", "mod_id", "examplemod")
+        );
+        assertEquals("admission.manifest-denied.unlisted-mod", GuardianMessageRenderer.keyFor(denied));
+    }
+
     @Test
     void protectionPlaceholdersCannotInjectMiniMessageEvents() {
         String attemptedInjection = "<click:run_command:'/op me'>click me</click>";
         GuardianPaperSettings settings = new GuardianPaperSettings(
-            1, true, true, "en_us", "https://example.invalid/",
-            PaperAuthorityMode.STANDALONE, 10, 40, AdmissionPolicy.defaults(), ProtectionPolicy.disabled());
+            1, false, true, "en_us", "https://example.invalid/",
+            PaperAuthorityMode.STANDALONE, 10, 40, ProtectionPolicy.disabled());
         GuardianLocaleCatalog catalog = new GuardianLocaleCatalog(
             "en_us",
             Map.of(
@@ -55,7 +67,7 @@ class GuardianMessageRendererTest {
             ),
             Map.of("protection.notify.command-denied", "fallback")
         );
-        GuardianRuntimeSnapshot snapshot = new GuardianRuntimeSnapshot(settings, catalog);
+        GuardianRuntimeSnapshot snapshot = new GuardianRuntimeSnapshot(settings, catalog, null);
         ProtectionRule rule = ProtectionRule.create(
             ProtectionSurface.COMMAND_EXECUTION, true, ProtectionRuleMode.DENYLIST, java.util.Set.of("plugins"));
         ProtectionDecision decision = new ProtectionDecision(

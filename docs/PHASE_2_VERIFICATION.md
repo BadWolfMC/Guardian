@@ -48,7 +48,7 @@ Observed with Guardian-Velocity + Guardian-Paper:
 | Cerberus with `guardian.cerberus.dev.suppressResponse=true` | PASS — `CERBERUS_TIMEOUT` | Presence was known and challenge sent; timeout remained distinct from missing Cerberus. |
 | Cerberus with `guardian.cerberus.dev.malformedResponse=true` | PASS — `MANIFEST_INVALID` | Truncated payload rejected immediately; no crash and no timeout fall-through. |
 
-Velocity + OptiFine currently produces `CLIENT_DENIED` in the retained Phase 0B feasibility adapter. This is the documented BRIDGE-004 behavior and is owned by Phase 5's production Velocity policy/configuration pass, not Phase 2.
+Velocity + OptiFine currently produces `CLIENT_DENIED` in the retained Phase 0B feasibility adapter. At Phase 2 closeout this was correctly treated as BRIDGE-004 behavior rather than a transport defect. The later Phase 3 portability-contract revision splits BRIDGE-004 ownership: Phase 3 replaces the independent feasibility policy branch with the shared policy engine, while Phase 5 retains final Velocity production configuration/operations and diagnostics.
 
 ## 4. Real manifest characterization — PASS
 
@@ -90,7 +90,7 @@ A dedicated development-directory/Loom-origin live run is also not required for 
 - BRIDGE-001 — retired by protocol-v1 response validation and real canonical manifests.
 - BRIDGE-002 — retired by Loader-backed manifests and `guardian.cerberus.dev.*` diagnostic tooling.
 - BRIDGE-003 — unchanged; Phase 5 owns production proxy-secret provisioning.
-- BRIDGE-004 — unchanged; Phase 5 owns Velocity production configuration/policy and removal of Phase 0B-labelled diagnostics.
+- BRIDGE-004 — active. Historical Phase 2 scope did not change it; the later Phase 3 portability revision assigns shared-policy consumption to Phase 3 and leaves final Velocity production configuration/operations plus Phase 0B-labelled diagnostic cleanup to Phase 5.
 - BRIDGE-005 — unchanged; Phase 4 owns final Geyser/Floodgate production behavior.
 
 No new Phase 2 bridge is introduced by the closeout hardening pass.
