@@ -198,3 +198,18 @@ The final Phase 4 closeout evidence is based on the operator-supplied repository
 The packaged Paper `config.yml` contains no Bedrock client-policy action and explicitly delegates shared Admission policy to `admission/policy.yml`, so no stale shipping configuration ownership was found during closeout.
 
 These results retire BRIDGE-005. Phase 5 begins with only BRIDGE-003 and BRIDGE-004 active.
+
+
+## Phase 5 productionization source — 2026-09-28
+
+The Phase 5 implementation candidate is based on the exact operator-supplied repository archive:
+
+- archive: `Guardian(20260928-082622).zip`
+- SHA-256: `33b6a16227d57d3da1f5bfefcbfd05839fb74bbe458ca78af9fc9f7335dde5d5`
+- starting project version: `0.1.0-phase4`
+- retained entering Gradle XML reports: **141 tests, 0 failures, 0 errors, 0 skipped** (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9)
+- entering live baseline: Phase 4 Velocity/standalone Bedrock and Java/Fabric regressions complete; BRIDGE-005 retired
+
+The Phase 5 candidate advances to `0.1.0-phase5` and implements distinct Paper `/guardian` versus Velocity `/guardianv` administration, proxy-local production configuration, production assertion-secret provisioning, configurable timing, atomic Velocity reload/validation, bounded active inspection snapshots, `NORMAL`/`DEBUG` logging, authority-correct artifact administration, and deterministic long generated rule IDs. It preserves the shared Phase 3 policy engine and Phase 4 origin semantics rather than replacing them.
+
+This implementation sandbox exposed OpenJDK 21 only. The repository wrapper attempted to retrieve Gradle 9.7.1 but outbound DNS/network access to `services.gradle.org` was unavailable, and no cached Gradle distribution was present. Therefore **no Phase 5 Java 25/Gradle result is claimed here**. The retained 141-test Phase 4 XML is entering evidence only. `PHASE_5_VERIFICATION.md` records the required local/CI gate and focused live checks before BRIDGE-003/004 retirement.

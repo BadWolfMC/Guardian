@@ -14,7 +14,7 @@ import java.util.Base64;
 import java.util.UUID;
 
 /**
- * Canonical Phase 0B proxy-admission assertion encoding and HMAC verification.
+ * Canonical proxy-admission assertion encoding and HMAC verification.
  *
  * <p>The shared secret belongs only to Guardian-Velocity and Guardian-Paper. It is deliberately
  * unrelated to Cerberus and is useful because both holders are server-side infrastructure.</p>

@@ -1317,7 +1317,7 @@ This includes:
 - disconnect/deny reasons controlled by Guardian;
 - Protection denial feedback;
 - Protection staff notifications;
-- `/guardian` command feedback;
+- `/guardian` and `/guardianv` command feedback;
 - user-facing validation/reload/status feedback where applicable.
 
 Purely internal technical logger diagnostics are not required to be player-localized, but SHOULD remain structured and administrator-readable.
@@ -1360,9 +1360,16 @@ Protection notifications SHOULD be permission-gated ordinary Adventure chat mess
 
 ## 29. Administrative surfaces and authority-aware inspection
 
-Basic administrator operability MUST be architected before Guardian-Velocity becomes the production authority. The shared operations/observability architecture is established by Phase 4 documentation; the authority-aware command surfaces and production logging controls belong to Phase 5. The later operations/release phase owns polish rather than first implementation.
+Basic administrator operability is authority-explicit. Phase 5 deliberately exposes different command roots for the two platform authorities rather than relying on proxy/backend command precedence:
 
-The canonical command tree SHOULD remain intentionally small:
+```text
+Guardian-Paper:    /guardian
+Guardian-Velocity: /guardianv
+```
+
+The distinction is semantic: `/guardian` operates on this Paper host; `/guardianv` operates on the Guardian-Velocity network Admission authority. Guardian-Paper MUST NOT proxy administrative requests to Velocity, and Phase 5 MUST NOT invent a Paper ↔ Velocity command RPC merely to retrieve remote Admission state.
+
+Both roots keep the same intentionally small command shape:
 
 ```text
 /guardian status
@@ -1370,63 +1377,59 @@ The canonical command tree SHOULD remain intentionally small:
 /guardian reload
 /guardian inspect <player>
 /guardian artifacts scan
+
+/guardianv status
+/guardianv validate
+/guardianv reload
+/guardianv inspect <player>
+/guardianv artifacts scan
 ```
 
-Separate `/guardian brand` or `/guardian mods` commands SHOULD NOT be added unless later operational evidence demonstrates a genuine need. `/guardian inspect <player>` is the canonical one-stop current-player diagnostic.
+Separate `brand` or `mods` commands SHOULD NOT be added unless later operational evidence demonstrates a genuine need. `inspect <player>` is the canonical one-stop current-player diagnostic.
 
-Depending on authoritative data available on the host, inspection SHOULD report a concise useful subset of:
+### 29.1 Host ownership
 
-- player identity;
-- current connection/origin classification;
-- observed Java brand where applicable;
-- selected Admission profile and profile-selection source;
-- Cerberus presence/version/protocol where applicable;
-- final Guardian admission decision/reason;
-- policy-relevant manifest/mod information;
-- top-level/policy-addressable mods;
-- total Loader-known manifest count;
-- relevant exact-artifact/hash status where useful;
-- Velocity/proxy admission state where applicable; and
-- Bedrock/Geyser/Floodgate classification/evidence where applicable.
+**Standalone Guardian-Paper** owns complete local Admission + Protection administration. Its `status`, `validate`, `reload`, `inspect`, and artifact scan operate on the authoritative standalone runtime.
 
-The ordinary form SHOULD summarize policy-addressable/top-level mods plus counts rather than dumping every nested Loader entry.
+**Guardian-Paper behind Guardian-Velocity** still exposes `/guardian` for backend console/direct administration, Paper configuration/locales, Guardian Protection, and trusted-proxy verifier diagnostics. In `authority: velocity` mode:
 
-### 29.1 Active inspection snapshots
+- `status` reports Paper-local operational state and proxy-verifier configuration;
+- `validate` validates only Paper-owned files/state and does not load proxy-owned Admission policy;
+- `reload` atomically replaces only Paper-owned runtime state and does not reload network Admission policy;
+- `inspect <player>` reports only locally retained trusted assertion/backend sanity evidence, clearly identifies Velocity as authoritative, and directs staff to `/guardianv inspect <player>` for the authoritative Admission snapshot; and
+- `artifacts scan` refuses to mutate a backend catalog as though it controlled network Admission and directs the administrator to `/guardianv artifacts scan`.
 
-Successful mutable Admission sessions MUST continue to be discarded when admission completes. Inspection MUST NOT retain those state-machine sessions merely to support commands.
+**Guardian-Velocity** owns authoritative network Admission administration. `/guardianv` directly manages the proxy-owned configuration, shared policy/catalog, current inspection snapshots, artifact import, integration diagnostics, assertion configuration, and production logging state.
 
-Instead, the authoritative host SHOULD maintain a separate bounded immutable/read-only **active inspection snapshot** for currently connected players. By default it is in-memory only, privacy-conscious, removed when the connection/session ends, and distinct from mutable Admission session state.
+A moderator connected to any backend may execute `/guardianv inspect <player>` directly at the proxy. Velocity performs proxy-wide player lookup, so the target may be on a different backend. The command does not require either player's backend to receive the target's Fabric manifest.
+
+### 29.2 Active inspection snapshots
+
+Successful mutable Admission sessions MUST be discarded when Admission completes. Inspection MUST NOT retain those state-machine sessions merely to support commands.
+
+The authoritative host maintains a separate bounded immutable/read-only **active inspection snapshot** for currently connected players. It is in-memory only by default, privacy-conscious, removed on disconnect/session end, and distinct from mutable Admission state.
 
 Authority boundaries are mandatory:
 
-- **Standalone Paper authority:** Guardian-Paper may retain the authoritative inspection snapshot and answer `/guardian inspect`.
-- **Velocity authority:** Guardian-Velocity retains the authoritative Admission/manifest inspection snapshot. Guardian-Paper MUST NOT begin receiving the player's full Fabric manifest solely to make a backend command easier. Paper continues to receive only what it needs to verify trusted proxy admission.
+- standalone Paper -> Guardian-Paper stores the authoritative snapshot;
+- Velocity authority -> Guardian-Velocity stores the authoritative Admission/manifest snapshot;
+- backend Paper -> stores only local trusted-assertion/backend sanity evidence and never receives the full Fabric manifest solely for administrator convenience.
 
-The exact cross-platform command UX is finalized during Phase 5 without weakening this privacy/trust boundary.
+A normal authoritative inspection SHOULD provide player identity, current backend, classification/origin, Java brand where applicable, profile/source, Cerberus version/protocol where applicable, final decision/reason, policy-addressable/top-level mods, total Loader-known count, useful exact-artifact/hash state, and Geyser/Floodgate evidence. It SHOULD summarize policy-addressable mods rather than dump every nested Loader entry. Offline/no-snapshot targets report no active inspection data; Phase 5 does not add historical persistent manifest storage or distributed cross-proxy inspection.
 
-### 29.2 Reload
+### 29.3 Reload and validation
 
-`/guardian reload` MUST be permission-gated and use the existing atomic reload infrastructure rather than inventing another configuration path. It MUST parse/normalize/validate the complete candidate first, activate only a fully valid immutable replacement, preserve the current runtime if reload fails, refresh shared Admission policy without restart, reload appropriate Paper operational/Protection configuration, reconcile command visibility where already supported, make changed Admission policy apply to new decisions immediately, and clearly report success or validation failure. It MUST NOT silently partially activate a failed candidate.
+`/guardian reload` and `/guardianv reload` use host-owned atomic runtime seams. Each parses/normalizes/validates a complete candidate first, activates only a fully valid immutable replacement, and preserves the previous runtime when candidate validation fails. Paper reload reconciles Paper-local Admission/Protection enablement and command visibility as applicable. Velocity reload changes authoritative network Admission configuration/policy for new decisions immediately. Neither command fans out to the other platform.
 
-Guardian-Velocity SHOULD expose equivalent authority-appropriate atomic reload behavior during Phase 5 using the same shared Admission-policy model.
-
-### 29.3 Validation
-
-`/guardian validate` is files-only and non-activating: parse and validate candidate configuration/policy/catalog, report errors, and do not replace the active runtime snapshot.
+`/guardian validate` and `/guardianv validate` are files-only/non-activating and respect ownership. Paper in Velocity-authoritative mode MUST NOT pretend to validate the proxy's policy; Velocity validates its authoritative operational configuration, policy, catalog, and locale state.
 
 ### 29.4 Status
 
-`/guardian status` SHOULD remain concise. Useful fields include Guardian/protocol version, authority/deployment mode, Admission/Protection enabled state where applicable, loaded policy/profile counts, artifact-catalog state, optional integration availability (LuckPerms, Geyser, Floodgate), current logging mode, and proxy-assertion state/configuration where relevant.
+Both status commands remain concise. `/guardian status` reports Paper-local version/protocol/server/authority/domain state, locale/logging, optional backend integrations, proxy assertion verifier state, and local snapshot counts. `/guardianv status` reports network-authoritative version/protocol/deployment state, loaded profiles/default profile, artifact catalog state, logging/timing, optional proxy integrations, assertion key source/fingerprint, and authoritative active snapshot count.
 
 ### 29.5 Permissions and command routing
 
-Administrative command permissions MUST consistently live beneath:
-
-```text
-guardian.command.*
-```
-
-including at minimum:
+Paper administrative permissions are:
 
 ```text
 guardian.command.status
@@ -1436,15 +1439,23 @@ guardian.command.inspect
 guardian.command.artifacts.scan
 ```
 
-The current early `guardian.artifacts.scan` permission predates this finalized convention. Because Guardian remains unreleased, the proper `/guardian` command router SHOULD correct it when implemented rather than retaining a permanent compatibility alias.
+Velocity administrative permissions are deliberately separate:
 
-Phase 5 MUST implement the administrative router on **both** Guardian-Paper and Guardian-Velocity rather than treating administrator operability as a proxy-only feature. Standalone Paper exposes the complete tree and owns both local Admission and Protection operations. In Velocity-authoritative deployments, Guardian-Velocity owns authoritative Admission policy/catalog/inspection operations, while each Guardian-Paper backend retains local `status`/`validate`/`reload` behavior for its Paper configuration, locales, Protection domain, and proxy-assertion verifier. Backend inspection MUST remain limited to locally held assertion/backend evidence and identify Velocity as authoritative; the backend MUST NOT receive the full Fabric manifest for command convenience. Backend artifact scanning MUST NOT pretend to mutate authoritative network Admission state when Velocity owns the policy/catalog.
+```text
+guardian.velocity.command.status
+guardian.velocity.command.validate
+guardian.velocity.command.reload
+guardian.velocity.command.inspect
+guardian.velocity.command.artifacts.scan
+```
 
-The initial Phase 5 command implementation does not require cross-host RPC or fan-out. Player-issued `/guardian` commands may naturally resolve at the proxy when Velocity registers the same root; Paper still needs its router for standalone use and backend console/direct administration. Do not add compatibility aliases merely to bypass proxy precedence.
+Granting Paper-local Guardian administration MUST NOT imply network-authoritative Guardian-Velocity administration. Runtime correctness MUST NOT depend on wildcard expansion. The obsolete unreleased `guardian.artifacts.scan` permission is removed without a compatibility alias.
 
-New command routing, inspection storage, and logging policy SHOULD be factored into focused services rather than continuing to expand `PaperAdmissionAdapter` or `GuardianVelocityPlugin` into monolithic classes.
+The `/guardianv` root MUST be claimed by Guardian-Velocity even when the source lacks a particular subcommand permission; granular permission denial is handled inside Guardian so Velocity does not forward an unhandled administrative root to a backend server.
 
-The artifact-import rule generator MUST also eventually guarantee that every valid Fabric mod ID yields a valid deterministic policy rule ID even when `allow-<mod-id>` would exceed the policy rule-ID length bound; deterministic shortening/suffixing belongs to the administrator-tooling/operations work.
+New command routing, inspection storage, logging policy, and proxy operational configuration SHOULD be factored into focused services rather than continuing to expand `PaperAdmissionAdapter` or `GuardianVelocityPlugin` into monolithic classes.
+
+The artifact-import rule generator MUST guarantee that every valid Fabric mod ID yields a valid deterministic policy rule ID even when `allow-<mod-id>` would exceed the policy rule-ID length bound; deterministic shortening with a stable suffix is required.
 
 ---
 
@@ -1956,31 +1967,30 @@ Phase 4 also records the shared operations/observability architecture in Section
 
 ---
 
-## Phase 5 — Velocity authoritative mode
+## Phase 5 — Velocity authoritative mode — IMPLEMENTATION CANDIDATE
 
-**Goal:** Productionize Guardian-Velocity as the preferred network-edge admission host without making it mandatory and **without reimplementing or porting the Phase 3 policy engine**.
+**Goal:** Productionize Guardian-Velocity as the preferred network-edge Admission host without making it mandatory and **without reimplementing or porting the Phase 3 policy engine**.
 
-Phase 3 has already made Guardian-Velocity consume the shared policy schema/snapshot/evaluator. Phase 5 therefore owns Velocity-specific production hosting and operations, including:
+Phase 5 implements the final authority-aware operations design from Section 29:
 
-- final Guardian-Velocity data-directory and policy/config ownership UX;
-- production proxy-side policy authority using the unchanged Phase 3 shared policy system;
-- one attestation per proxy connection;
-- secure proxy → backend assertions;
-- final proxy assertion secret/key provisioning, validation, and diagnostics;
-- server-switch session reuse;
-- backend verification;
-- no client impersonation of proxy channels;
-- explicit deployment modes;
-- configurable Velocity operational timings where appropriate;
-- final diagnostics/naming with Phase 0B wording removed;
-- the shared `NORMAL` / `DEBUG` production logging policy from Section 27;
-- authority-aware `/guardian status`, `/guardian validate`, `/guardian reload`, `/guardian inspect <player>`, and `/guardian artifacts scan` routing;
-- bounded active inspection snapshots on the authoritative host without forwarding full manifests to Paper backends solely for diagnostics; and
-- production deployment documentation/tests.
+- Guardian-Paper owns `/guardian`; Guardian-Velocity owns `/guardianv`;
+- Velocity has a strict proxy-local `config.yml`, explicit `deployment.authority: velocity`, configurable handshake timing, locale/logging settings, and shared policy/catalog ownership in its data directory;
+- proxy assertion secrets use production naming and may be sourced from either a configured environment variable or a bounded relative secret file, with exact 32-byte Base64 validation and a non-secret fingerprint for deployment diagnostics;
+- reload/validation use complete immutable candidates and preserve the previous active runtime when validation fails;
+- one completed Admission is retained only as a minimal immutable proxy-session grant for backend assertions, while mutable admission sessions are discarded and authoritative inspection uses a separate bounded immutable in-memory snapshot;
+- backend switching reuses the original proxy Admission decision without re-attesting the client;
+- security-sensitive Guardian channels remain consumed at Velocity rather than forwarded to Paper;
+- Guardian-Paper in Velocity mode remains assertion-only for network Admission and retains only backend/assertion inspection evidence;
+- production logging supports `NORMAL` and `DEBUG`, with the authoritative host normally emitting one successful Admission summary and backend Paper suppressing duplicate success lifecycle chatter;
+- `/guardianv inspect <player>` performs proxy-wide connected-player lookup and exposes the authoritative current Admission/mod state without manifest forwarding to Paper;
+- `/guardian artifacts scan` refuses in Velocity-authoritative Paper mode while `/guardianv artifacts scan` manages the authoritative catalog; and
+- generated artifact policy rule IDs are deterministically shortened when necessary to remain within the 64-character rule-ID bound.
 
-Phase 5 MUST NOT introduce a Velocity-specific admission-policy schema/evaluator, duplicate Paper policy logic, or require administrator policy files to be rewritten merely because authority moves from standalone Paper to Guardian-Velocity.
+Secret replacement/rotation is an administrator-coordinated operation because protocol v1 accepts one active shared key per host. `FILE` source is reloadable; `ENVIRONMENT` source follows the hosting process/service environment and normally requires process restart after that environment changes. Zero-downtime dual-key rotation is intentionally not introduced in Phase 5.
 
-Paper standalone authority MUST remain functional.
+Phase 5 MUST NOT introduce a Velocity-specific admission-policy schema/evaluator, duplicate Paper policy logic, require administrator policy files to be rewritten merely because authority moves from standalone Paper to Guardian-Velocity, forward full manifests to backends for command convenience, or turn backend Floodgate sanity evidence into a second Admission authority.
+
+The implementation candidate advances the project version to `0.1.0-phase5`. BRIDGE-003 and BRIDGE-004 remain open until the Java 25 / Gradle 9.7.1 gate and the focused Phase 5 live verification matrix confirm the productionization responsibilities documented in their retirement conditions.
 
 ---
 
@@ -2274,37 +2284,25 @@ The implementation should re-check current documentation when each phase begins 
 
 ---
 
-# 38. Handoff context for the next development chat
+# 38. Phase 5 implementation/verification handoff
 
-**Phases 0 through 4 are complete. The next implementation phase is Phase 5 — Guardian-Velocity productionization plus authority-aware administrator operability on both platform hosts.**
+**Phases 0 through 4 are closed. Phase 5 is implemented as a `0.1.0-phase5` candidate and now requires the final Java 25 / Gradle 9.7.1 gate plus focused live verification before BRIDGE-003 and BRIDGE-004 are retired.**
 
-Treat this document, the current repository, `docs/PHASE_4_IMPLEMENTATION.md`, `docs/PHASE_4_VERIFICATION.md`, `docs/IMPLEMENTATION_BRIDGES.md`, and `docs/PHASE_5_HANDOFF.md` as authoritative. BrandBlocker and the BadWolfMC GPLv3 eZProtector fork remain provenance/behavior references only.
+Treat this document, the current repository, `docs/PHASE_5_IMPLEMENTATION.md`, `docs/PHASE_5_VERIFICATION.md`, `docs/IMPLEMENTATION_BRIDGES.md`, and `docs/PHASE_5_HANDOFF.md` as authoritative for Phase 5.
 
-The entering baseline is `0.1.0-phase4`, green at 141 Java 25 / Gradle 9.7.1 tests with Phase 4's focused live matrix complete. The important established boundaries are:
+The Phase 4 entering baseline was `0.1.0-phase4`, green at 141 tests with BRIDGE-005 retired. The Phase 5 candidate preserves the established architecture while adding:
 
-- protocol v1, Cerberus manifest semantics, SHA-256 artifact identity, and the add-only artifact catalog are already established;
-- the shared Phase 3 Admission policy parser/snapshot/evaluator is platform-neutral and already used by both standalone Paper and Guardian-Velocity;
-- Guardian-Velocity is BadWolfMC's preferred network Admission authority, while standalone Guardian-Paper remains supported;
-- Bedrock origin is resolved through supported Geyser/Floodgate API evidence before Java/Cerberus handling on either authority;
-- Guardian-Paper behind Velocity verifies only the trusted proxy assertion and backend sanity evidence and does not independently re-evaluate player Admission policy;
-- Guardian Protection remains Paper-authoritative and independent from Admission; and
-- BRIDGE-005 is retired. Only BRIDGE-003 and BRIDGE-004 remain active entering Phase 5.
+- `/guardian` on Paper and `/guardianv` on Velocity with separate permissions;
+- proxy-local Velocity configuration/data ownership, production assertion secret provisioning, configurable timing, and deployment diagnostics;
+- host-owned atomic reload and files-only validation;
+- bounded immutable active inspection snapshots with authoritative Fabric manifests retained only at the Admission authority;
+- proxy-wide `/guardianv inspect <player>` with no Paper↔Velocity command RPC;
+- Paper-local backend inspection/assertion evidence only in Velocity mode;
+- authority-correct artifact scanning;
+- `NORMAL` / `DEBUG` production logging; and
+- deterministic generated artifact rule IDs that remain within policy bounds.
 
-Phase 5 MUST productionize the existing Velocity host rather than port or redesign the policy engine. It owns final Velocity data/config ownership, assertion-secret provisioning, operational timings/diagnostics, deployment modes, removal of Phase 0B naming, production logging controls, and the administrator surfaces in Section 29.
-
-The command/operations work is explicitly **cross-platform**:
-
-- implement `/guardian status`, `/guardian validate`, `/guardian reload`, `/guardian inspect <player>`, and `/guardian artifacts scan` on Guardian-Paper and Guardian-Velocity;
-- standalone Paper owns the complete local Admission + Protection surface;
-- Velocity authority owns network Admission policy/catalog/inspection on the proxy;
-- backend Paper retains local status/validation/reload for Paper configuration, locales, Protection, and proxy-verifier state without receiving the full Fabric manifest;
-- backend inspection is necessarily limited and must say that Velocity is authoritative;
-- backend artifact scanning must not masquerade as authoritative when Velocity owns Admission; and
-- no network-wide command RPC/fan-out is required merely to make the command names uniform.
-
-Keep the command tree small and permissioned under `guardian.command.*`. Use the existing atomic reload and non-activating validation seams. Build bounded immutable active inspection snapshots rather than retaining successful mutable Admission sessions. Implement `NORMAL`/`DEBUG` logging and make the authoritative host own the normal Admission success summary. Factor these features into focused services rather than expanding `PaperAdmissionAdapter` or `GuardianVelocityPlugin` into monoliths.
-
-Do not pull Phase 6 hostile-client/signing work or the Minecraft 26.3 port into Phase 5.
+Before moving to Phase 6, run the complete Java 25 / Gradle 9.7.1 gate and the minimal live matrix in `PHASE_5_VERIFICATION.md`. Only after those pass should BRIDGE-003 and BRIDGE-004 be moved from active to retired.
 
 ---
 
@@ -2316,4 +2314,4 @@ Guardian now has stable independent Admission and Protection domains. Protocol v
 
 Phase 4 closes the Bedrock-origin gap. Both possible Admission authorities use supported Geyser/Floodgate evidence before Java brand/Cerberus handling; provider absence, disagreement, and provider failure have explicit semantics; standalone Paper Bedrock allow/deny is live-proven; and backend Floodgate remains diagnostic-only under Velocity authority. BRIDGE-005 is retired.
 
-For BadWolfMC's production topology, the remaining work before adversarial/release hardening is now primarily **operational productionization**, not core Admission-policy invention. Phase 5 should turn the already-proven Guardian-Velocity host into a clean production authority and implement the shared administrator/inspection/logging architecture across both platform hosts while preserving standalone Paper and Guardian Protection.
+For BadWolfMC's production topology, the Phase 5 implementation candidate now supplies the remaining operational productionization: a strict Velocity host configuration, production assertion-key lifecycle, distinct Paper/proxy command authorities, bounded active inspection, host-local reload/validation, and production logging. The remaining prerequisite before Phase 6 is verification of that candidate under Java 25 / Gradle 9.7.1 plus the focused live matrix; core Admission-policy invention remains complete.

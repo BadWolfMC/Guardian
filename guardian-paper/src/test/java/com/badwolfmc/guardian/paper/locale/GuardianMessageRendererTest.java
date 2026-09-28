@@ -4,6 +4,7 @@ import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionReason;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
+import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.paper.config.GuardianPaperSettings;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
 import com.badwolfmc.guardian.protection.ProtectionDecision;
@@ -25,8 +26,8 @@ class GuardianMessageRendererTest {
     void untrustedPlaceholderValuesCannotInjectMiniMessageEvents() {
         String attemptedInjection = "<click:run_command:'/op me'>click me</click>";
         GuardianPaperSettings settings = new GuardianPaperSettings(
-            1, false, false, "en_us", attemptedInjection,
-            PaperAuthorityMode.STANDALONE, 10, 40, ProtectionPolicy.disabled());
+            1, false, false, "", "en_us", attemptedInjection,
+            PaperAuthorityMode.STANDALONE, 10, 40, OperationalLogLevel.NORMAL, null, ProtectionPolicy.disabled());
         GuardianLocaleCatalog catalog = new GuardianLocaleCatalog(
             "en_us",
             Map.of("admission.cerberus-required", "<red>Need Cerberus</red> <help_url>"),
@@ -57,8 +58,8 @@ class GuardianMessageRendererTest {
     void protectionPlaceholdersCannotInjectMiniMessageEvents() {
         String attemptedInjection = "<click:run_command:'/op me'>click me</click>";
         GuardianPaperSettings settings = new GuardianPaperSettings(
-            1, false, true, "en_us", "https://example.invalid/",
-            PaperAuthorityMode.STANDALONE, 10, 40, ProtectionPolicy.disabled());
+            1, false, true, "", "en_us", "https://example.invalid/",
+            PaperAuthorityMode.STANDALONE, 10, 40, OperationalLogLevel.NORMAL, null, ProtectionPolicy.disabled());
         GuardianLocaleCatalog catalog = new GuardianLocaleCatalog(
             "en_us",
             Map.of(

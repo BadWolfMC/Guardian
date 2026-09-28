@@ -79,6 +79,17 @@ class ArtifactCatalogWorkflowTest {
     }
 
     @Test
+    void generatedRuleIdIsDeterministicAndNeverExceedsPolicyLimit() {
+        String maxModId = "a" + "b".repeat(63);
+        String first = ArtifactPolicyFragmentStore.ruleId(maxModId);
+        String second = ArtifactPolicyFragmentStore.ruleId(maxModId);
+        assertEquals(first, second);
+        assertTrue(first.startsWith("allow-"));
+        assertEquals(64, first.length());
+        assertTrue(first.matches("[a-z0-9._-]{1,64}"));
+    }
+
+    @Test
     void rescanningIsIdempotentAndDeletedInputsDoNotDeleteCatalogHistory() throws Exception {
         ArtifactImportService service = new ArtifactImportService(temp);
         service.ensureInputDirectory();

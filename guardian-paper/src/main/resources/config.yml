@@ -4,6 +4,14 @@
 # rewrites an invalid candidate; the prior known-good runtime snapshot remains active.
 schema-version: 1
 
+# Optional logical backend name shown by /guardian status and inspect output.
+# Leave blank to fall back to Paper's configured server name.
+server-name: ""
+
+logging:
+  # NORMAL emits concise authoritative summaries; DEBUG adds lifecycle diagnostics.
+  level: NORMAL
+
 features:
   # Admission and Protection are independent domains. Phase 1B implements
   # Paper-authoritative Protection without making either domain depend on the other.
@@ -24,7 +32,7 @@ messages:
 admission:
   # standalone: Guardian-Paper is authoritative.
   # velocity: Guardian-Velocity is authoritative and Paper verifies only the
-  # trusted proxy admission assertion. Phase 5 will finalize proxy provisioning UX.
+  # trusted proxy admission assertion.
   authority: standalone
 
   standalone:
@@ -35,6 +43,15 @@ admission:
 
   # Shared admission policy lives in admission/policy.yml. This file intentionally
   # contains only Paper-local operational settings.
+
+# Used only when admission.authority is velocity. Both Guardian-Velocity and every
+# Guardian-Paper backend must resolve the same Base64-encoded 32-byte secret.
+# ENVIRONMENT is recommended for production. FILE reads a relative file beneath
+# plugins/Guardian/ (for example proxy-assertion.secret).
+proxy-assertion:
+  secret-source: ENVIRONMENT
+  environment-variable: GUARDIAN_PROXY_ASSERTION_SECRET
+  file: proxy-assertion.secret
 
 # Guardian Protection is Paper-authoritative and applies only to commands initiated
 # through Paper's player command path. Console, command-block, and ordinary plugin

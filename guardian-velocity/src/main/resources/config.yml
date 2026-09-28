@@ -1,0 +1,24 @@
+# Guardian-Velocity owns network Admission on a proxy deployment.
+schema-version: 1
+
+deployment:
+  # Explicit so a copied/misplaced config fails loudly rather than changing authority accidentally.
+  authority: velocity
+
+locale:
+  default: en_us
+
+logging:
+  # NORMAL emits one concise authoritative result per Admission. DEBUG adds lifecycle diagnostics.
+  level: NORMAL
+
+admission:
+  # Time allowed for profile resolution + Cerberus CONFIGURATION attestation where required.
+  handshake-timeout-seconds: 10
+
+proxy-assertion:
+  # Both Guardian-Velocity and Guardian-Paper backends must resolve the same Base64 32-byte secret.
+  # ENVIRONMENT is recommended. FILE reads a relative file beneath the Guardian-Velocity data directory.
+  secret-source: ENVIRONMENT
+  environment-variable: GUARDIAN_PROXY_ASSERTION_SECRET
+  file: proxy-assertion.secret

@@ -2,6 +2,9 @@ package com.badwolfmc.guardian.core.artifact;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -78,7 +81,7 @@ public final class ArtifactPolicyFragmentStore {
 
         for (Map.Entry<String, Map<String, List<ApprovedArtifact>>> modEntry : byMod.entrySet()) {
             String modId = modEntry.getKey();
-            out.append("        allow-").append(modId).append(":\n");
+            out.append("        ").append(ruleId(modId)).append(":\n");
             out.append("          mod: ").append(modId).append("\n");
             out.append("          action: ALLOW\n");
             out.append("          accept:\n");
@@ -92,6 +95,19 @@ public final class ArtifactPolicyFragmentStore {
             }
         }
         return out.toString();
+    }
+
+    static String ruleId(String modId) {
+        String direct = "allow-" + modId;
+        if (direct.length() <= 64) return direct;
+        try {
+            String suffix = HexFormat.of().formatHex(
+                MessageDigest.getInstance("SHA-256").digest(modId.getBytes(StandardCharsets.UTF_8)), 0, 6);
+            int prefixLength = 64 - "allow-".length() - 1 - suffix.length();
+            return "allow-" + modId.substring(0, prefixLength) + "-" + suffix;
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is unavailable", ex);
+        }
     }
 
     private static String escape(String value) {

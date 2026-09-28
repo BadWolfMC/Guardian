@@ -9,10 +9,12 @@ import com.badwolfmc.guardian.core.DecisionOutcome;
 import com.badwolfmc.guardian.core.DecisionReason;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.core.ProtocolV1ResponseValidator;
+import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
+import com.badwolfmc.guardian.core.artifact.ArtifactImportService;
+import com.badwolfmc.guardian.core.operations.ActiveInspectionSnapshot;
+import com.badwolfmc.guardian.core.operations.ActiveInspectionStore;
 import com.badwolfmc.guardian.core.policy.AdmissionPermissionSnapshot;
 import com.badwolfmc.guardian.core.policy.AdmissionPolicyEvaluator;
-import com.badwolfmc.guardian.core.policy.AdmissionPolicyException;
-import com.badwolfmc.guardian.core.policy.AdmissionPolicyRuntimeManager;
 import com.badwolfmc.guardian.core.policy.AdmissionPolicySnapshot;
 import com.badwolfmc.guardian.core.policy.AdmissionProfileProvider;
 import com.badwolfmc.guardian.core.policy.AdmissionProfileResolver;
@@ -26,7 +28,9 @@ import com.badwolfmc.guardian.protocol.ProtocolException;
 import com.badwolfmc.guardian.protocol.ProxyAdmissionAssertion;
 import com.badwolfmc.guardian.protocol.ProxyAdmissionCodec;
 import com.badwolfmc.guardian.protocol.Response;
+import com.badwolfmc.guardian.velocity.config.VelocityConfigurationException;
 import com.google.inject.Inject;
+import com.velocitypowered.api.command.CommandMeta;
 import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
@@ -54,17 +58,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Phase 0B.3 Velocity feasibility spike.
- *
- * <p>This checkpoint adds supported Geyser/Floodgate Bedrock classification to the already-proven
- * proxy-side CONFIGURATION admission path and carries trusted connection origin to Paper for a
- * backend Floodgate sanity check.</p>
- */
+/** Production Velocity host for Guardian's network-authoritative Admission domain. */
 @Plugin(
     id = "guardian",
     name = "Guardian",
-    version = "0.1.0-phase4",
+    version = GuardianVelocityPlugin.VERSION,
     description = "Guardian Admission for Velocity",
     authors = {"BadWolfMC"},
     dependencies = {
@@ -74,7 +72,7 @@ import java.util.concurrent.TimeUnit;
     }
 )
 public final class GuardianVelocityPlugin {
-    private static final int HANDSHAKE_TIMEOUT_SECONDS = 10;
+    static final String VERSION = "0.1.0-phase5";
 
     private static final ChannelIdentifier PRESENCE =
         MinecraftChannelIdentifier.from(GuardianProtocol.PRESENCE_CHANNEL);
@@ -90,12 +88,13 @@ public final class GuardianVelocityPlugin {
     private final Path dataDirectory;
     private final SecureRandom random = new SecureRandom();
     private final ConcurrentHashMap<UUID, VelocityAdmissionSession> sessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, VelocityAdmissionGrant> admitted = new ConcurrentHashMap<>();
+    private final ActiveInspectionStore inspections = new ActiveInspectionStore();
     private final BedrockDetector bedrockDetector;
-    private final VelocityMessages messages;
     private final AdmissionPolicyEvaluator policyEvaluator = new AdmissionPolicyEvaluator();
-    private AdmissionPolicyRuntimeManager policyRuntime;
     private AdmissionProfileProvider profileProvider = AdmissionProfileProvider.none();
-    private byte[] proxySecret;
+    private VelocityRuntimeManager runtimeManager;
+    private ArtifactImportService artifactImportService;
 
     @Inject
     public GuardianVelocityPlugin(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
@@ -103,20 +102,31 @@ public final class GuardianVelocityPlugin {
         this.logger = logger;
         this.dataDirectory = dataDirectory;
         this.bedrockDetector = new BedrockDetector(server, logger);
-        this.messages = VelocityMessages.load();
     }
 
     @Subscribe
     public void onProxyInitialize(ProxyInitializeEvent event) {
-        ensureSharedPolicyFile();
-        policyRuntime = new AdmissionPolicyRuntimeManager(
-            dataDirectory.resolve("admission/policy.yml"), dataDirectory.resolve("artifacts.yml"));
+        ensureAdministratorFile("config.yml");
+        ensureAdministratorFile("admission/policy.yml");
+        ensureAdministratorFile("locales/" + VelocityMessages.FALLBACK_LOCALE + ".properties");
+
+        runtimeManager = new VelocityRuntimeManager(dataDirectory);
+        final VelocityRuntimeSnapshot runtime;
         try {
-            policyRuntime.loadInitial();
-        } catch (AdmissionPolicyException ex) {
-            throw new IllegalStateException("Guardian-Velocity admission policy activation failed at "
+            runtime = runtimeManager.loadInitial();
+        } catch (VelocityConfigurationException ex) {
+            throw new IllegalStateException("Guardian-Velocity runtime activation failed at "
                 + ex.path() + ": " + ex.getMessage(), ex);
         }
+
+        artifactImportService = new ArtifactImportService(dataDirectory);
+        try {
+            artifactImportService.ensureInputDirectory();
+        } catch (ArtifactCatalogException ex) {
+            throw new IllegalStateException("Guardian-Velocity artifact-import initialization failed: "
+                + ex.getMessage(), ex);
+        }
+
         if (server.getPluginManager().isLoaded("luckperms")) {
             try {
                 profileProvider = new VelocityLuckPermsProfileProvider();
@@ -130,45 +140,45 @@ public final class GuardianVelocityPlugin {
             logger.info("Guardian Admission profile provider: LuckPerms not present; default/identity profiles only.");
         }
 
-        // Register all security-sensitive Guardian channels so PluginMessageEvent is fired for
-        // them. The event handler below marks them handled before examining the source, which is
-        // the Velocity-documented pattern for preventing client/backend spoofing or leakage.
+        // Security-sensitive Guardian client/proxy channels are consumed at the proxy and never forwarded.
         server.getChannelRegistrar().register(PRESENCE, CHALLENGE, RESPONSE, PROXY_ADMISSION);
-        try {
-            proxySecret = ProxyAdmissionCodec.decodeBase64Secret(
-                System.getenv("GUARDIAN_PHASE0B_PROXY_SECRET"));
-            logger.info("Guardian Phase 0B.3 trusted proxy assertions enabled; timeout={}s.",
-                HANDSHAKE_TIMEOUT_SECONDS);
-        } catch (IllegalArgumentException ex) {
-            proxySecret = null;
-            logger.warn("Guardian Phase 0B.3 proxy assertions are unavailable because "
-                + "GUARDIAN_PHASE0B_PROXY_SECRET is not a valid Base64-encoded 32-byte shared secret: {}. "
-                + "Proxy-side admission remains available, but Guardian-Paper in VELOCITY authority mode "
-                + "will fail closed without an assertion.",
-                ex.getMessage());
-        }
+
+        GuardianVelocityCommand command = new GuardianVelocityCommand(
+            this, server, logger, runtimeManager, inspections, artifactImportService);
+        CommandMeta meta = server.getCommandManager().metaBuilder("guardianv").plugin(this).build();
+        server.getCommandManager().register(meta, command);
+
+        logger.info("Guardian-Velocity activated: authority=VELOCITY, profiles={}, logging={}, timeout={}s, "
+                + "proxyAssertionSource={}, proxyAssertionFingerprint={}.",
+            runtime.admissionPolicy().profiles().size(), runtime.settings().loggingLevel(),
+            runtime.settings().handshakeTimeoutSeconds(),
+            runtime.settings().proxyAssertionSecret().sourceDescription(),
+            runtime.settings().proxyAssertionSecret().fingerprint());
     }
 
     @Subscribe
     public EventTask onPlayerConfiguration(PlayerConfigurationEvent event) {
         Player player = event.player();
-        VelocityAdmissionSession session = sessions.computeIfAbsent(
-            player.getUniqueId(), ignored -> new VelocityAdmissionSession(newProxySessionId()));
-
-        if (session.admitted()) {
-            logger.info("Guardian Phase 0B.3 reconfiguration for {}: reusing Phase 3 admission for this proxy connection.",
+        VelocityAdmissionGrant existingGrant = admitted.get(player.getUniqueId());
+        if (existingGrant != null) {
+            debugCurrent("Guardian reconfiguration for {}: reusing authoritative Admission for this proxy connection.",
                 player.getUsername());
-            sendProxyAdmission(player, event.server(), session);
+            updateInspectionBackend(player, event.server());
+            sendProxyAdmission(player, event.server(), existingGrant);
             return null;
         }
 
+        VelocityAdmissionSession session = sessions.computeIfAbsent(
+            player.getUniqueId(), ignored -> new VelocityAdmissionSession(newProxySessionId(), runtimeManager.current()));
+
         GuardianDecision existing = session.decision();
         if (existing != null) {
-            applyDecision(player, existing);
+            completeDecision(player, event.server(), session, existing);
             return null;
         }
 
         BedrockEvidence bedrock = bedrockDetector.detect(player.getUniqueId());
+        session.setBedrockEvidence(bedrock);
         if (bedrock.disagrees()) {
             logger.warn("Guardian Geyser/Floodgate disagreement for {}: geyser={}, floodgate={}; "
                     + "positive supported API evidence classifies this connection as BEDROCK.",
@@ -182,24 +192,27 @@ public final class GuardianVelocityPlugin {
             logger.warn("Guardian could not determine connection origin for {} because an available Bedrock "
                     + "integration failed: geyser={}, floodgate={}",
                 player.getUsername(), bedrock.geyser(), bedrock.floodgate());
-            applyDecision(player, failure);
+            completeDecision(player, event.server(), session, failure);
             return null;
         }
 
+        String brand = player.getClientBrand();
+        session.setObservedBrand(brand);
         ClientClassification classification = ClientOriginClassifier.classify(
             bedrock.geyser() == BedrockSignal.BEDROCK,
             bedrock.floodgate() == BedrockSignal.BEDROCK,
-            player.getClientBrand());
+            brand);
         session.setClassification(classification);
-        logger.info("Guardian configuration for {}: brand={}, geyser={}, floodgate={}, classification={}, backend={}",
-            player.getUsername(), String.valueOf(player.getClientBrand()), bedrock.geyser(), bedrock.floodgate(),
-            classification, event.server() == null ? "<none>" : event.server().getServerInfo().getName());
+        debug(session, "Guardian configuration for {}: brand={}, geyser={}, floodgate={}, classification={}, backend={}",
+            player.getUsername(), String.valueOf(brand), bedrock.geyser(), bedrock.floodgate(), classification,
+            backendName(event.server()));
 
-        AdmissionPolicySnapshot policySnapshot = policyRuntime.current();
+        AdmissionPolicySnapshot policySnapshot = session.runtimeSnapshot().admissionPolicy();
+        int timeoutSeconds = session.runtimeSnapshot().settings().handshakeTimeoutSeconds();
         CompletableFuture<AdmissionPermissionSnapshot> permissions = profileProvider
             .resolve(player.getUniqueId(), policySnapshot)
             .toCompletableFuture()
-            .orTimeout(HANDSHAKE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .orTimeout(timeoutSeconds, TimeUnit.SECONDS)
             .exceptionally(throwable -> {
                 logger.warn("Guardian Admission profile provider failed for {}; falling back to default/identity "
                     + "profile without bypasses: {}", player.getUsername(), rootMessage(throwable));
@@ -207,12 +220,10 @@ public final class GuardianVelocityPlugin {
             });
 
         CompletableFuture<GuardianDecision> admission = permissions.thenCompose(permissionSnapshot -> {
-            var resolved = AdmissionProfileResolver.resolve(
-                policySnapshot, player.getUniqueId(), permissionSnapshot);
+            var resolved = AdmissionProfileResolver.resolve(policySnapshot, player.getUniqueId(), permissionSnapshot);
             session.setResolvedProfile(resolved);
-            ClientPolicyResult clientResult = policyEvaluator.evaluateClient(
-                resolved, classification, player.getClientBrand());
-            logger.info("Guardian Phase 3 shared policy for {}: profile={}, source={}, action={}",
+            ClientPolicyResult clientResult = policyEvaluator.evaluateClient(resolved, classification, brand);
+            debug(session, "Guardian shared policy for {}: profile={}, source={}, action={}",
                 player.getUsername(), resolved.profile().id(), resolved.source(), clientResult.action());
 
             if (clientResult.terminalDecision() != null) {
@@ -220,8 +231,6 @@ public final class GuardianVelocityPlugin {
                 return session.decisionFuture();
             }
 
-            // REQUIRE_CERBERUS. Mark the session before inspecting any early Cerberus traffic so
-            // presence/response handlers cannot race profile resolution into denying an ALLOW client.
             session.requireCerberus();
             GuardianDecision presenceFailure = session.configurationAttestationFailure();
             if (presenceFailure != null) {
@@ -233,21 +242,17 @@ public final class GuardianVelocityPlugin {
             return session.decisionFuture();
         });
 
-        CompletableFuture<Void> hold = admission.thenAccept(decision -> {
-            if (decision.outcome() == DecisionOutcome.ALLOW) {
-                sendProxyAdmission(player, event.server(), session);
-            }
-            applyDecision(player, decision);
-        });
+        CompletableFuture<Void> hold = admission.thenAccept(decision ->
+            completeDecision(player, event.server(), session, decision));
 
-        // PlayerConfigurationEvent is explicitly awaited by Velocity. Returning a continuation task
-        // holds progression in CONFIGURATION while the same Phase 3 policy used by Paper resolves.
+        // Velocity explicitly awaits this continuation while the connection remains in CONFIGURATION.
         return EventTask.resumeWhenComplete(hold.exceptionally(throwable -> {
-            logger.error("Guardian Phase 3 admission future failed for {}", player.getUsername(), throwable);
+            logger.error("Guardian Admission future failed for {}", player.getUsername(), throwable);
             GuardianDecision failure = GuardianDecision.deny(
                 DecisionReason.CONFIGURATION_ERROR, "shared admission policy evaluation failed");
             session.decide(failure);
-            player.disconnect(messages.render(DecisionReason.CONFIGURATION_ERROR, session.classification()));
+            GuardianDecision terminal = session.decision() == null ? failure : session.decision();
+            completeDecision(player, event.server(), session, terminal);
             return null;
         }));
     }
@@ -255,40 +260,47 @@ public final class GuardianVelocityPlugin {
     @Subscribe
     public void onPluginMessage(PluginMessageEvent event) {
         ChannelIdentifier identifier = event.getIdentifier();
-        if (!isGuardianChannel(identifier)) {
-            return;
-        }
+        if (!isGuardianChannel(identifier)) return;
 
-        // Security invariant: never allow Guardian's client/proxy channels to pass through the
-        // proxy in either direction, even if the packet is malformed or from the wrong source.
+        // Mark handled before examining source/data: clients and backends cannot spoof/forward these channels.
         event.setResult(PluginMessageEvent.ForwardResult.handled());
 
         if (!(event.getSource() instanceof Player player)) {
-            logger.debug("Consumed backend-origin Guardian channel {} during Phase 0B.3.", identifier.getId());
+            logger.warn("Consumed unexpected backend-origin Guardian channel {}. Security-sensitive Guardian "
+                + "channels must terminate at Velocity.", identifier.getId());
+            return;
+        }
+
+        if (identifier.equals(PROXY_ADMISSION)) {
+            logger.warn("Consumed client-origin proxy-admission assertion attempt from {}.", player.getUsername());
+            return;
+        }
+        if (identifier.equals(CHALLENGE)) {
+            logger.warn("Consumed unexpected client-origin Guardian challenge from {}.", player.getUsername());
+            return;
+        }
+        if (admitted.containsKey(player.getUniqueId())) {
+            debugCurrent("Guardian consumed post-admission client channel {} from {}; no re-attestation is required.",
+                identifier.getId(), player.getUsername());
             return;
         }
 
         VelocityAdmissionSession session = sessions.computeIfAbsent(
-            player.getUniqueId(), ignored -> new VelocityAdmissionSession(newProxySessionId()));
+            player.getUniqueId(), ignored -> new VelocityAdmissionSession(newProxySessionId(), runtimeManager.current()));
 
         if (identifier.equals(PRESENCE)) {
             handlePresence(player, session, event.getData());
         } else if (identifier.equals(RESPONSE)) {
             handleResponse(player, session, event.getData());
-        } else if (identifier.equals(PROXY_ADMISSION)) {
-            // This channel is infrastructure-only. A normal client may know its name and format,
-            // but Velocity consumes the packet and never forwards it to Guardian-Paper.
-            logger.warn("Consumed client-origin proxy-admission assertion attempt from {}.",
-                player.getUsername());
-        } else {
-            // guardian:challenge is proxy -> client only. A client-origin challenge is consumed.
-            logger.warn("Consumed unexpected client-origin Guardian challenge from {}.", player.getUsername());
         }
     }
 
     @Subscribe
     public void onDisconnect(DisconnectEvent event) {
-        sessions.remove(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        sessions.remove(playerId);
+        admitted.remove(playerId);
+        inspections.remove(playerId);
     }
 
     private void handlePresence(Player player, VelocityAdmissionSession session, byte[] data) {
@@ -314,51 +326,45 @@ public final class GuardianVelocityPlugin {
             return;
         }
 
-        logger.info("Guardian Phase 0B.3 Cerberus presence from {}: protocol={}",
-            player.getUsername(), presence.minProtocolVersion() + ".." + presence.maxProtocolVersion());
+        debug(session, "Guardian Cerberus presence from {}: protocol={}, capabilities=0x{}",
+            player.getUsername(), presence.minProtocolVersion() + ".." + presence.maxProtocolVersion(),
+            Long.toHexString(presence.capabilities()));
 
-        if (!presence.supports(GuardianProtocol.VERSION) || (presence.capabilities() & GuardianProtocol.REQUIRED_CAPABILITIES) != GuardianProtocol.REQUIRED_CAPABILITIES) {
+        if (!presence.supports(GuardianProtocol.VERSION)
+            || (presence.capabilities() & GuardianProtocol.REQUIRED_CAPABILITIES) != GuardianProtocol.REQUIRED_CAPABILITIES) {
             recordConfigurationAttestationFailure(session, GuardianDecision.deny(
                 DecisionReason.CERBERUS_PROTOCOL_UNSUPPORTED,
                 "Cerberus announced protocol range " + presence.minProtocolVersion() + ".." + presence.maxProtocolVersion()
                     + " with capabilities 0x" + Long.toHexString(presence.capabilities())
-                    + "; Guardian requires protocol " + GuardianProtocol.VERSION + " capabilities 0x" + Long.toHexString(GuardianProtocol.REQUIRED_CAPABILITIES)));
+                    + "; Guardian requires protocol " + GuardianProtocol.VERSION + " capabilities 0x"
+                    + Long.toHexString(GuardianProtocol.REQUIRED_CAPABILITIES)));
         }
     }
 
-    /**
-     * Cerberus traffic can arrive before profile resolution. Record failures first and only make
-     * them connection-fatal once shared client policy has actually selected REQUIRE_CERBERUS.
-     */
     private void recordConfigurationAttestationFailure(
         VelocityAdmissionSession session, GuardianDecision failure
     ) {
         session.recordConfigurationAttestationFailure(failure);
-        if (session.cerberusRequired() && session.decision() == null) {
-            session.decide(failure);
-        }
+        if (session.cerberusRequired() && session.decision() == null) session.decide(failure);
     }
 
     private void startChallenge(Player player, VelocityAdmissionSession session) {
         if (session.decision() != null
             || session.classification() != ClientClassification.JAVA_FABRIC
-            || !session.tryMarkChallengeSent()) {
-            return;
-        }
+            || !session.tryMarkChallengeSent()) return;
 
         byte[] nonce = new byte[GuardianProtocol.NONCE_BYTES];
         random.nextBytes(nonce);
         session.setNonce(nonce);
 
-        boolean sent;
+        final boolean sent;
         try {
             sent = player.sendPluginMessage(
                 CHALLENGE,
-                ProtocolCodec.encodeChallenge(new Challenge(GuardianProtocol.VERSION, GuardianProtocol.REQUIRED_CAPABILITIES, nonce))
-            );
+                ProtocolCodec.encodeChallenge(new Challenge(
+                    GuardianProtocol.VERSION, GuardianProtocol.REQUIRED_CAPABILITIES, nonce)));
         } catch (RuntimeException ex) {
-            logger.warn("Could not send Guardian Phase 0B.3 CONFIGURATION challenge to {}.",
-                player.getUsername(), ex);
+            logger.warn("Could not send Guardian CONFIGURATION challenge to {}.", player.getUsername(), ex);
             session.decide(GuardianDecision.deny(
                 DecisionReason.CONFIGURATION_ERROR, "Velocity CONFIGURATION challenge send failed"));
             return;
@@ -366,12 +372,10 @@ public final class GuardianVelocityPlugin {
 
         if (!sent) {
             session.decide(GuardianDecision.deny(
-                DecisionReason.CONFIGURATION_ERROR,
-                "Velocity declined Guardian CONFIGURATION challenge send"));
+                DecisionReason.CONFIGURATION_ERROR, "Velocity declined Guardian CONFIGURATION challenge send"));
             return;
         }
-
-        logger.info("Guardian Phase 0B.3 CONFIGURATION challenge sent to {}.", player.getUsername());
+        debug(session, "Guardian CONFIGURATION challenge sent to {}.", player.getUsername());
     }
 
     private void handleResponse(Player player, VelocityAdmissionSession session, byte[] data) {
@@ -408,6 +412,7 @@ public final class GuardianVelocityPlugin {
                 "invalid Cerberus CONFIGURATION response: " + ex.getMessage()));
             return;
         }
+        session.setManifest(response.manifest());
 
         GuardianDecision integrityDecision = ProtocolV1ResponseValidator.validate(session.nonce(), response);
         GuardianDecision decision = integrityDecision;
@@ -420,15 +425,14 @@ public final class GuardianVelocityPlugin {
             }
         }
         session.decide(decision);
-        logger.info("Guardian Phase 0B.3 CONFIGURATION response from {}: {} / {} ({})",
+        debug(session, "Guardian CONFIGURATION response from {}: {} / {} ({})",
             player.getUsername(), decision.outcome(), decision.reason(), decision.detail());
     }
 
     private void armTimeout(Player player, VelocityAdmissionSession session) {
-        CompletableFuture.delayedExecutor(HANDSHAKE_TIMEOUT_SECONDS, TimeUnit.SECONDS).execute(() -> {
-            if (session.decision() != null) {
-                return;
-            }
+        int timeoutSeconds = session.runtimeSnapshot().settings().handshakeTimeoutSeconds();
+        CompletableFuture.delayedExecutor(timeoutSeconds, TimeUnit.SECONDS).execute(() -> {
+            if (session.decision() != null) return;
 
             GuardianDecision timeoutDecision;
             if (!session.cerberusPresent()) {
@@ -444,101 +448,141 @@ public final class GuardianVelocityPlugin {
                     DecisionReason.CONFIGURATION_ERROR,
                     "Cerberus presence was received but Guardian could not begin the challenge");
             }
-
             if (session.decide(timeoutDecision)) {
-                logger.info("Guardian Phase 0B.3 timeout for {}: {}", player.getUsername(), timeoutDecision.reason());
+                debug(session, "Guardian handshake timeout for {}: {}", player.getUsername(), timeoutDecision.reason());
             }
         });
     }
 
-    private void applyDecision(Player player, GuardianDecision decision) {
-        logger.info("Guardian Phase 0B.3 decision for {}: {} / {} ({})",
-            player.getUsername(), decision.outcome(), decision.reason(), decision.detail());
+    private void completeDecision(
+        Player player, ServerConnection backend, VelocityAdmissionSession session, GuardianDecision decision
+    ) {
+        if (sessions.get(player.getUniqueId()) != session) {
+            debug(session, "Guardian ignored stale Admission completion for {} after session end/replacement.",
+                player.getUsername());
+            return;
+        }
+        if (decision.outcome() == DecisionOutcome.ALLOW) {
+            captureInspection(player, backend, session, decision);
+            ConnectionOrigin origin = session.classification() == ClientClassification.BEDROCK
+                ? ConnectionOrigin.BEDROCK : ConnectionOrigin.JAVA;
+            VelocityAdmissionGrant grant = new VelocityAdmissionGrant(session.proxySessionId(), origin);
+            admitted.put(player.getUniqueId(), grant);
+            sendProxyAdmission(player, backend, grant);
+        }
+        applyDecision(player, session, decision);
+        sessions.remove(player.getUniqueId(), session);
+    }
+
+    private void applyDecision(Player player, VelocityAdmissionSession session, GuardianDecision decision) {
+        logSummary(player, session, decision);
         if (decision.outcome() == DecisionOutcome.DENY) {
-            VelocityAdmissionSession session = sessions.get(player.getUniqueId());
-            ClientClassification classification = session == null ? null : session.classification();
-            player.disconnect(messages.render(decision, classification));
+            player.disconnect(session.runtimeSnapshot().messages().render(decision, session.classification()));
         }
     }
 
-    private boolean sendProxyAdmission(
-        Player player, ServerConnection backend, VelocityAdmissionSession session
-    ) {
+    private boolean sendProxyAdmission(Player player, ServerConnection backend, VelocityAdmissionGrant grant) {
         if (backend == null) {
-            logger.warn("Guardian Phase 0B.3 could not assert admission for {} because no backend "
-                + "configuration connection is available. Proxy-side admission remains authoritative.",
-                player.getUsername());
-            return false;
-        }
-        if (proxySecret == null) {
-            logger.warn("Guardian Phase 0B.3 did not assert admission for {} -> {} because the shared "
-                + "proxy secret is unavailable. A Guardian-Paper backend in VELOCITY authority mode "
-                + "will fail closed.",
-                player.getUsername(), backend.getServerInfo().getName());
+            logger.warn("Guardian could not assert admission for {} because no backend configuration connection "
+                + "is available. Proxy-side admission remains authoritative.", player.getUsername());
             return false;
         }
 
+        // Operational key rotation affects existing admitted proxy sessions on their next backend assertion;
+        // the original Admission decision/policy snapshot remains unchanged for the connection lifetime.
+        byte[] proxySecret = runtimeManager.current().settings().proxyAssertionSecret().copyBytes();
         long issuedAt = System.currentTimeMillis();
-        ConnectionOrigin connectionOrigin = session.classification() == ClientClassification.BEDROCK
-            ? ConnectionOrigin.BEDROCK
-            : ConnectionOrigin.JAVA;
+        ConnectionOrigin connectionOrigin = grant.connectionOrigin();
         ProxyAdmissionAssertion assertion = new ProxyAdmissionAssertion(
             GuardianProtocol.PROXY_ASSERTION_VERSION,
             player.getUniqueId(),
-            session.proxySessionId(),
+            grant.proxySessionId(),
             connectionOrigin,
             issuedAt,
-            issuedAt + GuardianProtocol.PROXY_ASSERTION_TTL_MILLIS
-        );
+            issuedAt + GuardianProtocol.PROXY_ASSERTION_TTL_MILLIS);
 
         final boolean sent;
         try {
-            sent = backend.sendPluginMessage(
-                PROXY_ADMISSION,
-                ProxyAdmissionCodec.encode(assertion, proxySecret)
-            );
+            sent = backend.sendPluginMessage(PROXY_ADMISSION, ProxyAdmissionCodec.encode(assertion, proxySecret));
         } catch (RuntimeException ex) {
-            logger.warn("Guardian Phase 0B.3 proxy assertion send failed for {} -> {}.",
+            logger.warn("Guardian proxy assertion send failed for {} -> {}.",
                 player.getUsername(), backend.getServerInfo().getName(), ex);
             return false;
         }
-
         if (!sent) {
-            logger.error("Guardian Phase 0B.3 backend {} declined proxy assertion for {}.",
+            logger.error("Guardian backend {} declined proxy assertion for {}.",
                 backend.getServerInfo().getName(), player.getUsername());
             return false;
         }
 
-        logger.info("Guardian Phase 0B.3 trusted admission asserted for {} -> {}: session={}, origin={}",
+        debugCurrent("Guardian trusted admission asserted for {} -> {}: session={}, origin={}",
             player.getUsername(), backend.getServerInfo().getName(),
-            HexFormat.of().formatHex(session.proxySessionId()), connectionOrigin);
+            HexFormat.of().formatHex(grant.proxySessionId()), connectionOrigin);
         return true;
     }
 
-    /** Minimal Phase 3 reload seam; Phase 5 owns final Velocity admin UX. */
-    void reloadAdmissionPolicy() throws AdmissionPolicyException {
-        policyRuntime.reload();
+    private void captureInspection(
+        Player player, ServerConnection backend, VelocityAdmissionSession session, GuardianDecision decision
+    ) {
+        if (session.classification() == null || session.resolvedProfile() == null || session.bedrockEvidence() == null) {
+            logger.warn("Guardian could not retain an inspection snapshot for {} because admission metadata was incomplete.",
+                player.getUsername());
+            return;
+        }
+        ActiveInspectionSnapshot snapshot = new ActiveInspectionSnapshot(
+            player.getUniqueId(), player.getUsername(), backendName(backend), session.classification(),
+            session.observedBrand(), session.resolvedProfile().profile().id(), session.resolvedProfile().source(),
+            session.cerberusPresence(), decision, session.manifest(), session.bedrockEvidence());
+        if (!inspections.put(snapshot)) {
+            logger.warn("Guardian active inspection store is full; snapshot omitted for {}.", player.getUsername());
+        }
     }
 
-    /** Minimal files-only validation seam; does not activate the candidate. */
-    void validateAdmissionPolicyFiles() throws AdmissionPolicyException {
-        policyRuntime.validateFiles();
+    private void updateInspectionBackend(Player player, ServerConnection backend) {
+        inspections.get(player.getUniqueId()).ifPresent(snapshot ->
+            inspections.put(snapshot.withBackend(backendName(backend))));
     }
 
-    private void ensureSharedPolicyFile() {
-        Path destination = dataDirectory.resolve("admission/policy.yml");
+    private void logSummary(Player player, VelocityAdmissionSession session, GuardianDecision decision) {
+        if (!session.tryMarkSummaryLogged()) return;
+        String profile = session.resolvedProfile() == null ? "<unknown>" : session.resolvedProfile().profile().id();
+        int mods = session.manifest() == null ? 0 : session.manifest().entries().size();
+        StringBuilder summary = new StringBuilder("Guardian ")
+            .append(player.getUsername()).append(' ').append(decision.outcome()).append(": ")
+            .append(session.classification() == null ? "UNKNOWN" : session.classification())
+            .append(", brand=").append(session.observedBrand() == null ? "<unknown>" : session.observedBrand())
+            .append(", profile=").append(profile)
+            .append(", ").append(decision.reason());
+        if (mods > 0) summary.append(", mods=").append(mods);
+        logger.info(summary.toString());
+    }
+
+    private void debug(VelocityAdmissionSession session, String format, Object... args) {
+        if (session.runtimeSnapshot().settings().loggingLevel().debugEnabled()) logger.info(format, args);
+    }
+
+    private void debugCurrent(String format, Object... args) {
+        if (runtimeManager.current().settings().loggingLevel().debugEnabled()) logger.info(format, args);
+    }
+
+    private void ensureAdministratorFile(String resourcePath) {
+        Path destination = dataDirectory.resolve(resourcePath);
         if (Files.exists(destination)) return;
         try {
-            Files.createDirectories(destination.getParent());
-            try (InputStream in = GuardianVelocityPlugin.class.getClassLoader()
-                .getResourceAsStream("admission/policy.yml")) {
-                if (in == null) throw new IOException("packaged admission/policy.yml is missing");
-                Files.copy(in, destination);
+            Path parent = destination.getParent();
+            if (parent != null) Files.createDirectories(parent);
+            try (InputStream input = GuardianVelocityPlugin.class.getClassLoader().getResourceAsStream(resourcePath)) {
+                if (input == null) throw new IOException("packaged resource is missing: " + resourcePath);
+                Files.copy(input, destination);
             }
         } catch (IOException ex) {
-            throw new IllegalStateException("could not install Guardian shared admission policy at "
+            throw new IllegalStateException("could not install Guardian-Velocity administrator file "
                 + destination, ex);
         }
+    }
+
+    private static String backendName(ServerConnection backend) {
+        return backend == null ? "<none>" : backend.getServerInfo().getName();
     }
 
     private static String rootMessage(Throwable throwable) {
@@ -559,5 +603,4 @@ public final class GuardianVelocityPlugin {
             || identifier.equals(RESPONSE)
             || identifier.equals(PROXY_ADMISSION);
     }
-
 }

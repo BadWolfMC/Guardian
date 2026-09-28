@@ -1,8 +1,8 @@
-# Guardian Admission — Phase 3 operator and configuration guide
+# Guardian Admission — operator and configuration guide
 
 Guardian Admission decides whether a connection may enter the server/network. In standalone mode Guardian-Paper is authoritative; on a Guardian-Velocity deployment the proxy is authoritative and Guardian-Paper verifies only the authenticated proxy admission assertion. Both authorities use the same Phase 3 policy schema and evaluator.
 
-This guide describes the `0.1.0-phase3` implementation and closeout-hardening candidate. The operator-reported Java 25 / Gradle 9.7.1 gate is green; final closeout requires rerunning it after the scanner/message hardening patch and completing the one remaining genuinely absent required-mod Velocity case in `PHASE_3_VERIFICATION.md`.
+The shared Admission policy semantics were finalized in Phase 3. Phase 5 adds production authority-specific operations without changing that policy language.
 
 ## Configuration ownership
 
@@ -18,13 +18,13 @@ Guardian data directory/
 └── artifact-import-rules.yml  generated copy/paste exact-hash policy fragment
 ```
 
-Guardian-Velocity uses the same `admission/policy.yml` schema. Phase 5 still owns final Velocity operational configuration/data-location UX; it does not get a separate policy language.
+Guardian-Velocity uses the same `admission/policy.yml` schema. Its Phase 5 data directory also owns proxy-local `config.yml` and locales; it does not get a separate policy language.
 
 `artifacts.yml` records identities discovered/imported by the Phase 2.5 artifact workflow. Merely appearing in the catalog never grants permission to connect. `artifact-import-rules.yml` is convenience output only: Guardian does not load it and does not modify `admission/policy.yml` during a scan. It contains direct `HASH_REQUIRED`/`sha256` ALLOW blocks for the JARs present during the most recent successful scan, indented so an administrator can review and paste them beneath the desired profile's `mods.rules`.
 
 ### Artifact import workflow in plain English
 
-Putting a JAR in `artifact-import/` does **not** approve that mod for players. `/guardian artifacts scan` does two administrative jobs only:
+Putting a JAR in `artifact-import/` does **not** approve that mod for players. On standalone Paper use `/guardian artifacts scan`; when Velocity is authoritative use `/guardianv artifacts scan` at the proxy. The authoritative scan does two administrative jobs only:
 
 1. it identifies and hashes the JAR and records that exact identity in `artifacts.yml`; and
 2. it writes a ready-to-paste exact-hash `ALLOW` rule into `artifact-import-rules.yml`.

@@ -1,6 +1,10 @@
 package com.badwolfmc.guardian.paper.config;
 
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
+import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
+import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
+import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretResolver;
+import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretSource;
 
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.protection.ProtectionPolicy;
@@ -15,8 +19,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public final class GuardianConfigLoader {
+    private final Map<String, String> environment;
+
+    public GuardianConfigLoader() {
+        this(System.getenv());
+    }
+
+    GuardianConfigLoader(Map<String, String> environment) {
+        this.environment = Map.copyOf(environment);
+    }
+
     public static final int SCHEMA_VERSION = 1;
     private static final int MAX_HANDSHAKE_SECONDS = (int) (GuardianProtocol.MAX_HANDSHAKE_MILLIS / 1000L);
     private static final int MAX_LOCALE_ID_LENGTH = 32;
@@ -44,6 +59,13 @@ public final class GuardianConfigLoader {
 
         boolean admissionEnabled = requireBoolean(yaml, path, "features.admission.enabled");
         boolean protectionEnabled = requireBoolean(yaml, path, "features.protection.enabled");
+        String serverName = optionalStringAllowBlank(yaml, path, "server-name", "");
+        final OperationalLogLevel loggingLevel;
+        try {
+            loggingLevel = OperationalLogLevel.parse(optionalString(yaml, path, "logging.level", "NORMAL"));
+        } catch (IllegalArgumentException ex) {
+            throw error(path, ex.getMessage());
+        }
         String locale = requireString(yaml, path, "locale.default").toLowerCase(Locale.ROOT);
         if (!locale.matches("[a-z0-9_-]{2," + MAX_LOCALE_ID_LENGTH + "}")) {
             throw error(path, "locale.default must match [a-z0-9_-]{2," + MAX_LOCALE_ID_LENGTH + "}");
@@ -55,6 +77,23 @@ public final class GuardianConfigLoader {
             authority = PaperAuthorityMode.parse(requireString(yaml, path, "admission.authority"));
         } catch (IllegalArgumentException ex) {
             throw error(path, ex.getMessage());
+        }
+
+        ProxyAssertionSecret proxySecret = null;
+        if (admissionEnabled && authority == PaperAuthorityMode.VELOCITY) {
+            try {
+                ProxyAssertionSecretSource source = ProxyAssertionSecretSource.parse(
+                    optionalString(yaml, path, "proxy-assertion.secret-source", "ENVIRONMENT"));
+                proxySecret = ProxyAssertionSecretResolver.resolve(
+                    path.toAbsolutePath().normalize().getParent(),
+                    source,
+                    optionalString(yaml, path, "proxy-assertion.environment-variable", "GUARDIAN_PROXY_ASSERTION_SECRET"),
+                    optionalString(yaml, path, "proxy-assertion.file", "proxy-assertion.secret"),
+                    environment
+                );
+            } catch (IllegalArgumentException ex) {
+                throw error(path, "proxy assertion configuration invalid: " + ex.getMessage());
+            }
         }
 
         int timeoutSeconds = requireInt(yaml, path, "admission.standalone.handshake-timeout-seconds");
@@ -100,11 +139,14 @@ public final class GuardianConfigLoader {
             schema,
             admissionEnabled,
             protectionEnabled,
+            serverName,
             locale,
             helpUrl,
             authority,
             timeoutSeconds,
             challengeWait,
+            loggingLevel,
+            proxySecret,
             protectionPolicy
         );
     }
@@ -149,6 +191,26 @@ public final class GuardianConfigLoader {
         Object value = yaml.get(key);
         if (!(value instanceof String string) || string.isBlank()) {
             throw error(path, key + " must be a non-blank string");
+        }
+        return string.trim();
+    }
+
+    private static String optionalString(YamlConfiguration yaml, Path path, String key, String fallback)
+        throws GuardianConfigurationException {
+        Object value = yaml.get(key);
+        if (value == null) return fallback;
+        if (!(value instanceof String string) || string.isBlank()) {
+            throw error(path, key + " must be a non-blank string when configured");
+        }
+        return string.trim();
+    }
+
+    private static String optionalStringAllowBlank(YamlConfiguration yaml, Path path, String key, String fallback)
+        throws GuardianConfigurationException {
+        Object value = yaml.get(key);
+        if (value == null) return fallback;
+        if (!(value instanceof String string)) {
+            throw error(path, key + " must be a string when configured");
         }
         return string.trim();
     }

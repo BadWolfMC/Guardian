@@ -8,7 +8,7 @@ import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
 import com.badwolfmc.guardian.paper.config.GuardianStartupRecovery;
 import com.badwolfmc.guardian.paper.locale.GuardianLocaleLoader;
 import com.badwolfmc.guardian.paper.locale.GuardianMessageRenderer;
-import org.bukkit.command.PluginCommand;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
@@ -26,6 +26,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
     private PaperAdmissionAdapter admissionAdapter;
     private PaperProtectionRuntime protectionRuntime;
     private ArtifactImportService artifactImportService;
+    private final PaperInspectionService inspectionService = new PaperInspectionService();
 
     @Override
     public void onEnable() {
@@ -40,9 +41,9 @@ public final class GuardianPaperPlugin extends JavaPlugin {
         GuardianMessageRenderer messageRenderer = new GuardianMessageRenderer();
         artifactImportService = new ArtifactImportService(data);
         initializeArtifactCatalogSurface();
-        registerArtifactCommand(messageRenderer);
+        registerAdministratorCommand(messageRenderer);
         if (snapshot.settings().admissionEnabled()) {
-            admissionAdapter = new PaperAdmissionAdapter(this, runtimeManager, messageRenderer);
+            admissionAdapter = new PaperAdmissionAdapter(this, runtimeManager, messageRenderer, inspectionService);
             admissionAdapter.enable();
         } else {
             getLogger().info("Guardian Admission disabled by configuration.");
@@ -100,7 +101,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
         }
 
         if (nowEnabled && (!wasEnabled || authorityChanged)) {
-            admissionAdapter = new PaperAdmissionAdapter(this, runtimeManager, new GuardianMessageRenderer());
+            admissionAdapter = new PaperAdmissionAdapter(this, runtimeManager, new GuardianMessageRenderer(), inspectionService);
             admissionAdapter.enable();
         }
     }
@@ -226,14 +227,11 @@ public final class GuardianPaperPlugin extends JavaPlugin {
         }
     }
 
-    private void registerArtifactCommand(GuardianMessageRenderer renderer) {
-        PluginCommand command = getCommand("guardian");
-        if (command == null) {
-            throw new IllegalStateException("Guardian plugin.yml is missing the guardian command");
-        }
-        ArtifactAdminCommand handler = new ArtifactAdminCommand(this, artifactImportService, renderer);
-        command.setExecutor(handler);
-        command.setTabCompleter(handler);
+    private void registerAdministratorCommand(GuardianMessageRenderer renderer) {
+        GuardianPaperCommand command = new GuardianPaperCommand(
+            this, renderer, artifactImportService, inspectionService);
+        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
+            event -> event.registrar().register("guardian", command));
     }
 
     private static IllegalStateException activationFailure(GuardianConfigurationException ex) {

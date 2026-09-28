@@ -5,11 +5,19 @@ api-version: '26.2'
 authors: [BadWolfMC]
 description: Guardian Admission and Protection for Paper.
 softdepend: [Geyser-Spigot, floodgate, LuckPerms]
-commands:
-  guardian:
-    description: Guardian administrative commands.
-    usage: /guardian artifacts scan
 permissions:
-  guardian.artifacts.scan:
-    description: Scan artifact-import and merge exact identities into artifacts.yml.
+  guardian.command.status:
+    description: View Guardian state on this Paper host.
+    default: op
+  guardian.command.validate:
+    description: Validate Paper-owned Guardian files without activation.
+    default: op
+  guardian.command.reload:
+    description: Atomically reload Paper-owned Guardian runtime state.
+    default: op
+  guardian.command.inspect:
+    description: Inspect active Guardian state held by this Paper host.
+    default: op
+  guardian.command.artifacts.scan:
+    description: Scan the authoritative local artifact catalog when Paper owns Admission.
     default: op

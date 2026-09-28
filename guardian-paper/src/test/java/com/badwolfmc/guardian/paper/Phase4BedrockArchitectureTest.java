@@ -34,8 +34,11 @@ class Phase4BedrockArchitectureTest {
     void velocityBackendFloodgateCheckRemainsDiagnosticOnly() throws Exception {
         String source = Files.readString(Path.of(
             "src/main/java/com/badwolfmc/guardian/paper/PaperAdmissionAdapter.java"));
-        int start = source.indexOf("private void sanityCheckBackendFloodgate");
-        int end = source.indexOf("private void handleConfigurationPresence", start);
+        int disagreement = source.indexOf("BACKEND FLOODGATE DISAGREEMENT");
+        int start = source.lastIndexOf("    private ", disagreement);
+        int end = source.indexOf("    private ", disagreement);
+        assertTrue(disagreement >= 0 && start >= 0 && end > disagreement,
+            "backend Floodgate sanity-check method must remain discoverable for the architecture guard");
         String method = source.substring(start, end);
         assertTrue(method.contains("BACKEND FLOODGATE DISAGREEMENT"));
         assertFalse(method.contains("session.decide("),

@@ -19,34 +19,27 @@ Every active bridge must identify the source locations, the reason it exists, th
 
 ## Active bridges
 
-### BRIDGE-003 — Phase 0B proxy assertion secret provisioning
+### BRIDGE-003 — Proxy assertion secret provisioning — Phase 5 candidate implemented
 
-**Source:**
+**Historical source:** the Phase 0B `GUARDIAN_PHASE0B_PROXY_SECRET` bootstrap proved authenticated Velocity → Paper admission assertions using a server-controlled shared secret, but its name and provisioning UX were never intended for release.
 
-- `GUARDIAN_PHASE0B_PROXY_SECRET` use in Guardian-Velocity and Guardian-Paper
-- current HMAC proxy-admission assertion bootstrap
+**Phase 5 candidate:** production source now uses proxy-local/Paper-local configuration with `ENVIRONMENT` or bounded relative `FILE` secret sources, default environment variable `GUARDIAN_PROXY_ASSERTION_SECRET`, exact 32-byte Base64 validation, non-secret key fingerprint diagnostics, reload/validation behavior, and documented replacement/rotation expectations. Production source no longer depends on the `PHASE0B` environment-variable contract.
 
-**Why it exists:** Phase 0B proved authenticated Velocity → Paper admission assertions using a server-controlled shared secret. The cryptographic trust boundary is valid, but the environment-variable name and provisioning UX are feasibility-era scaffolding.
+**Owner:** Phase 5 closeout.
 
-**Owner:** Phase 5, with Phase 7 documentation/release UX follow-through.
+**Retirement condition:** the Phase 5 Java 25 / Gradle 9.7.1 gate and focused assertion-provisioning live test pass. Until then this bridge remains active even though its source replacement is implemented.
 
-**Retirement condition:** Proxy assertion secret/key provisioning, validation, rotation expectations, diagnostics, and deployment documentation use production Guardian configuration/naming. No production path depends on the `PHASE0B` environment-variable contract unless the authoritative plan explicitly promotes it.
+### BRIDGE-004 — Guardian-Velocity retained feasibility adapter — Phase 5 candidate implemented
 
-### BRIDGE-004 — Guardian-Velocity retained feasibility adapter
+**Historical source:** the live-proven CONFIGURATION lifecycle, channel-consumption boundary, session reuse, Bedrock classification, and proxy assertion flow were retained while shared policy and production operations matured.
 
-**Source:**
+**Phase 3 checkpoint:** **CLOSED in `0.1.0-phase3` on 2026-09-27.** Guardian-Velocity already consumes the shared platform-neutral policy parser/snapshot/profile-resolution/evaluator used by standalone Paper.
 
-- `guardian-velocity/.../GuardianVelocityPlugin.java`
-- Phase 0B-labelled logs/Javadocs and fixed `HANDSHAKE_TIMEOUT_SECONDS`
-- feasibility-era Velocity operational/configuration hosting retained around the now-shared Phase 3 policy engine
+**Phase 5 candidate:** Guardian-Velocity now has strict data-directory-owned operational configuration, explicit `deployment.authority: velocity`, configurable handshake timing, production assertion provisioning, locale/logging ownership, atomic runtime reload/files-only validation, proxy-owned `/guardianv` administration, bounded authoritative inspection snapshots, network-authoritative artifact scanning, final command permissions, and production diagnostics. Mutable successful Admission sessions are discarded; only a minimal immutable grant needed for backend assertions plus the separate read-only inspection snapshot remain for the proxy connection lifetime. Production logs/Javadocs no longer use Phase 0B naming.
 
-**Why it exists:** The Velocity CONFIGURATION lifecycle, channel-consumption boundary, session reuse, Bedrock classification, and proxy assertion flow were live-proven in Phase 0B and intentionally retained during Phase 1A. The adapter has not yet received its full production configuration/diagnostics pass. Phase 3 additionally owns removal of the feasibility-era **independent policy behavior** so Guardian-Velocity consumes the same platform-neutral policy schema, immutable snapshot, profile-resolution contract, and evaluator as standalone Guardian-Paper. Phase 5 must productionize the Velocity host rather than port or reimplement Phase 3 policy.
+**Owner:** Phase 5 closeout.
 
-**Owners:** Phase 3 for shared-policy consumption; Phase 5 for the remaining Velocity production adapter/operations work.
-
-**Phase 3 checkpoint:** **CLOSED in `0.1.0-phase3` on 2026-09-27.** Guardian-Velocity no longer makes admission decisions from its own hard-coded client-class switch/branching. It loads the portable shared `admission/policy.yml`, resolves the shared profile model, and invokes the canonical Phase 3 evaluator used by standalone Paper. The parser/validator/snapshot path lives in `guardian-core` and has no Bukkit/Paper or Velocity configuration dependency. The final Java 25 / Gradle 9.7.1 gate is green at 134 tests, and live parity verification includes ordinary allow, explicit deny, required-version mismatch, genuinely absent required mod, exact-hash denial, trusted backend assertion without re-attestation, and standalone Paper parity.
-
-**Final retirement condition (Phase 5):** Velocity authority has production configuration ownership and file-location/UX, configurable operational timing where appropriate, final diagnostics/naming, finalized assertion provisioning, explicit deployment-mode diagnostics, and tests for the Phase 5 acceptance matrix. Phase 0B wording is removed from production logs/Javadocs. Phase 5 MUST NOT require a second Velocity-specific policy schema/evaluator or a port of Paper-owned policy logic.
+**Final retirement condition:** the Phase 5 Java 25 / Gradle 9.7.1 gate and focused live acceptance matrix pass, including cross-backend `/guardianv inspect`, host-local reload/validation, artifact authority, assertion configuration, and disconnect cleanup. Phase 5 MUST NOT require a second Velocity-specific policy schema/evaluator or a port of Paper-owned policy logic.
 
 ## Resolved bridges
 
@@ -139,3 +132,10 @@ Phase 3 subsequently closed with the Java 25 / Gradle 9.7.1 gate green at 134 te
 As of 2026-09-28, **Phase 4 is complete**. The retained Java 25 / Gradle 9.7.1 reports are green at 141 tests with zero failures/errors/skips, and the focused live matrix confirms Velocity Bedrock, Velocity Java/Fabric regression, standalone Bedrock allow, and standalone Bedrock policy denial.
 
 BRIDGE-005 is retired. The only active implementation bridges entering Phase 5 are BRIDGE-003 and BRIDGE-004. Phase 5 must preserve the Phase 4 Bedrock evidence/failure semantics while finalizing Velocity hosting, assertion provisioning, diagnostics, operations, and authority-aware administrator surfaces.
+
+
+## Phase 5 implementation-candidate bridge review
+
+The `0.1.0-phase5` candidate implements the source-level retirement responsibilities for BRIDGE-003 and BRIDGE-004 without introducing a new implementation bridge. Production code no longer uses feasibility-era proxy-secret naming or Phase 0B diagnostics; Velocity owns strict operational configuration/timing/assertion/logging state and `/guardianv`, while Paper owns `/guardian` and remains assertion-only for network Admission.
+
+BRIDGE-003 and BRIDGE-004 intentionally remain under **Active bridges** until the exact Java 25 / Gradle 9.7.1 gate and the focused live checks in `PHASE_5_VERIFICATION.md` pass. This preserves the register's rule that a bridge is not retired merely because replacement source exists.

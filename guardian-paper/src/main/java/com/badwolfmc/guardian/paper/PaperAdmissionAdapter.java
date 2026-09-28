@@ -9,6 +9,7 @@ import com.badwolfmc.guardian.core.DecisionOutcome;
 import com.badwolfmc.guardian.core.DecisionReason;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.core.ProtocolV1ResponseValidator;
+import com.badwolfmc.guardian.core.operations.ActiveInspectionSnapshot;
 import com.badwolfmc.guardian.core.policy.AdmissionPermissionSnapshot;
 import com.badwolfmc.guardian.core.policy.AdmissionPolicyEvaluator;
 import com.badwolfmc.guardian.core.policy.AdmissionProfileProvider;
@@ -77,17 +78,19 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
     private final GuardianMessageRenderer messageRenderer;
     private final AdmissionPolicyEvaluator policyEvaluator = new AdmissionPolicyEvaluator();
     private final PaperBedrockDetector bedrockDetector;
+    private final PaperInspectionService inspectionService;
     private AdmissionProfileProvider profileProvider = AdmissionProfileProvider.none();
-    private byte[] proxySecret;
 
     PaperAdmissionAdapter(
         GuardianPaperPlugin plugin,
         GuardianRuntimeManager runtimeManager,
-        GuardianMessageRenderer messageRenderer
+        GuardianMessageRenderer messageRenderer,
+        PaperInspectionService inspectionService
     ) {
         this.plugin = plugin;
         this.runtimeManager = runtimeManager;
         this.messageRenderer = messageRenderer;
+        this.inspectionService = inspectionService;
         this.bedrockDetector = new PaperBedrockDetector(plugin);
     }
 
@@ -101,7 +104,6 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         plugin.getServer().getMessenger().registerIncomingPluginChannel(
             plugin, GuardianProtocol.PROXY_ADMISSION_CHANNEL, this);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        loadProxySecret();
         try {
             profileProvider = PaperLuckPermsProfileProvider.create(plugin);
         } catch (RuntimeException | LinkageError ex) {
@@ -120,6 +122,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         sessions.values().forEach(session ->
             session.response().completeExceptionally(new IllegalStateException("Guardian Admission disabled")));
         sessions.clear();
+        inspectionService.clear();
         plugin.getServer().getMessenger().unregisterIncomingPluginChannel(plugin);
         plugin.getServer().getMessenger().unregisterOutgoingPluginChannel(plugin);
     }
@@ -133,8 +136,10 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
-        sessions.put(playerId, new AdmissionSession(playerId, runtimeManager.current()));
-        plugin.getLogger().info(() -> "Guardian Admission initial configuration: " + displayName(connection)
+        inspectionService.remove(playerId);
+        AdmissionSession session = new AdmissionSession(playerId, runtimeManager.current());
+        sessions.put(playerId, session);
+        debug(session, "Guardian Admission initial configuration: " + displayName(connection)
             + " brand=" + String.valueOf(connection.getClientBrandName())
             + " listeningChannels=" + connection.getListeningPluginChannels());
     }
@@ -153,7 +158,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         if (session.snapshot().settings().authorityMode() == PaperAuthorityMode.VELOCITY) {
-            plugin.getLogger().info(() -> "Guardian backend configuration for " + displayName(connection)
+            debug(session, "Guardian backend configuration for " + displayName(connection)
                 + ": authority=VELOCITY, brand=" + String.valueOf(connection.getClientBrandName())
                 + ", proxyAssertion=" + (session.proxyAdmission() != null ? "present" : "pending"));
             // Do not wait here. Velocity's PlayerConfigurationEvent is fired after the backend has
@@ -186,16 +191,13 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             GuardianDecision decision = session.decision();
             if (decision == null) {
                 decision = GuardianDecision.deny(
-                    proxySecret == null ? DecisionReason.CONFIGURATION_ERROR : DecisionReason.PROXY_ASSERTION_REQUIRED,
-                    proxySecret == null
-                        ? "Velocity authority configured but GUARDIAN_PHASE0B_PROXY_SECRET is unavailable"
-                        : "no valid Guardian-Velocity admission assertion arrived before final validation"
-                );
+                    DecisionReason.PROXY_ASSERTION_REQUIRED,
+                    "no valid Guardian-Velocity admission assertion arrived before final validation");
                 session.decide(decision);
             }
 
             GuardianDecision finalDecision = session.decision();
-            plugin.getLogger().info(() -> "Guardian backend pre-world decision for " + displayName(connection) + ": "
+            debug(session, "Guardian backend pre-world decision for " + displayName(connection) + ": "
                 + finalDecision.outcome() + " / " + finalDecision.reason() + " ("
                 + finalDecision.detail() + ")");
             if (finalDecision.outcome() == DecisionOutcome.DENY) {
@@ -214,7 +216,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         if (session.playHandshakeRequired() && session.decision() == null) {
-            plugin.getLogger().info(() -> "Standalone CONFIGURATION gate passed for " + displayName(connection)
+            debug(session, "Standalone CONFIGURATION gate passed for " + displayName(connection)
                 + ": compatible Cerberus presence detected; nonce handshake deferred to quarantined PLAY.");
             return; // Keep the session for PlayerJoinEvent / PLAY plugin messaging.
         }
@@ -227,13 +229,16 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         GuardianDecision finalDecision = session.decision();
-        plugin.getLogger().info(() -> "Standalone pre-world decision for " + displayName(connection) + ": "
+        debug(session, "Standalone pre-world decision for " + displayName(connection) + ": "
             + finalDecision.outcome() + " / " + finalDecision.reason() + " ("
             + finalDecision.detail() + ")");
 
+        logStandaloneSummary(displayName(connection), session, finalDecision);
         if (finalDecision.outcome() == DecisionOutcome.DENY) {
             event.kickMessage(messageRenderer.renderDecision(
                     session.snapshot(), finalDecision, session.classification()));
+        } else {
+            captureStandaloneInspection(displayName(connection), session, finalDecision);
         }
         sessions.remove(playerId, session);
     }
@@ -281,6 +286,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         BedrockEvidence bedrock = bedrockDetector.detect(session.playerId());
+        session.setBedrockEvidence(bedrock);
         if (bedrock.disagrees()) {
             plugin.getLogger().warning("Guardian Geyser/Floodgate disagreement for " + displayName(connection)
                 + ": geyser=" + bedrock.geyser() + ", floodgate=" + bedrock.floodgate()
@@ -297,9 +303,10 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         String brand = connection.getClientBrandName();
+        session.setObservedBrand(brand);
         if (bedrock.resolution() == BedrockResolution.JAVA
             && (brand == null || brand.isBlank()) && !finalAttempt) {
-            plugin.getLogger().info(() -> "Guardian standalone configuration for " + displayName(connection)
+            debug(session, "Guardian standalone configuration for " + displayName(connection)
                 + ": brand not yet available; deferring Java classification to final login validation"
                 + ", geyser=" + bedrock.geyser() + ", floodgate=" + bedrock.floodgate()
                 + ", cerberusPresent=" + session.cerberusPresent());
@@ -313,7 +320,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         session.setClassification(classification);
         ResolvedAdmissionProfile resolved = resolvedProfile(session);
         ClientPolicyResult clientResult = policyEvaluator.evaluateClient(resolved, classification, brand);
-        plugin.getLogger().info(() -> "Guardian standalone policy evaluation for " + displayName(connection)
+        debug(session, "Guardian standalone policy evaluation for " + displayName(connection)
             + ": brand=" + String.valueOf(brand)
             + ", classification=" + classification
             + ", profile=" + resolved.profile().id()
@@ -359,7 +366,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         session.setQuarantined(true);
-        plugin.getLogger().info(() -> "Guardian PLAY quarantine active for " + player.getName()
+        debug(session, "Guardian PLAY quarantine active for " + player.getName()
             + "; listeningChannels=" + player.getListeningPluginChannels());
 
         plugin.getServer().getScheduler().runTaskLater(plugin,
@@ -369,6 +376,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        inspectionService.remove(event.getPlayer().getUniqueId());
         AdmissionSession session = sessions.remove(event.getPlayer().getUniqueId());
         if (session != null) {
             session.response().completeExceptionally(new IllegalStateException("player quit"));
@@ -377,6 +385,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
 
     @EventHandler
     public void onConnectionClose(PlayerConnectionCloseEvent event) {
+        inspectionService.remove(event.getPlayerUniqueId());
         AdmissionSession session = sessions.remove(event.getPlayerUniqueId());
         if (session != null) {
             session.response().completeExceptionally(new IllegalStateException("connection closed"));
@@ -509,12 +518,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
     private void handleProxyAdmission(
         PlayerConfigurationConnection connection, AdmissionSession session, byte[] message
     ) {
-        if (proxySecret == null) {
-            session.decide(GuardianDecision.deny(DecisionReason.CONFIGURATION_ERROR,
-                "Velocity authority configured without an available shared proxy secret"));
-            return;
-        }
-
+        byte[] proxySecret = runtimeManager.current().settings().proxyAssertionSecret().copyBytes();
         final ProxyAdmissionAssertion assertion;
         try {
             assertion = ProxyAdmissionCodec.decodeAndVerify(message, proxySecret);
@@ -547,25 +551,28 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
-        sanityCheckBackendFloodgate(connection, assertion);
+        BackendInspectionSnapshot.FloodgateSanity sanity = sanityCheckBackendFloodgate(connection, assertion, session);
         session.decide(metadataDecision);
-        plugin.getLogger().info(() -> "Trusted Guardian proxy admission received for " + displayName(connection)
+        inspectionService.putBackend(new BackendInspectionSnapshot(
+            assertion.playerId(), displayName(connection), serverName(), assertion.connectionOrigin(),
+            HexFormat.of().formatHex(assertion.proxySessionId()), metadataDecision, sanity));
+        debug(session, "Trusted Guardian proxy admission received for " + displayName(connection)
             + ": session=" + HexFormat.of().formatHex(assertion.proxySessionId())
             + ", origin=" + assertion.connectionOrigin()
             + ", expiresInMs=" + Math.max(0L, assertion.expiresAtEpochMillis() - now));
     }
 
-    private void sanityCheckBackendFloodgate(
-        PlayerConfigurationConnection connection, ProxyAdmissionAssertion assertion
+    private BackendInspectionSnapshot.FloodgateSanity sanityCheckBackendFloodgate(
+        PlayerConfigurationConnection connection, ProxyAdmissionAssertion assertion, AdmissionSession session
     ) {
         boolean proxyBedrock = assertion.connectionOrigin() == ConnectionOrigin.BEDROCK;
         org.bukkit.plugin.Plugin floodgate = plugin.getServer().getPluginManager().getPlugin("floodgate");
         if (floodgate == null || !floodgate.isEnabled()) {
             if (proxyBedrock) {
-                plugin.getLogger().info(() -> "Guardian backend Floodgate sanity check skipped for "
+                debug(session, "Guardian backend Floodgate sanity check skipped for "
                     + displayName(connection) + ": proxy origin=BEDROCK, backend Floodgate unavailable.");
             }
-            return;
+            return BackendInspectionSnapshot.FloodgateSanity.NOT_AVAILABLE;
         }
 
         final boolean backendBedrock;
@@ -574,14 +581,14 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         } catch (RuntimeException | LinkageError ex) {
             plugin.getLogger().warning("Guardian backend Floodgate sanity check failed for "
                 + displayName(connection) + ": " + ex.getMessage());
-            return;
+            return BackendInspectionSnapshot.FloodgateSanity.NOT_AVAILABLE;
         }
 
         if (proxyBedrock == backendBedrock) {
-            plugin.getLogger().info(() -> "Guardian backend Floodgate sanity check agrees for "
+            debug(session, "Guardian backend Floodgate sanity check agrees for "
                 + displayName(connection) + ": proxyOrigin=" + assertion.connectionOrigin()
                 + ", backendFloodgate=" + backendBedrock);
-            return;
+            return BackendInspectionSnapshot.FloodgateSanity.AGREES;
         }
 
         // Guardian-Velocity remains the sole admission authority in Velocity mode. A backend
@@ -591,6 +598,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             + ": proxyOrigin=" + assertion.connectionOrigin()
             + ", backendFloodgate=" + backendBedrock
             + ". Trusted proxy admission remains authoritative for this deployment.");
+        return BackendInspectionSnapshot.FloodgateSanity.DISAGREES;
     }
 
     private void handleConfigurationPresence(
@@ -617,7 +625,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
-        plugin.getLogger().info(() -> "Guardian Cerberus CONFIGURATION presence from " + displayName(connection)
+        debug(session, "Guardian Cerberus CONFIGURATION presence from " + displayName(connection)
             + ": protocol=" + presence.minProtocolVersion() + ".." + presence.maxProtocolVersion()
             + ", brand=" + String.valueOf(connection.getClientBrandName()));
 
@@ -644,7 +652,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
-        plugin.getLogger().info(() -> "Guardian Cerberus PLAY presence from " + player.getName()
+        debug(session, "Guardian Cerberus PLAY presence from " + player.getName()
             + ": protocol=" + presence.minProtocolVersion() + ".." + presence.maxProtocolVersion()
             + ", listeningChannels=" + player.getListeningPluginChannels());
 
@@ -693,7 +701,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         if (!listeningChannels.contains(GuardianProtocol.CHALLENGE_CHANNEL)) {
             if (waitedTicks < session.snapshot().settings().challengeChannelWaitTicks()) {
                 if (waitedTicks == 0) {
-                    plugin.getLogger().info("Cerberus PLAY presence arrived before Paper saw the challenge channel for "
+                    debug(session, "Cerberus PLAY presence arrived before Paper saw the challenge channel for "
                         + player.getName() + "; waiting up to " + session.snapshot().settings().challengeChannelWaitTicks()
                         + " ticks for registration. listeningChannels=" + listeningChannels);
                 }
@@ -712,7 +720,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         if (waitedTicks > 0) {
-            plugin.getLogger().info("Guardian challenge channel became available for " + player.getName()
+            debug(session, "Guardian challenge channel became available for " + player.getName()
                 + " after " + waitedTicks + " tick(s).");
         }
 
@@ -730,7 +738,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
                 GuardianProtocol.CHALLENGE_CHANNEL,
                 ProtocolCodec.encodeChallenge(new Challenge(GuardianProtocol.VERSION, GuardianProtocol.REQUIRED_CAPABILITIES, nonce))
             );
-            plugin.getLogger().info(() -> "Guardian PLAY challenge sent to " + player.getName()
+            debug(session, "Guardian PLAY challenge sent to " + player.getName()
                 + "; listeningChannels=" + player.getListeningPluginChannels());
         } catch (RuntimeException ex) {
             plugin.getLogger().warning("Could not send Guardian PLAY challenge to " + player.getName() + ": " + ex);
@@ -765,6 +773,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         session.response().complete(response);
+        session.setManifest(response.manifest());
         GuardianDecision integrityDecision = ProtocolV1ResponseValidator.validate(session.nonce(), response);
         if (integrityDecision.outcome() == DecisionOutcome.DENY) {
             finishPlayDecision(player, session, integrityDecision);
@@ -803,13 +812,15 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
-        plugin.getLogger().info(() -> "Guardian PLAY decision for " + player.getName() + ": "
+        debug(session, "Guardian PLAY decision for " + player.getName() + ": "
             + finalDecision.outcome() + " / " + finalDecision.reason() + " (" + finalDecision.detail() + ")");
+        logStandaloneSummary(player.getName(), session, finalDecision);
 
         if (finalDecision.outcome() == DecisionOutcome.ALLOW) {
             session.setQuarantined(false);
+            captureStandaloneInspection(player.getName(), session, finalDecision);
             sessions.remove(player.getUniqueId(), session);
-            plugin.getLogger().info(() -> "Guardian PLAY quarantine released for " + player.getName());
+            debug(session, "Guardian PLAY quarantine released for " + player.getName());
         } else {
             player.kick(messageRenderer.renderDecision(
                 session.snapshot(), finalDecision, session.classification()));
@@ -818,18 +829,38 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
     }
 
 
-    private void loadProxySecret() {
-        proxySecret = null;
-        if (runtimeManager.current().settings().authorityMode() != PaperAuthorityMode.VELOCITY) {
+    private void captureStandaloneInspection(
+        String playerName, AdmissionSession session, GuardianDecision decision
+    ) {
+        if (session.classification() == null || session.resolvedProfile() == null || session.bedrockEvidence() == null) {
             return;
         }
-        try {
-            proxySecret = ProxyAdmissionCodec.decodeBase64Secret(
-                System.getenv("GUARDIAN_PHASE0B_PROXY_SECRET"));
-        } catch (IllegalArgumentException ex) {
-            plugin.getLogger().severe("Velocity authority requires GUARDIAN_PHASE0B_PROXY_SECRET to be a "
-                + "Base64-encoded 32-byte secret. Connections will fail closed: " + ex.getMessage());
+        ActiveInspectionSnapshot snapshot = new ActiveInspectionSnapshot(
+            session.playerId(), playerName, serverName(), session.classification(), session.observedBrand(),
+            session.resolvedProfile().profile().id(), session.resolvedProfile().source(), session.cerberusPresence(),
+            decision, session.manifest(), session.bedrockEvidence());
+        if (!inspectionService.putAuthoritative(snapshot)) {
+            plugin.getLogger().warning("Guardian active inspection store is full; snapshot omitted for " + playerName);
         }
+    }
+
+    private void logStandaloneSummary(String playerName, AdmissionSession session, GuardianDecision decision) {
+        if (!session.tryMarkSummaryLogged()) return;
+        String profile = session.resolvedProfile() == null ? "<unknown>" : session.resolvedProfile().profile().id();
+        int mods = session.manifest() == null ? 0 : session.manifest().entries().size();
+        plugin.getLogger().info("Guardian " + playerName + " " + decision.outcome() + ": "
+            + (session.classification() == null ? "UNKNOWN" : session.classification())
+            + ", profile=" + profile + ", " + decision.reason()
+            + (mods == 0 ? "" : ", mods=" + mods));
+    }
+
+    private void debug(AdmissionSession session, String message) {
+        if (session.snapshot().settings().loggingLevel().debugEnabled()) plugin.getLogger().info(message);
+    }
+
+    private String serverName() {
+        String configured = runtimeManager.current().settings().serverName();
+        return configured.isBlank() ? plugin.getServer().getName() : configured;
     }
 
     private boolean isQuarantined(Player player) {

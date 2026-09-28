@@ -66,7 +66,7 @@ admission:
   authority: standalone
 ```
 
-`GUARDIAN_PHASE0B_PROXY_SECRET` remains intentionally transitional for the retained Velocity -> Paper assertion transport. Its final provisioning/configuration UX is deferred to Phase 5 rather than being frozen by Phase 1A.
+The Phase 0B proxy-secret bootstrap has now been superseded by the Phase 5 production provisioning model. Paper and Velocity use `proxy-assertion.secret-source` with `ENVIRONMENT` or `FILE`; the default environment variable is `GUARDIAN_PROXY_ASSERTION_SECRET`.
 
 Phase 1A deliberately does **not** implement Guardian Protection command filtering or the later full Cerberus/mod-policy engine. Protection enforcement is Phase 1B; named admission profiles, permission/profile resolution, and full mod policy are later Admission phases.
 
@@ -125,7 +125,11 @@ Phase 4 is intentionally narrow because the proxy-side Bedrock foundation was al
 
 The final Java 25 / Gradle 9.7.1 gate is green at **141 tests** with zero failures/errors/skips (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9). Live closeout verification confirmed Velocity Bedrock with agreeing proxy/backend Floodgate evidence, Velocity Java Fabric/Cerberus regression, standalone Paper Bedrock allow, and standalone Paper Bedrock deny through the shared `admission/policy.yml`. BRIDGE-005 is retired; BRIDGE-003 and BRIDGE-004 remain Phase 5 work.
 
-The authoritative plan also fixes the operations/observability sequencing before Phase 5: the canonical `guardian.command.*` admin surface is explicitly scheduled for implementation on both platform hosts with authority-appropriate behavior, authority-owned in-memory inspection snapshots, atomic reload/files-only validation, and `NORMAL`/`DEBUG` production logging. See `docs/PHASE_4_IMPLEMENTATION.md`, `docs/PHASE_4_VERIFICATION.md`, and `docs/PHASE_5_HANDOFF.md`.
+## Phase 5 status: implementation candidate
+
+`0.1.0-phase5` productionizes Guardian-Velocity and adds authority-explicit administrator operations. Guardian-Paper owns `/guardian` with `guardian.command.*`; Guardian-Velocity owns `/guardianv` with `guardian.velocity.command.*`. Velocity now has strict data-directory operational configuration, configurable handshake timing, production proxy-assertion secret provisioning, atomic reload/files-only validation, bounded authoritative inspection snapshots, network-authoritative artifact scanning, and `NORMAL`/`DEBUG` logging. Paper behind Velocity remains assertion-only and retains no full Fabric manifest.
+
+The source candidate implements BRIDGE-003/004's retirement responsibilities, but the bridges remain active until the Java 25 / Gradle 9.7.1 gate and focused live Phase 5 matrix pass. See `docs/PHASE_5_IMPLEMENTATION.md`, `docs/PHASE_5_VERIFICATION.md`, and `docs/PHASE_5_HANDOFF.md`.
 
 See:
 
@@ -144,6 +148,8 @@ See:
 - `docs/PHASE_3_IMPLEMENTATION.md`
 - `docs/PHASE_3_VERIFICATION.md`
 - `docs/PHASE_5_HANDOFF.md`
+- `docs/PHASE_5_IMPLEMENTATION.md`
+- `docs/PHASE_5_VERIFICATION.md`
 - `docs/PHASE_4_VERIFICATION.md`
 - `docs/PHASE_4_IMPLEMENTATION.md`
 - `docs/GUARDIAN_ADMISSION.md`

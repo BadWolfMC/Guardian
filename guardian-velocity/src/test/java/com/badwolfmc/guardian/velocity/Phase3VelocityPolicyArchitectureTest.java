@@ -14,8 +14,9 @@ class Phase3VelocityPolicyArchitectureTest {
             "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
         assertTrue(source.contains("AdmissionPolicyEvaluator"));
         assertTrue(source.contains("policyEvaluator.evaluateClient"));
-        assertTrue(source.contains("AdmissionPolicySnapshot policySnapshot = policyRuntime.current()"),
-            "one immutable shared policy snapshot must be captured for the proxy admission session");
+        assertTrue(source.contains("VelocityRuntimeSnapshot policySnapshot") ||
+            source.contains("AdmissionPolicySnapshot policySnapshot = session.runtimeSnapshot().admissionPolicy()"),
+            "one immutable shared policy/runtime snapshot must be captured for the proxy admission session");
         assertTrue(source.contains("resolve(player.getUniqueId(), policySnapshot)"),
             "profile-provider resolution must receive the same immutable policy context");
         assertTrue(source.contains("policyEvaluator.evaluateManifest"));

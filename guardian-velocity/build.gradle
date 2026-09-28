@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation project(':guardian-core')
     implementation project(':guardian-protocol')
+    implementation "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
 
     compileOnly "com.velocitypowered:velocity-api:${velocity_api_version}"
     annotationProcessor "com.velocitypowered:velocity-api:${velocity_api_version}"

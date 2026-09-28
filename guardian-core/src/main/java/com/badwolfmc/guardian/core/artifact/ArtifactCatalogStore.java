@@ -224,7 +224,7 @@ public final class ArtifactCatalogStore {
     static String render(ArtifactCatalog catalog) {
         StringBuilder out = new StringBuilder();
         out.append("# Guardian-managed exact-artifact catalog.\n");
-        out.append("# Generated deterministically by /guardian artifacts scan.\n");
+        out.append("# Generated deterministically by Guardian artifact scanning.\n");
         out.append("# Values may be edited, but comments/formatting are not preserved when Guardian rewrites this file.\n");
         out.append("# Policy decisions belong in Phase 3 policy files; this file records artifact identity only.\n");
         out.append("schema-version: ").append(SCHEMA_VERSION).append("\n");

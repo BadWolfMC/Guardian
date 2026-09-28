@@ -1,9 +1,11 @@
 package com.badwolfmc.guardian.paper;
 
+import com.badwolfmc.guardian.core.BedrockEvidence;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
 import com.badwolfmc.guardian.core.policy.ResolvedAdmissionProfile;
+import com.badwolfmc.guardian.protocol.Manifest;
 import com.badwolfmc.guardian.protocol.ProxyAdmissionAssertion;
 import com.badwolfmc.guardian.protocol.Response;
 import com.badwolfmc.guardian.protocol.Presence;
@@ -29,6 +31,10 @@ final class AdmissionSession {
     private volatile boolean quarantined;
     private volatile ClientClassification classification;
     private volatile ResolvedAdmissionProfile resolvedProfile;
+    private volatile BedrockEvidence bedrockEvidence;
+    private volatile String observedBrand;
+    private volatile Manifest manifest;
+    private final AtomicBoolean summaryLogged = new AtomicBoolean();
 
     AdmissionSession(UUID playerId, GuardianRuntimeSnapshot snapshot) {
         this.playerId = playerId;
@@ -124,6 +130,21 @@ final class AdmissionSession {
     void recordConfigurationPresenceFailure(GuardianDecision failure) {
         configurationPresenceFailure.compareAndSet(null, failure);
     }
+
+
+    BedrockEvidence bedrockEvidence() { return bedrockEvidence; }
+
+    void setBedrockEvidence(BedrockEvidence value) { bedrockEvidence = value; }
+
+    String observedBrand() { return observedBrand; }
+
+    void setObservedBrand(String value) { observedBrand = value; }
+
+    Manifest manifest() { return manifest; }
+
+    void setManifest(Manifest value) { manifest = value; }
+
+    boolean tryMarkSummaryLogged() { return summaryLogged.compareAndSet(false, true); }
 
     ProxyAdmissionAssertion proxyAdmission() {
         return proxyAdmission.get();

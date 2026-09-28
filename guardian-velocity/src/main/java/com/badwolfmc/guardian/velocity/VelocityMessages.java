@@ -3,29 +3,26 @@ package com.badwolfmc.guardian.velocity;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionReason;
 import com.badwolfmc.guardian.core.GuardianDecision;
+import com.badwolfmc.guardian.velocity.config.VelocityConfigurationException;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-/**
- * Bundled locale renderer for the retained Phase 0 Velocity adapter.
- *
- * <p>Velocity configuration/localization administration is finalized in Phase 5. Phase 1A still
- * removes player-facing Java literals so the adapter observes Guardian's localization invariant.</p>
- */
-final class VelocityMessages {
-    private static final String RESOURCE = "locales/en_us.properties";
-    private static final int SCHEMA_VERSION = 1;
+/** Immutable locale catalog/renderer owned by one active Guardian-Velocity runtime snapshot. */
+public final class VelocityMessages {
+    static final int SCHEMA_VERSION = 1;
+    static final String FALLBACK_LOCALE = "en_us";
     private static final Set<String> REQUIRED_KEYS = Set.of(
         "admission.denied",
         "admission.proxy-assertion-required",
@@ -44,41 +41,70 @@ final class VelocityMessages {
         "admission.manifest-invalid",
         "admission.client-denied",
         "admission.configuration-error",
-        "meta.help-url"
+        "meta.help-url",
+        "command.usage.velocity",
+        "command.no-permission",
+        "command.value.enabled",
+        "command.value.disabled",
+        "command.value.available",
+        "command.value.unavailable",
+        "command.value.configured",
+        "command.value.not-applicable",
+        "command.value.scope.paper-local",
+        "command.value.scope.velocity-admission",
+        "command.value.artifact.no-hash",
+        "command.value.artifact.catalogued",
+        "command.value.artifact.not-catalogued",
+        "command.validate.success",
+        "command.validate.failed",
+        "command.reload.success",
+        "command.reload.failed",
+        "command.inspect.no-active-data",
+        "command.inspect.velocity.header",
+        "command.inspect.velocity.identity",
+        "command.inspect.velocity.client",
+        "command.inspect.velocity.profile",
+        "command.inspect.velocity.cerberus",
+        "command.inspect.velocity.decision",
+        "command.inspect.velocity.mods-summary",
+        "command.inspect.velocity.mod",
+        "command.inspect.velocity.bedrock",
+        "command.status.velocity.header",
+        "command.status.velocity.runtime",
+        "command.status.velocity.policy",
+        "command.status.velocity.integrations",
+        "command.status.velocity.assertion",
+        "command.status.velocity.snapshots",
+        "artifacts.command.usage.velocity",
+        "artifacts.command.no-permission",
+        "artifacts.scan.started",
+        "artifacts.scan.already-running",
+        "artifacts.scan.success",
+        "artifacts.scan.unchanged",
+        "artifacts.scan.failed"
     );
 
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
-    private final Map<String, String> values;
+    private final Map<String, String> selected;
+    private final Map<String, String> fallback;
 
-    private VelocityMessages(Map<String, String> values) {
-        this.values = values;
+    private VelocityMessages(Map<String, String> selected, Map<String, String> fallback) {
+        this.selected = selected;
+        this.fallback = fallback;
     }
 
-    static VelocityMessages load() {
-        Properties properties = new Properties();
-        try (InputStream stream = VelocityMessages.class.getClassLoader().getResourceAsStream(RESOURCE)) {
-            if (stream == null) {
-                throw new IllegalStateException("missing bundled Guardian locale resource " + RESOURCE);
-            }
-            properties.load(new InputStreamReader(stream, StandardCharsets.UTF_8));
-        } catch (IOException | IllegalArgumentException ex) {
-            throw new IllegalStateException("could not load bundled Guardian locale resource " + RESOURCE, ex);
+    static VelocityMessages load(Path localesDirectory, String selectedLocale)
+        throws VelocityConfigurationException {
+        Path fallbackPath = localesDirectory.resolve(FALLBACK_LOCALE + ".properties");
+        Map<String, String> fallback = loadFile(fallbackPath, true);
+        if (FALLBACK_LOCALE.equals(selectedLocale)) {
+            return new VelocityMessages(fallback, fallback);
         }
-
-        String schema = properties.getProperty("schema-version");
-        if (!Integer.toString(SCHEMA_VERSION).equals(schema == null ? null : schema.trim())) {
-            throw new IllegalStateException(RESOURCE + " must declare schema-version=" + SCHEMA_VERSION);
+        Path selectedPath = localesDirectory.resolve(selectedLocale + ".properties");
+        if (!Files.exists(selectedPath)) {
+            return new VelocityMessages(Map.of(), fallback);
         }
-
-        LinkedHashMap<String, String> loaded = new LinkedHashMap<>();
-        for (String key : REQUIRED_KEYS) {
-            String value = properties.getProperty(key);
-            if (value == null || value.isBlank()) {
-                throw new IllegalStateException(RESOURCE + " is missing required locale key " + key);
-            }
-            loaded.put(key, value);
-        }
-        return new VelocityMessages(Map.copyOf(loaded));
+        return new VelocityMessages(loadFile(selectedPath, false), fallback);
     }
 
     Component render(DecisionReason reason, ClientClassification classification) {
@@ -87,14 +113,25 @@ final class VelocityMessages {
 
     Component render(GuardianDecision decision, ClientClassification classification) {
         String classificationValue = classification == null ? "unknown" : classification.policyKey();
-        TagResolver resolver = TagResolver.builder()
+        return render(keyFor(decision), TagResolver.builder()
             .resolver(Placeholder.unparsed("classification", classificationValue))
             .resolver(Placeholder.unparsed("reason", decision.reason().name()))
-            .resolver(Placeholder.unparsed("help_url", values.get("meta.help-url")))
+            .resolver(Placeholder.unparsed("help_url", template("meta.help-url")))
             .resolver(Placeholder.unparsed("mod_id", decision.context().getOrDefault("mod_id", "unknown")))
             .resolver(Placeholder.unparsed("version", decision.context().getOrDefault("version", "unknown")))
-            .build();
-        return miniMessage.deserialize(values.get(keyFor(decision)), resolver);
+            .build());
+    }
+
+    Component render(String key, TagResolver resolver) {
+        return miniMessage.deserialize(template(key), resolver);
+    }
+
+    private String template(String key) {
+        String value = selected.get(key);
+        if (value != null) return value;
+        value = fallback.get(key);
+        if (value == null) throw new IllegalStateException("missing required Guardian locale key " + key);
+        return value;
     }
 
     static String keyFor(GuardianDecision decision) {
@@ -124,5 +161,37 @@ final class VelocityMessages {
             case CONFIGURATION_ERROR -> "admission.configuration-error";
             default -> "admission.denied";
         };
+    }
+
+    private static Map<String, String> loadFile(Path path, boolean requireAll)
+        throws VelocityConfigurationException {
+        if (!Files.isRegularFile(path)) throw new VelocityConfigurationException(path, "required locale file is missing");
+        Properties properties = new Properties();
+        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        } catch (IOException | IllegalArgumentException ex) {
+            throw new VelocityConfigurationException(path, "malformed locale resource: " + ex.getMessage(), ex);
+        }
+        String schema = properties.getProperty("schema-version");
+        if (schema == null || !Integer.toString(SCHEMA_VERSION).equals(schema.trim())) {
+            throw new VelocityConfigurationException(path, "locale must declare schema-version=" + SCHEMA_VERSION);
+        }
+        LinkedHashMap<String, String> values = new LinkedHashMap<>();
+        for (String name : properties.stringPropertyNames()) {
+            if ("schema-version".equals(name)) continue;
+            String value = properties.getProperty(name);
+            if (value == null || value.isBlank()) {
+                throw new VelocityConfigurationException(path, "locale key '" + name + "' is blank");
+            }
+            values.put(name, value);
+        }
+        if (requireAll) {
+            for (String key : REQUIRED_KEYS) {
+                if (!values.containsKey(key)) {
+                    throw new VelocityConfigurationException(path, "missing required locale key '" + key + "'");
+                }
+            }
+        }
+        return Map.copyOf(values);
     }
 }
