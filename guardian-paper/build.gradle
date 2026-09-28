@@ -7,6 +7,7 @@ dependencies {
     implementation project(':guardian-protocol')
     implementation project(':guardian-protection')
     compileOnly "io.papermc.paper:paper-api:${paper_api_version}"
+    compileOnly "org.geysermc.geyser:api:${geyser_api_version}"
     compileOnly "org.geysermc.floodgate:api:${floodgate_api_version}"
     compileOnly "net.luckperms:api:${luckperms_api_version}"
 

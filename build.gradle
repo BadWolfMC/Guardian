@@ -1,6 +1,6 @@
 allprojects {
     group = 'com.badwolfmc.guardian'
-    version = '0.1.0-phase3'
+    version = '0.1.0-phase4'
 
     repositories {
         mavenCentral()

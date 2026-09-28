@@ -4,8 +4,8 @@ import org.geysermc.floodgate.api.FloodgateApi;
 
 import java.util.UUID;
 
-final class FloodgateBackendLookup {
-    private FloodgateBackendLookup() {
+final class FloodgateBedrockLookup {
+    private FloodgateBedrockLookup() {
     }
 
     static boolean isFloodgatePlayer(UUID playerId) {

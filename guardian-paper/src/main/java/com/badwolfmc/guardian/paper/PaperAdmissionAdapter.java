@@ -1,6 +1,9 @@
 package com.badwolfmc.guardian.paper;
 
-import com.badwolfmc.guardian.core.BrandClassifier;
+import com.badwolfmc.guardian.core.BedrockEvidence;
+import com.badwolfmc.guardian.core.BedrockResolution;
+import com.badwolfmc.guardian.core.BedrockSignal;
+import com.badwolfmc.guardian.core.ClientOriginClassifier;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionOutcome;
 import com.badwolfmc.guardian.core.DecisionReason;
@@ -73,6 +76,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
     private final GuardianRuntimeManager runtimeManager;
     private final GuardianMessageRenderer messageRenderer;
     private final AdmissionPolicyEvaluator policyEvaluator = new AdmissionPolicyEvaluator();
+    private final PaperBedrockDetector bedrockDetector;
     private AdmissionProfileProvider profileProvider = AdmissionProfileProvider.none();
     private byte[] proxySecret;
 
@@ -84,6 +88,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         this.plugin = plugin;
         this.runtimeManager = runtimeManager;
         this.messageRenderer = messageRenderer;
+        this.bedrockDetector = new PaperBedrockDetector(plugin);
     }
 
     void enable() {
@@ -275,15 +280,36 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
+        BedrockEvidence bedrock = bedrockDetector.detect(session.playerId());
+        if (bedrock.disagrees()) {
+            plugin.getLogger().warning("Guardian Geyser/Floodgate disagreement for " + displayName(connection)
+                + ": geyser=" + bedrock.geyser() + ", floodgate=" + bedrock.floodgate()
+                + "; positive supported API evidence classifies this connection as BEDROCK.");
+        }
+        if (bedrock.resolution() == BedrockResolution.INDETERMINATE) {
+            session.decide(GuardianDecision.deny(
+                DecisionReason.CONFIGURATION_ERROR,
+                "Bedrock origin integration failed; refusing to reinterpret an indeterminate connection as Java"));
+            plugin.getLogger().warning("Guardian could not determine standalone connection origin for "
+                + displayName(connection) + " because an available Bedrock integration failed: geyser="
+                + bedrock.geyser() + ", floodgate=" + bedrock.floodgate());
+            return;
+        }
+
         String brand = connection.getClientBrandName();
-        if ((brand == null || brand.isBlank()) && !finalAttempt) {
+        if (bedrock.resolution() == BedrockResolution.JAVA
+            && (brand == null || brand.isBlank()) && !finalAttempt) {
             plugin.getLogger().info(() -> "Guardian standalone configuration for " + displayName(connection)
-                + ": brand not yet available; deferring classification to final login validation"
+                + ": brand not yet available; deferring Java classification to final login validation"
+                + ", geyser=" + bedrock.geyser() + ", floodgate=" + bedrock.floodgate()
                 + ", cerberusPresent=" + session.cerberusPresent());
             return;
         }
 
-        ClientClassification classification = BrandClassifier.classify(brand);
+        ClientClassification classification = ClientOriginClassifier.classify(
+            bedrock.geyser() == BedrockSignal.BEDROCK,
+            bedrock.floodgate() == BedrockSignal.BEDROCK,
+            brand);
         session.setClassification(classification);
         ResolvedAdmissionProfile resolved = resolvedProfile(session);
         ClientPolicyResult clientResult = policyEvaluator.evaluateClient(resolved, classification, brand);
@@ -544,7 +570,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
 
         final boolean backendBedrock;
         try {
-            backendBedrock = FloodgateBackendLookup.isFloodgatePlayer(assertion.playerId());
+            backendBedrock = FloodgateBedrockLookup.isFloodgatePlayer(assertion.playerId());
         } catch (RuntimeException | LinkageError ex) {
             plugin.getLogger().warning("Guardian backend Floodgate sanity check failed for "
                 + displayName(connection) + ": " + ex.getMessage());
@@ -558,9 +584,9 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
             return;
         }
 
-        // Guardian deliberately keeps Guardian-Velocity as the sole admission authority.
-        // A backend mismatch is observable defense-in-depth evidence, not a second policy engine.
-        // Production fail-closed behavior remains a later design decision after live testing.
+        // Guardian-Velocity remains the sole admission authority in Velocity mode. A backend
+        // mismatch is security-relevant defense-in-depth evidence and is logged prominently, but
+        // Guardian-Paper must not turn this sanity check into an independent second policy decision.
         plugin.getLogger().warning("Guardian BACKEND FLOODGATE DISAGREEMENT for " + displayName(connection)
             + ": proxyOrigin=" + assertion.connectionOrigin()
             + ", backendFloodgate=" + backendBedrock

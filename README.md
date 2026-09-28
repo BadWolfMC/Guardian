@@ -119,6 +119,14 @@ Phase 3 adds one portable Admission policy system for both possible authorities:
 
 Phase 3 is complete at `0.1.0-phase3`. The final Java 25 / Gradle 9.7.1 gate is green at **134 tests** with zero failures/errors/skips (Core 53, Paper 31, Protection 20, Protocol 21, Velocity 9). Live verification confirmed Velocity ordinary allow, explicit deny, required-mod version mismatch, genuinely absent required mod (`REQUIRED_MOD_MISSING`), exact-hash denial, trusted proxy assertion without backend re-attestation, standalone Paper parity, player-facing actionable denial text plus help URL, and successful import of the four previously rejected real-world Fabric JARs including Replay Mod. Configuration semantics are documented in `docs/GUARDIAN_ADMISSION.md`.
 
+## Phase 4 status: complete
+
+Phase 4 is intentionally narrow because the proxy-side Bedrock foundation was already live-proven. `0.1.0-phase4` productionizes Geyser/Floodgate origin semantics, distinguishes provider absence from provider failure, fails closed when origin becomes indeterminate, and adds the previously missing supported Geyser/Floodgate classification path to standalone Guardian-Paper. Positive supported API evidence remains authoritative for Bedrock, Bedrock never enters the Cerberus path, and backend Floodgate remains diagnostic-only in Velocity authority mode.
+
+The final Java 25 / Gradle 9.7.1 gate is green at **141 tests** with zero failures/errors/skips (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9). Live closeout verification confirmed Velocity Bedrock with agreeing proxy/backend Floodgate evidence, Velocity Java Fabric/Cerberus regression, standalone Paper Bedrock allow, and standalone Paper Bedrock deny through the shared `admission/policy.yml`. BRIDGE-005 is retired; BRIDGE-003 and BRIDGE-004 remain Phase 5 work.
+
+The authoritative plan also fixes the operations/observability sequencing before Phase 5: the canonical `guardian.command.*` admin surface is explicitly scheduled for implementation on both platform hosts with authority-appropriate behavior, authority-owned in-memory inspection snapshots, atomic reload/files-only validation, and `NORMAL`/`DEBUG` production logging. See `docs/PHASE_4_IMPLEMENTATION.md`, `docs/PHASE_4_VERIFICATION.md`, and `docs/PHASE_5_HANDOFF.md`.
+
 See:
 
 - `docs/PHASE_0A_FINDINGS.md`
@@ -135,6 +143,9 @@ See:
 - `docs/PHASE_3_HANDOFF.md`
 - `docs/PHASE_3_IMPLEMENTATION.md`
 - `docs/PHASE_3_VERIFICATION.md`
+- `docs/PHASE_5_HANDOFF.md`
+- `docs/PHASE_4_VERIFICATION.md`
+- `docs/PHASE_4_IMPLEMENTATION.md`
 - `docs/GUARDIAN_ADMISSION.md`
 - `docs/GUARDIAN_PROTECTION.md`
 - `docs/EZPROTECTOR_MIGRATION.md`

@@ -1,5 +1,8 @@
 package com.badwolfmc.guardian.velocity;
 
+import com.badwolfmc.guardian.core.BedrockEvidence;
+import com.badwolfmc.guardian.core.BedrockResolution;
+import com.badwolfmc.guardian.core.BedrockSignal;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.ClientOriginClassifier;
 import com.badwolfmc.guardian.core.DecisionOutcome;
@@ -61,7 +64,7 @@ import java.util.concurrent.TimeUnit;
 @Plugin(
     id = "guardian",
     name = "Guardian",
-    version = "0.1.0-phase3",
+    version = "0.1.0-phase4",
     description = "Guardian Admission for Velocity",
     authors = {"BadWolfMC"},
     dependencies = {
@@ -165,11 +168,22 @@ public final class GuardianVelocityPlugin {
             return null;
         }
 
-        BedrockDetection bedrock = bedrockDetector.detect(player.getUniqueId());
+        BedrockEvidence bedrock = bedrockDetector.detect(player.getUniqueId());
         if (bedrock.disagrees()) {
-            logger.warn("Guardian Phase 0B.3 Geyser/Floodgate disagreement for {}: geyser={}, floodgate={}; "
-                    + "treating positive supported API evidence as BEDROCK for this feasibility-era integration.",
+            logger.warn("Guardian Geyser/Floodgate disagreement for {}: geyser={}, floodgate={}; "
+                    + "positive supported API evidence classifies this connection as BEDROCK.",
                 player.getUsername(), bedrock.geyser(), bedrock.floodgate());
+        }
+        if (bedrock.resolution() == BedrockResolution.INDETERMINATE) {
+            GuardianDecision failure = GuardianDecision.deny(
+                DecisionReason.CONFIGURATION_ERROR,
+                "Bedrock origin integration failed; refusing to reinterpret an indeterminate connection as Java");
+            session.decide(failure);
+            logger.warn("Guardian could not determine connection origin for {} because an available Bedrock "
+                    + "integration failed: geyser={}, floodgate={}",
+                player.getUsername(), bedrock.geyser(), bedrock.floodgate());
+            applyDecision(player, failure);
+            return null;
         }
 
         ClientClassification classification = ClientOriginClassifier.classify(
@@ -177,8 +191,7 @@ public final class GuardianVelocityPlugin {
             bedrock.floodgate() == BedrockSignal.BEDROCK,
             player.getClientBrand());
         session.setClassification(classification);
-        logger.info("Guardian Phase 0B.3 configuration for {}: brand={}, geyser={}, floodgate={}, "
-                + "classification={}, backend={}",
+        logger.info("Guardian configuration for {}: brand={}, geyser={}, floodgate={}, classification={}, backend={}",
             player.getUsername(), String.valueOf(player.getClientBrand()), bedrock.geyser(), bedrock.floodgate(),
             classification, event.server() == null ? "<none>" : event.server().getServerInfo().getName());
 

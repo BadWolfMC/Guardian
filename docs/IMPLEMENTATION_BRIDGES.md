@@ -48,20 +48,15 @@ Every active bridge must identify the source locations, the reason it exists, th
 
 **Final retirement condition (Phase 5):** Velocity authority has production configuration ownership and file-location/UX, configurable operational timing where appropriate, final diagnostics/naming, finalized assertion provisioning, explicit deployment-mode diagnostics, and tests for the Phase 5 acceptance matrix. Phase 0B wording is removed from production logs/Javadocs. Phase 5 MUST NOT require a second Velocity-specific policy schema/evaluator or a port of Paper-owned policy logic.
 
+## Resolved bridges
+
 ### BRIDGE-005 — Early Geyser/Floodgate integration behavior
 
-**Source:**
+**Resolution:** Phase 4 promoted the proven origin integration into explicit production semantics. Guardian-Velocity and standalone Guardian-Paper both query supported optional Geyser/Floodgate APIs before Java brand/Cerberus handling. Provider absence is distinct from provider query failure; positive supported API evidence wins and prevents a Cerberus challenge; contradictory explicit provider answers produce a prominent diagnostic; and a provider failure with no positive Bedrock evidence fails closed as an indeterminate origin instead of silently reclassifying the connection as Java. Shared `clients.bedrock` policy remains configurable through the Phase 3 evaluator. Guardian-Paper's Velocity-mode Floodgate comparison is retained as diagnostic defense-in-depth only and never becomes a second policy authority.
 
-- Guardian-Velocity `BedrockDetector` integration and disagreement handling
-- Guardian-Paper backend Floodgate sanity-check path
+**Resolved in:** Phase 4 final closeout, 2026-09-28.
 
-**Why it exists:** Phase 0B live testing proved the supported Geyser/Floodgate APIs and established the correct invariant that Bedrock classification precedes Cerberus. That working implementation arrived before the roadmap's dedicated production integration phase. In particular, current proxy disagreement handling logs the inconsistency and treats any positive supported API signal as Bedrock for the feasibility path.
-
-**Owner:** Phase 4.
-
-**Retirement condition:** Capability discovery, mismatch semantics, configurable Bedrock policy, diagnostics, and backend sanity checks have explicit production tests/documentation and no remaining “feasibility spike” behavior or wording.
-
-## Resolved bridges
+**Regression ownership:** Phase 5 must preserve these semantics while productionizing Guardian-Velocity operational configuration/logging/commands. Phase 8 should retest current Geyser/Floodgate behavior during the Minecraft 26.3 port.
 
 ### BRIDGE-001 — Phase 0 response validator and test-manifest evaluator
 
@@ -132,8 +127,15 @@ BRIDGE-003 and BRIDGE-005 retain their existing Phase 5 / Phase 4 owners. BRIDGE
 
 ## Phase 3 implementation-candidate bridge review
 
-The `0.1.0-phase3` implementation candidate introduces no new bridge. BRIDGE-003 and BRIDGE-005 are unchanged.
+The `0.1.0-phase3` implementation candidate introduced no new bridge. Phase 4 subsequently retires BRIDGE-005; BRIDGE-003 and BRIDGE-004 remain active for Phase 5.
 
 BRIDGE-004's Phase 3 checkpoint is implemented in source: both authoritative adapters now consume the same platform-neutral policy parser/snapshot/profile-resolution/evaluator system, and Guardian-Velocity's independent feasibility-era admission policy branch is removed. BRIDGE-004 remains active solely because its final retirement condition is Phase 5 operational productionization: final Velocity data/config ownership UX, configurable timing where appropriate, assertion provisioning, deployment diagnostics, and removal of Phase 0B naming/logging.
 
-Phase 3 closeout still requires the Java 25 / Gradle 9.7.1 gate and focused live policy matrix before the checkpoint is considered operator-verified.
+Phase 3 subsequently closed with the Java 25 / Gradle 9.7.1 gate green at 134 tests and the focused live policy matrix complete; the Phase 3 checkpoint above is therefore operator-verified.
+
+
+## Phase 4 closeout bridge review
+
+As of 2026-09-28, **Phase 4 is complete**. The retained Java 25 / Gradle 9.7.1 reports are green at 141 tests with zero failures/errors/skips, and the focused live matrix confirms Velocity Bedrock, Velocity Java/Fabric regression, standalone Bedrock allow, and standalone Bedrock policy denial.
+
+BRIDGE-005 is retired. The only active implementation bridges entering Phase 5 are BRIDGE-003 and BRIDGE-004. Phase 5 must preserve the Phase 4 Bedrock evidence/failure semantics while finalizing Velocity hosting, assertion provisioning, diagnostics, operations, and authority-aware administrator surfaces.

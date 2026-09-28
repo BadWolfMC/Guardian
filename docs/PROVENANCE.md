@@ -162,3 +162,39 @@ The final Phase 3 closeout evidence is based on the operator-supplied repository
 - operator live result: the four previously rejected real-world Fabric JARs all import successfully and generate valid `artifact-import-rules.yml` exact-hash blocks; admission succeeds after those reviewed blocks are copied into policy
 
 These results satisfy the remaining Phase 3 portability and closeout conditions. Phase 3 is complete. BRIDGE-004 remains active only for its Phase 5 Velocity operational-productionization scope; BRIDGE-005 remains owned by Phase 4.
+
+## Phase 4 Geyser/Floodgate productionization source — 2026-09-27
+
+The Phase 4 implementation pass is based on the exact repository archive supplied after Phase 3 closeout:
+
+- archive: `Guardian(20260927-225119).zip`
+- SHA-256: `0ccb246c8741cc89bd91ab8a0d7e854cd7b7dbe657eb9239fa10917ddbb33e73`
+- starting project version: `0.1.0-phase3`
+- supplied Phase 3 retained Gradle result: 134 tests, 0 failures, 0 errors, 0 skipped
+- supplied Phase 3 live baseline: shared-policy Velocity/standalone verification and artifact-import verification complete
+
+The Phase 4 candidate advances the project version to `0.1.0-phase4`, adds a platform-neutral Bedrock evidence/failure model, productionizes Guardian-Velocity provider failure/disagreement semantics, and adds supported optional Geyser/Floodgate origin discovery to standalone Guardian-Paper. It preserves Velocity as the sole policy authority in proxy mode and retains backend Floodgate only as a diagnostic sanity check.
+
+The current Geyser/Floodgate integration dependencies remain compile-only optional APIs (`Geyser API 2.11.2-SNAPSHOT`, `Floodgate API 2.2.5-SNAPSHOT`). No Geyser/Floodgate implementation code or binaries are incorporated into Guardian.
+
+The candidate also records the pre-Phase-5 operations/observability architecture in the authoritative plan and new Phase 5 handoff: authority-aware command routing, bounded active inspection snapshots, atomic reload/validation surfaces, `NORMAL`/`DEBUG` production logging, the `guardian.command.*` permission convention, and the artifact generated-rule-ID length hardening item.
+
+The Phase 4 source test inventory is expected to be 141 tests before the final Java 25 / Gradle 9.7.1 closeout gate. The implementation sandbox exposed OpenJDK 21 only and did not have the Gradle 9.7.1 distribution cached; network retrieval of the wrapper distribution was unavailable. The required Java 25 gate therefore was not represented as executed here. `PHASE_4_VERIFICATION.md` records the exact operator gate and focused live checks required for closeout.
+
+
+## Phase 4 final closeout repository — 2026-09-28
+
+The final Phase 4 closeout evidence is based on the operator-supplied repository after the focused architecture-test correction and successful live Bedrock verification:
+
+- archive: `Guardian(20260928-071227).zip`
+- SHA-256: `2cfb2b5256a6f679d592938d2b1d0697b78b718b82dc9858a97c762c0a018be1`
+- project version: `0.1.0-phase4`
+- retained Gradle XML reports: **141 tests, 0 failures, 0 errors, 0 skipped** (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9)
+- operator live result: Velocity Bedrock classified from agreeing Geyser/Floodgate evidence, admitted by shared Bedrock policy, asserted to Paper, and accepted through `PROXY_ADMISSION_VERIFIED` with agreeing backend Floodgate evidence
+- operator live result: Velocity Java Fabric/Cerberus remained `JAVA_FABRIC`, verified the representative 166-entry manifest, and preserved assertion-only backend Admission
+- operator live result: standalone Paper Bedrock `ALLOW` entered through `BEDROCK_POLICY` without Cerberus
+- operator live result: standalone Paper Bedrock `DENY` was rejected through ordinary shared `admission/policy.yml` with `CLIENT_DENIED`
+
+The packaged Paper `config.yml` contains no Bedrock client-policy action and explicitly delegates shared Admission policy to `admission/policy.yml`, so no stale shipping configuration ownership was found during closeout.
+
+These results retire BRIDGE-005. Phase 5 begins with only BRIDGE-003 and BRIDGE-004 active.

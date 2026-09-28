@@ -1,27 +1,32 @@
 package com.badwolfmc.guardian.velocity;
 
+import com.badwolfmc.guardian.core.BedrockEvidence;
+import com.badwolfmc.guardian.core.BedrockSignal;
 import com.velocitypowered.api.proxy.ProxyServer;
 import org.slf4j.Logger;
 
 import java.util.UUID;
 
+/** Queries optional supported origin providers without treating usernames as identity evidence. */
 final class BedrockDetector {
-    private final ProxyServer server;
     private final Logger logger;
+    private final boolean geyserAvailable;
+    private final boolean floodgateAvailable;
 
     BedrockDetector(ProxyServer server, Logger logger) {
-        this.server = server;
         this.logger = logger;
+        this.geyserAvailable = server.getPluginManager().getPlugin("geyser").isPresent();
+        this.floodgateAvailable = server.getPluginManager().getPlugin("floodgate").isPresent();
     }
 
-    BedrockDetection detect(UUID playerId) {
+    BedrockEvidence detect(UUID playerId) {
         BedrockSignal geyser = queryGeyser(playerId);
         BedrockSignal floodgate = queryFloodgate(playerId);
-        return new BedrockDetection(geyser, floodgate);
+        return new BedrockEvidence(geyser, floodgate);
     }
 
     private BedrockSignal queryGeyser(UUID playerId) {
-        if (server.getPluginManager().getPlugin("geyser").isEmpty()) {
+        if (!geyserAvailable) {
             return BedrockSignal.UNAVAILABLE;
         }
         try {
@@ -29,13 +34,13 @@ final class BedrockDetector {
                 ? BedrockSignal.BEDROCK
                 : BedrockSignal.NOT_BEDROCK;
         } catch (RuntimeException | LinkageError ex) {
-            logger.warn("Guardian Phase 0B.3 could not query the optional Geyser API for {}.", playerId, ex);
-            return BedrockSignal.UNAVAILABLE;
+            logger.warn("Guardian could not query the optional Geyser API for {}.", playerId, ex);
+            return BedrockSignal.ERROR;
         }
     }
 
     private BedrockSignal queryFloodgate(UUID playerId) {
-        if (server.getPluginManager().getPlugin("floodgate").isEmpty()) {
+        if (!floodgateAvailable) {
             return BedrockSignal.UNAVAILABLE;
         }
         try {
@@ -43,8 +48,8 @@ final class BedrockDetector {
                 ? BedrockSignal.BEDROCK
                 : BedrockSignal.NOT_BEDROCK;
         } catch (RuntimeException | LinkageError ex) {
-            logger.warn("Guardian Phase 0B.3 could not query the optional Floodgate API for {}.", playerId, ex);
-            return BedrockSignal.UNAVAILABLE;
+            logger.warn("Guardian could not query the optional Floodgate API for {}.", playerId, ex);
+            return BedrockSignal.ERROR;
         }
     }
 }

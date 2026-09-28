@@ -4,7 +4,7 @@ main: com.badwolfmc.guardian.paper.GuardianPaperPlugin
 api-version: '26.2'
 authors: [BadWolfMC]
 description: Guardian Admission and Protection for Paper.
-softdepend: [floodgate, LuckPerms]
+softdepend: [Geyser-Spigot, floodgate, LuckPerms]
 commands:
   guardian:
     description: Guardian administrative commands.

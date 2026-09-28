@@ -29,6 +29,13 @@ class AdmissionPolicyEvaluatorTest {
 
         assertEquals(DecisionReason.BEDROCK_POLICY,
             evaluator.evaluateClient(defaults, ClientClassification.BEDROCK, "fabric").terminalDecision().reason());
+        ResolvedAdmissionProfile bedrockDenied = resolved(clientPolicy(
+            ClientAction.DENY, ClientAction.ALLOW, ClientAction.ALLOW,
+            ClientAction.REQUIRE_CERBERUS, ClientAction.DENY,
+            BrandRuleMode.ALLOWLIST, Set.of()), denylist(), Map.of());
+        assertEquals(DecisionOutcome.DENY,
+            evaluator.evaluateClient(bedrockDenied, ClientClassification.BEDROCK, "Geyser").terminalDecision().outcome(),
+            "Bedrock remains subject to configurable shared client policy rather than a bypass");
         assertEquals(DecisionReason.VANILLA_POLICY,
             evaluator.evaluateClient(defaults, ClientClassification.JAVA_VANILLA, "vanilla").terminalDecision().reason());
         assertEquals(DecisionReason.OPTIFINE_POLICY,
