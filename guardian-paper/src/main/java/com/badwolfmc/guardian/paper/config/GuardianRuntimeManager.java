@@ -36,7 +36,7 @@ public final class GuardianRuntimeManager {
         this.localesDirectory = localesDirectory;
         Path dataDirectory = configPath.toAbsolutePath().normalize().getParent();
         if (dataDirectory == null) throw new IllegalArgumentException("configPath must have a parent directory");
-        this.admissionPolicyPath = dataDirectory.resolve("admission/policy.yml");
+        this.admissionPolicyPath = dataDirectory.resolve("policy.yml");
         this.artifactCatalogPath = dataDirectory.resolve("artifacts.yml");
         this.configLoader = configLoader;
         this.localeLoader = localeLoader;

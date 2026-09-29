@@ -41,17 +41,13 @@ admission:
     handshake-timeout-seconds: 10
     challenge-channel-wait-ticks: 40
 
-  # Shared admission policy lives in admission/policy.yml. This file intentionally
+  # Shared admission policy lives in policy.yml. This file intentionally
   # contains only Paper-local operational settings.
 
-# Used only when admission.authority is velocity. Both Guardian-Velocity and every
-# Guardian-Paper backend must resolve the same Base64-encoded 32-byte secret.
-# ENVIRONMENT is recommended for production. FILE reads a relative file beneath
-# plugins/Guardian/ (for example proxy-assertion.secret).
-proxy-assertion:
-  secret-source: ENVIRONMENT
-  environment-variable: GUARDIAN_PROXY_ASSERTION_SECRET
-  file: proxy-assertion.secret
+# When admission.authority is velocity, Guardian-Paper requires
+# plugins/Guardian/proxy-assertion.key. Guardian-Velocity generates this file
+# automatically on first startup; copy it unchanged to every Velocity-authority
+# Paper backend and keep it private. Standalone Paper does not require this file.
 
 # Guardian Protection is Paper-authoritative and applies only to commands initiated
 # through Paper's player command path. Console, command-block, and ordinary plugin

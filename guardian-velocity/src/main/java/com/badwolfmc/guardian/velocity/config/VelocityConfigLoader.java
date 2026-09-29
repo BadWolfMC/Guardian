@@ -3,7 +3,6 @@ package com.badwolfmc.guardian.velocity.config;
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretResolver;
-import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretSource;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
@@ -16,7 +15,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /** Strict parser for Guardian-Velocity's proxy-local operational settings. */
@@ -26,23 +24,11 @@ public final class VelocityConfigLoader {
     private static final int MAX_LOCALE_ID_LENGTH = 32;
     private static final int MAX_HANDSHAKE_SECONDS = (int) (GuardianProtocol.MAX_HANDSHAKE_MILLIS / 1000L);
     private static final Set<String> ROOT_KEYS = Set.of(
-        "schema-version", "deployment", "locale", "logging", "admission", "proxy-assertion");
+        "schema-version", "deployment", "locale", "logging", "admission");
     private static final Set<String> DEPLOYMENT_KEYS = Set.of("authority");
     private static final Set<String> LOCALE_KEYS = Set.of("default");
     private static final Set<String> LOGGING_KEYS = Set.of("level");
     private static final Set<String> ADMISSION_KEYS = Set.of("handshake-timeout-seconds");
-    private static final Set<String> ASSERTION_KEYS = Set.of("secret-source", "environment-variable", "file");
-
-    private final Map<String, String> environment;
-
-    public VelocityConfigLoader() {
-        this(System.getenv());
-    }
-
-    VelocityConfigLoader(Map<String, String> environment) {
-        this.environment = Map.copyOf(environment);
-    }
-
     public VelocityOperationalSettings load(Path path) throws VelocityConfigurationException {
         Map<String, Object> root = loadYaml(path);
         rejectUnknown(root, ROOT_KEYS, path, "root");
@@ -81,21 +67,14 @@ public final class VelocityConfigLoader {
             throw error(path, "admission.handshake-timeout-seconds must be between 1 and " + MAX_HANDSHAKE_SECONDS);
         }
 
-        Map<String, Object> assertion = map(required(root, "proxy-assertion", path, "root"), path, "proxy-assertion");
-        rejectUnknown(assertion, ASSERTION_KEYS, path, "proxy-assertion");
         final ProxyAssertionSecret secret;
         try {
-            ProxyAssertionSecretSource source = ProxyAssertionSecretSource.parse(
-                string(assertion, "secret-source", path, "proxy-assertion"));
-            secret = ProxyAssertionSecretResolver.resolve(
-                Objects.requireNonNull(path.toAbsolutePath().normalize().getParent(), "config path parent"),
-                source,
-                string(assertion, "environment-variable", path, "proxy-assertion"),
-                string(assertion, "file", path, "proxy-assertion"),
-                environment
-            );
+            Path dataDirectory = path.toAbsolutePath().normalize().getParent();
+            if (dataDirectory == null) throw new IllegalArgumentException("config path has no parent directory");
+            secret = ProxyAssertionSecretResolver.resolveFile(
+                dataDirectory, ProxyAssertionSecretResolver.DEFAULT_KEY_FILE);
         } catch (IllegalArgumentException ex) {
-            throw error(path, "proxy assertion configuration invalid: " + ex.getMessage());
+            throw error(path, "proxy assertion key invalid: " + ex.getMessage());
         }
 
         return new VelocityOperationalSettings(schema, locale, timeout, logLevel, secret);

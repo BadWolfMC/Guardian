@@ -16,9 +16,7 @@ admission:
   # Time allowed for profile resolution + Cerberus CONFIGURATION attestation where required.
   handshake-timeout-seconds: 10
 
-proxy-assertion:
-  # Both Guardian-Velocity and Guardian-Paper backends must resolve the same Base64 32-byte secret.
-  # ENVIRONMENT is recommended. FILE reads a relative file beneath the Guardian-Velocity data directory.
-  secret-source: ENVIRONMENT
-  environment-variable: GUARDIAN_PROXY_ASSERTION_SECRET
-  file: proxy-assertion.secret
+# Guardian-Velocity automatically generates proxy-assertion.key in this plugin
+# data directory on first startup. Keep it private and copy the same file
+# unchanged to plugins/Guardian/proxy-assertion.key on every Paper backend
+# configured with admission.authority: velocity.

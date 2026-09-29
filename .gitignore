@@ -18,6 +18,7 @@
 # Project ephemera
 *.patch
 *.zip
+proxy-assertion.key
 
 # OS noise
 .DS_Store

@@ -18,9 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,50 +37,25 @@ class OperationsSupportTest {
     }
 
     @Test
-    void environmentSecretIsValidatedAndNeverExposedByReference() {
-        byte[] key = new byte[32];
-        key[0] = 42;
-        String encoded = Base64.getEncoder().encodeToString(key);
-        ProxyAssertionSecret secret = ProxyAssertionSecretResolver.resolve(
-            tempDir, ProxyAssertionSecretSource.ENVIRONMENT, "GUARDIAN_TEST_SECRET", "ignored",
-            Map.of("GUARDIAN_TEST_SECRET", encoded));
-
-        assertEquals("environment:GUARDIAN_TEST_SECRET", secret.sourceDescription());
-        assertEquals(16, secret.fingerprint().length());
-        byte[] first = secret.copyBytes();
-        first[0] = 0;
-        assertEquals(42, secret.copyBytes()[0]);
-    }
-
-    @Test
     void proxyAssertionSecretEnforcesExactKeyLengthAtItsOwnBoundary() {
         assertThrows(IllegalArgumentException.class, () -> new ProxyAssertionSecret(new byte[31], "test"));
         assertDoesNotThrow(() -> new ProxyAssertionSecret(new byte[GuardianProtocol.PROXY_SECRET_BYTES], "test"));
     }
 
     @Test
-    void missingOrWrongLengthEnvironmentSecretFailsClosed() {
-        assertThrows(IllegalArgumentException.class, () -> ProxyAssertionSecretResolver.resolve(
-            tempDir, ProxyAssertionSecretSource.ENVIRONMENT, "MISSING", "ignored", Map.of()));
-        assertThrows(IllegalArgumentException.class, () -> ProxyAssertionSecretResolver.resolve(
-            tempDir, ProxyAssertionSecretSource.ENVIRONMENT, "BAD", "ignored",
-            Map.of("BAD", Base64.getEncoder().encodeToString(new byte[31]))));
-    }
-
-    @Test
     void fileSecretMustRemainInsideDataDirectoryAndIsBounded() throws Exception {
-        String encoded = Base64.getEncoder().encodeToString(new byte[32]);
-        Files.writeString(tempDir.resolve("proxy-assertion.secret"), encoded, StandardCharsets.UTF_8);
-        ProxyAssertionSecret secret = ProxyAssertionSecretResolver.resolve(
-            tempDir, ProxyAssertionSecretSource.FILE, "ignored", "proxy-assertion.secret", Map.of());
-        assertEquals("file:proxy-assertion.secret", secret.sourceDescription());
+        String encoded = java.util.Base64.getEncoder().encodeToString(new byte[32]);
+        Files.writeString(tempDir.resolve("proxy-assertion.key"), encoded, StandardCharsets.UTF_8);
+        ProxyAssertionSecret secret = ProxyAssertionSecretResolver.resolveFile(
+            tempDir, "proxy-assertion.key");
+        assertEquals("file:proxy-assertion.key", secret.sourceDescription());
 
-        assertThrows(IllegalArgumentException.class, () -> ProxyAssertionSecretResolver.resolve(
-            tempDir, ProxyAssertionSecretSource.FILE, "ignored", "../outside.secret", Map.of()));
+        assertThrows(IllegalArgumentException.class, () -> ProxyAssertionSecretResolver.resolveFile(
+            tempDir, "../outside.key"));
 
-        Files.writeString(tempDir.resolve("too-large.secret"), "x".repeat(513), StandardCharsets.UTF_8);
-        assertThrows(IllegalArgumentException.class, () -> ProxyAssertionSecretResolver.resolve(
-            tempDir, ProxyAssertionSecretSource.FILE, "ignored", "too-large.secret", Map.of()));
+        Files.writeString(tempDir.resolve("too-large.key"), "x".repeat(513), StandardCharsets.UTF_8);
+        assertThrows(IllegalArgumentException.class, () -> ProxyAssertionSecretResolver.resolveFile(
+            tempDir, "too-large.key"));
     }
 
     @Test

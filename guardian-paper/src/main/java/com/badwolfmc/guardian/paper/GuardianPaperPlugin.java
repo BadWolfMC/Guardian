@@ -31,7 +31,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         ensureAdministratorFile("config.yml");
-        ensureAdministratorFile("admission/policy.yml");
+        ensureAdministratorFile("policy.yml");
         ensureAdministratorFile("locales/" + GuardianLocaleLoader.FALLBACK_LOCALE + ".properties");
 
         Path data = getDataFolder().toPath();

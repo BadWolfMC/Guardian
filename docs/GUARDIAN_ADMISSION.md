@@ -10,17 +10,17 @@ Keep operational configuration separate from admission policy:
 
 ```text
 Guardian data directory/
-├── config.yml                 Paper-local operational settings when using Guardian-Paper
-├── admission/
-│   └── policy.yml             shared portable Admission policy
+├── config.yml                 host-local operational settings
+├── policy.yml                 shared portable Admission policy
+├── proxy-assertion.key        Velocity-generated; copied to Velocity-authority Paper backends only
 ├── artifacts.yml              exact-artifact identity catalog; not an allowlist
 ├── artifact-import/           optional administrative import input
 └── artifact-import-rules.yml  generated copy/paste exact-hash policy fragment
 ```
 
-Guardian-Velocity uses the same `admission/policy.yml` schema. Its Phase 5 data directory also owns proxy-local `config.yml` and locales; it does not get a separate policy language.
+Guardian-Velocity uses the same `policy.yml` schema. Its Phase 5 data directory also owns proxy-local `config.yml` and locales; it does not get a separate policy language.
 
-`artifacts.yml` records identities discovered/imported by the Phase 2.5 artifact workflow. Merely appearing in the catalog never grants permission to connect. `artifact-import-rules.yml` is convenience output only: Guardian does not load it and does not modify `admission/policy.yml` during a scan. It contains direct `HASH_REQUIRED`/`sha256` ALLOW blocks for the JARs present during the most recent successful scan, indented so an administrator can review and paste them beneath the desired profile's `mods.rules`.
+`artifacts.yml` records identities discovered/imported by the Phase 2.5 artifact workflow. Merely appearing in the catalog never grants permission to connect. `artifact-import-rules.yml` is convenience output only: Guardian does not load it and does not modify `policy.yml` during a scan. It contains direct `HASH_REQUIRED`/`sha256` ALLOW blocks for the JARs present during the most recent successful scan, indented so an administrator can review and paste them beneath the desired profile's `mods.rules`.
 
 ### Artifact import workflow in plain English
 
@@ -29,7 +29,7 @@ Putting a JAR in `artifact-import/` does **not** approve that mod for players. O
 1. it identifies and hashes the JAR and records that exact identity in `artifacts.yml`; and
 2. it writes a ready-to-paste exact-hash `ALLOW` rule into `artifact-import-rules.yml`.
 
-To actually permit the mod, review the generated block, copy it into `profiles.<the-profile>.mods.rules` in `admission/policy.yml`, and then validate/reload Admission policy. This explicit copy step is what chooses **which profile** receives permission. For example, a Replay Mod JAR can be scanned globally but its generated rule can be pasted only into a staff profile instead of the default profile.
+To actually permit the mod, review the generated block, copy it into `profiles.<the-profile>.mods.rules` in `policy.yml`, and then validate/reload Admission policy. This explicit copy step is what chooses **which profile** receives permission. For example, a Replay Mod JAR can be scanned globally but its generated rule can be pasted only into a staff profile instead of the default profile.
 
 `artifact-import-rules.yml` is regenerated from the JARs present during the latest successful scan and is never read as policy. `artifacts.yml` is durable identity history and may retain old versions after their import JARs are removed. Neither file, by itself, grants admission permission.
 
@@ -266,7 +266,7 @@ An invalid reload candidate never replaces the prior valid snapshot. Files-only 
 
 Paper integrates this with its existing domain-aware runtime reload/validation primitives. Guardian-Velocity contains the shared runtime reload/validation seams in Phase 3; Phase 5 owns the final proxy administrative command/UX.
 
-Scanning `artifact-import/` records exact identities in `artifacts.yml` and refreshes the non-loaded `artifact-import-rules.yml` convenience fragment; it never edits `admission/policy.yml` or changes an active policy snapshot. This separation is intentional because identity is global while permission is profile-specific. Copy or merge generated rules into the desired profile explicitly, then reload/validate Admission policy. For `catalog: true` rules, copy the corresponding `artifacts.yml` to whichever authority (Paper or Velocity) owns policy evaluation.
+Scanning `artifact-import/` records exact identities in `artifacts.yml` and refreshes the non-loaded `artifact-import-rules.yml` convenience fragment; it never edits `policy.yml` or changes an active policy snapshot. This separation is intentional because identity is global while permission is profile-specific. Copy or merge generated rules into the desired profile explicitly, then reload/validate Admission policy. For `catalog: true` rules, copy the corresponding `artifacts.yml` to whichever authority (Paper or Velocity) owns policy evaluation.
 
 ## Minimal Phase 3 live closeout
 

@@ -19,29 +19,25 @@ Every active bridge must identify the source locations, the reason it exists, th
 
 ## Active bridges
 
-### BRIDGE-003 — Proxy assertion secret provisioning — Phase 5 candidate implemented
-
-**Historical source:** the Phase 0B `GUARDIAN_PHASE0B_PROXY_SECRET` bootstrap proved authenticated Velocity → Paper admission assertions using a server-controlled shared secret, but its name and provisioning UX were never intended for release.
-
-**Phase 5 candidate:** production source now uses proxy-local/Paper-local configuration with `ENVIRONMENT` or bounded relative `FILE` secret sources, default environment variable `GUARDIAN_PROXY_ASSERTION_SECRET`, exact 32-byte Base64 validation, non-secret key fingerprint diagnostics, reload/validation behavior, and documented replacement/rotation expectations. Production source no longer depends on the `PHASE0B` environment-variable contract.
-
-**Owner:** Phase 5 closeout.
-
-**Retirement condition:** the Phase 5 Java 25 / Gradle 9.7.1 gate and focused assertion-provisioning live test pass. Until then this bridge remains active even though its source replacement is implemented.
-
-### BRIDGE-004 — Guardian-Velocity retained feasibility adapter — Phase 5 candidate implemented
-
-**Historical source:** the live-proven CONFIGURATION lifecycle, channel-consumption boundary, session reuse, Bedrock classification, and proxy assertion flow were retained while shared policy and production operations matured.
-
-**Phase 3 checkpoint:** **CLOSED in `0.1.0-phase3` on 2026-09-27.** Guardian-Velocity already consumes the shared platform-neutral policy parser/snapshot/profile-resolution/evaluator used by standalone Paper.
-
-**Phase 5 candidate:** Guardian-Velocity now has strict data-directory-owned operational configuration, explicit `deployment.authority: velocity`, configurable handshake timing, production assertion provisioning, locale/logging ownership, atomic runtime reload/files-only validation, proxy-owned `/guardianv` administration, bounded authoritative inspection snapshots, network-authoritative artifact scanning, final command permissions, and production diagnostics. Mutable successful Admission sessions are discarded; only a minimal immutable grant needed for backend assertions plus the separate read-only inspection snapshot remain for the proxy connection lifetime. Production logs/Javadocs no longer use Phase 0B naming.
-
-**Owner:** Phase 5 closeout.
-
-**Final retirement condition:** the Phase 5 Java 25 / Gradle 9.7.1 gate and focused live acceptance matrix pass, including cross-backend `/guardianv inspect`, host-local reload/validation, artifact authority, assertion configuration, and disconnect cleanup. Phase 5 MUST NOT require a second Velocity-specific policy schema/evaluator or a port of Paper-owned policy logic.
+**None.** Phase 5 retired BRIDGE-003 and BRIDGE-004 after the final Java 25 / Gradle 9.7.1 gate and focused live operational matrix passed on 2026-09-29. New temporary implementation debt introduced in Phase 6 or later must be registered here before it can cross a phase boundary.
 
 ## Resolved bridges
+
+### BRIDGE-003 — Proxy assertion key provisioning
+
+**Resolution:** Guardian-Velocity owns production assertion-key creation. On first startup it creates `proxy-assertion.key` with 32 cryptographically random bytes encoded as Base64 using no-overwrite semantics; administrators copy that file unchanged to Velocity-authority Guardian-Paper backends. Standalone Paper requires no key. Both hosts perform bounded/symlink-safe key-file validation, fail closed on missing/mismatched material, and expose only a non-secret fingerprint. The feasibility-era environment-variable bootstrap is absent from production source.
+
+**Resolved in:** Phase 5 final closeout, 2026-09-29.
+
+**Live evidence:** generated-key provisioning, matching status fingerprints, deliberate backend key mismatch rejection, restoration/recovery, and normal trusted Velocity → Paper assertions all passed.
+
+### BRIDGE-004 — Guardian-Velocity retained feasibility adapter
+
+**Resolution:** Guardian-Velocity is now the production network Admission host: it consumes the shared Phase 3 policy engine, owns strict proxy-local configuration/data, configurable timing, generated assertion-key provisioning, locale/logging state, atomic reload/files-only validation, proxy-owned `/guardianv` administration, bounded authoritative inspection snapshots, network-authoritative artifact scanning, and final production diagnostics. Security-sensitive Guardian channels terminate at Velocity, mutable Admission sessions are discarded at terminal decisions, backend switching reuses one proxy-session Admission grant, and Paper remains assertion-only without receiving the full Fabric manifest. Feasibility-era Phase 0B operational naming is absent from production source.
+
+**Resolved in:** Phase 5 final closeout, 2026-09-29.
+
+**Live evidence:** the 178-test Java 25 / Gradle 9.7.1 gate passed together with normal Fabric/Cerberus Admission, authority-correct Paper/proxy inspection, host-local validation/reload, artifact authority, assertion provisioning, disconnect cleanup, and in-game `/guardianv` administration through the Velocity permission provider.
 
 ### BRIDGE-005 — Early Geyser/Floodgate integration behavior
 
@@ -49,7 +45,7 @@ Every active bridge must identify the source locations, the reason it exists, th
 
 **Resolved in:** Phase 4 final closeout, 2026-09-28.
 
-**Regression ownership:** Phase 5 must preserve these semantics while productionizing Guardian-Velocity operational configuration/logging/commands. Phase 8 should retest current Geyser/Floodgate behavior during the Minecraft 26.3 port.
+**Regression ownership:** Phase 5 preserved these semantics while productionizing Guardian-Velocity operational configuration/logging/commands. Phase 6 should adversarially test provider loss/reconfiguration, and Phase 8 should retest current Geyser/Floodgate behavior during the Minecraft 26.3 port.
 
 ### BRIDGE-001 — Phase 0 response validator and test-manifest evaluator
 
@@ -116,7 +112,7 @@ The Java 25 / Gradle 9.7.1 Phase 2 closeout gate passed at project version `0.1.
 
 Phase 2.5 exact artifact identity and approved-artifact catalog work introduces no new implementation bridge. The artifact digest is part of the unreleased protocol-v1 canonical contract and the catalog is a permanent administrator identity-data surface, not temporary compatibility scaffolding.
 
-BRIDGE-003 and BRIDGE-005 retain their existing Phase 5 / Phase 4 owners. BRIDGE-004 remains active, but its ownership is now deliberately split: Phase 3 removes the feasibility-era independent Velocity policy behavior by wiring Guardian-Velocity to the shared policy engine; Phase 5 retains final Velocity configuration ownership/UX, timings, diagnostics/naming, deployment-mode behavior, and assertion-secret productionization. Phase 2.5 itself did not rewrite any of those surfaces.
+BRIDGE-003 and BRIDGE-005 retain their existing Phase 5 / Phase 4 owners. BRIDGE-004 remains active, but its ownership is now deliberately split: Phase 3 removes the feasibility-era independent Velocity policy behavior by wiring Guardian-Velocity to the shared policy engine; Phase 5 retains final Velocity configuration ownership/UX, timings, diagnostics/naming, deployment-mode behavior, and assertion-key productionization. Phase 2.5 itself did not rewrite any of those surfaces.
 
 ## Phase 3 implementation-candidate bridge review
 
@@ -134,8 +130,6 @@ As of 2026-09-28, **Phase 4 is complete**. The retained Java 25 / Gradle 9.7.1 r
 BRIDGE-005 is retired. The only active implementation bridges entering Phase 5 are BRIDGE-003 and BRIDGE-004. Phase 5 must preserve the Phase 4 Bedrock evidence/failure semantics while finalizing Velocity hosting, assertion provisioning, diagnostics, operations, and authority-aware administrator surfaces.
 
 
-## Phase 5 implementation-candidate bridge review
+## Phase 5 closeout bridge review
 
-The `0.1.0-phase5` candidate implements the source-level retirement responsibilities for BRIDGE-003 and BRIDGE-004 without introducing a new implementation bridge. Production code no longer uses feasibility-era proxy-secret naming or Phase 0B diagnostics; Velocity owns strict operational configuration/timing/assertion/logging state and `/guardianv`, while Paper owns `/guardian` and remains assertion-only for network Admission.
-
-BRIDGE-003 and BRIDGE-004 intentionally remain under **Active bridges** until the exact Java 25 / Gradle 9.7.1 gate and the focused live checks in `PHASE_5_VERIFICATION.md` pass. This preserves the register's rule that a bridge is not retired merely because replacement source exists.
+As of 2026-09-29, **Phase 5 is complete**. The final Java 25 / Gradle 9.7.1 gate is green at 178 tests with zero failures/errors/skips, and the focused live matrix passed. BRIDGE-003 and BRIDGE-004 are retired under their objective conditions above. Phase 5 introduced no replacement bridge, so the active register is empty entering Phase 6.

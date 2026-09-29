@@ -39,6 +39,20 @@ class Phase5OperationsArchitectureTest {
         assertTrue(plugin.contains("GUARDIAN") || Files.exists(Path.of("src/main/resources/config.yml")));
     }
 
+
+    @Test
+    void velocityOwnsKeyGenerationAndTopLevelPolicyLayout() throws Exception {
+        String plugin = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
+        String runtime = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/VelocityRuntimeManager.java"));
+        assertTrue(plugin.contains("new VelocityProxyAssertionKeyProvisioner().ensureGenerated(dataDirectory)"));
+        assertTrue(plugin.contains("ensureAdministratorFile(\"policy.yml\")"));
+        assertFalse(plugin.contains("ensureAdministratorFile(\"admission/policy.yml\")"));
+        assertTrue(runtime.contains("data.resolve(\"policy.yml\")"));
+        assertFalse(runtime.contains("data.resolve(\"admission/policy.yml\")"));
+    }
+
     @Test
     void authoritativeInspectionStaysAtProxyAndIsRemovedOnDisconnect() throws Exception {
         String plugin = Files.readString(Path.of(

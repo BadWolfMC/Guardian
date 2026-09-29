@@ -17,7 +17,7 @@ import java.util.Map;
 
 /**
  * Deterministic convenience output for administrators who want direct exact-hash policy rules.
- * The generated file is never loaded automatically and never mutates admission/policy.yml.
+ * The generated file is never loaded automatically and never mutates policy.yml.
  */
 public final class ArtifactPolicyFragmentStore {
     public static final int MAX_FRAGMENT_BYTES = 1024 * 1024;
@@ -71,7 +71,7 @@ public final class ArtifactPolicyFragmentStore {
         StringBuilder out = new StringBuilder();
         out.append("# Guardian artifact-import policy fragment.\n");
         out.append("# Generated from the JARs currently present in artifact-import/.\n");
-        out.append("# This file is NOT loaded automatically and does not modify admission/policy.yml.\n");
+        out.append("# This file is NOT loaded automatically and does not modify policy.yml.\n");
         out.append("# Review, then copy the indented rule blocks below profiles.<profile>.mods.rules:.\n");
         out.append("# Direct SHA-256 values are emitted so the copied rules do not depend on artifacts.yml.\n");
         if (sorted.isEmpty()) {

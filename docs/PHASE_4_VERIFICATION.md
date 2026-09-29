@@ -21,7 +21,7 @@ The focused live matrix is also complete:
 3. **Standalone Paper + real Bedrock / `clients.bedrock: ALLOW` — PASS.** Supported origin evidence classified `BEDROCK` before Java brand handling and admitted through `BEDROCK_POLICY` without Cerberus.
 4. **Standalone Paper + real Bedrock / `clients.bedrock: DENY` — PASS.** The same Bedrock connection was denied through ordinary shared policy as `CLIENT_DENIED`; no bypass or Cerberus fallback occurred.
 
-The Bedrock client action is owned by the shared `admission/policy.yml`, not Paper-local `config.yml`. The packaged `config.yml` already documents that boundary and contains no stale Bedrock allow/deny setting.
+The Bedrock client action is owned by the shared `policy.yml`, not Paper-local `config.yml`. The packaged `config.yml` already documents that boundary and contains no stale Bedrock allow/deny setting.
 
 These results satisfy the Phase 4 automated and live acceptance criteria. BRIDGE-005 is retired.
 

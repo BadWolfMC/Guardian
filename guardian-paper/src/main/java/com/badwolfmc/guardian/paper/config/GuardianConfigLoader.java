@@ -4,7 +4,6 @@ import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretResolver;
-import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretSource;
 
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.protection.ProtectionPolicy;
@@ -19,19 +18,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 public final class GuardianConfigLoader {
-    private final Map<String, String> environment;
-
-    public GuardianConfigLoader() {
-        this(System.getenv());
-    }
-
-    GuardianConfigLoader(Map<String, String> environment) {
-        this.environment = Map.copyOf(environment);
-    }
-
     public static final int SCHEMA_VERSION = 1;
     private static final int MAX_HANDSHAKE_SECONDS = (int) (GuardianProtocol.MAX_HANDSHAKE_MILLIS / 1000L);
     private static final int MAX_LOCALE_ID_LENGTH = 32;
@@ -82,17 +70,15 @@ public final class GuardianConfigLoader {
         ProxyAssertionSecret proxySecret = null;
         if (admissionEnabled && authority == PaperAuthorityMode.VELOCITY) {
             try {
-                ProxyAssertionSecretSource source = ProxyAssertionSecretSource.parse(
-                    optionalString(yaml, path, "proxy-assertion.secret-source", "ENVIRONMENT"));
-                proxySecret = ProxyAssertionSecretResolver.resolve(
-                    path.toAbsolutePath().normalize().getParent(),
-                    source,
-                    optionalString(yaml, path, "proxy-assertion.environment-variable", "GUARDIAN_PROXY_ASSERTION_SECRET"),
-                    optionalString(yaml, path, "proxy-assertion.file", "proxy-assertion.secret"),
-                    environment
-                );
+                Path dataDirectory = path.toAbsolutePath().normalize().getParent();
+                if (dataDirectory == null) throw new IllegalArgumentException("config path has no parent directory");
+                proxySecret = ProxyAssertionSecretResolver.resolveFile(
+                    dataDirectory, ProxyAssertionSecretResolver.DEFAULT_KEY_FILE);
             } catch (IllegalArgumentException ex) {
-                throw error(path, "proxy assertion configuration invalid: " + ex.getMessage());
+                throw error(path, GuardianConfigurationException.Kind.EXTERNAL_DEPENDENCY,
+                    "proxy assertion key invalid: " + ex.getMessage()
+                        + ". Copy proxy-assertion.key from the Guardian-Velocity data directory "
+                        + "into this Paper server's plugins/Guardian/ directory.");
             }
         }
 

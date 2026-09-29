@@ -24,6 +24,19 @@ class Phase5PaperOperationsArchitectureTest {
         assertFalse(command.contains("guardian.artifacts.scan"));
     }
 
+
+    @Test
+    void paperUsesTopLevelSharedPolicyLayout() throws Exception {
+        String plugin = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/paper/GuardianPaperPlugin.java"));
+        String runtime = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/paper/config/GuardianRuntimeManager.java"));
+        assertTrue(plugin.contains("ensureAdministratorFile(\"policy.yml\")"));
+        assertFalse(plugin.contains("ensureAdministratorFile(\"admission/policy.yml\")"));
+        assertTrue(runtime.contains("dataDirectory.resolve(\"policy.yml\")"));
+        assertFalse(runtime.contains("dataDirectory.resolve(\"admission/policy.yml\")"));
+    }
+
     @Test
     void velocityAuthorityPaperInspectionUsesBackendEvidenceOnly() throws Exception {
         String command = Files.readString(Path.of(

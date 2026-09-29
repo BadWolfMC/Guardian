@@ -34,8 +34,8 @@ class VelocityRuntimeManagerTest {
         writeDefaults();
         VelocityRuntimeManager manager = new VelocityRuntimeManager(tempDir);
         VelocityRuntimeSnapshot original = manager.loadInitial();
-        Path policy = tempDir.resolve("admission/policy.yml");
-        Files.writeString(policy, resource("admission/policy.yml")
+        Path policy = tempDir.resolve("policy.yml");
+        Files.writeString(policy, resource("policy.yml")
             .replace("default-profile: default", "default-profile: missing"), StandardCharsets.UTF_8);
 
         assertThrows(VelocityConfigurationException.class, manager::reload);
@@ -48,8 +48,7 @@ class VelocityRuntimeManagerTest {
         VelocityRuntimeManager manager = new VelocityRuntimeManager(tempDir);
         VelocityRuntimeSnapshot original = manager.loadInitial();
         Path config = tempDir.resolve("config.yml");
-        Files.writeString(config, resource("config.yml").replace(
-            "secret-source: ENVIRONMENT", "secret-source: FILE").replace("level: NORMAL", "level: DEBUG"),
+        Files.writeString(config, resource("config.yml").replace("level: NORMAL", "level: DEBUG"),
             StandardCharsets.UTF_8);
 
         VelocityRuntimeSnapshot candidate = manager.validateFiles();
@@ -70,13 +69,11 @@ class VelocityRuntimeManagerTest {
     }
 
     private void writeDefaults() throws Exception {
-        Files.createDirectories(tempDir.resolve("admission"));
         Files.createDirectories(tempDir.resolve("locales"));
-        Files.writeString(tempDir.resolve("config.yml"), resource("config.yml")
-            .replace("secret-source: ENVIRONMENT", "secret-source: FILE"), StandardCharsets.UTF_8);
-        Files.writeString(tempDir.resolve("proxy-assertion.secret"),
+        Files.writeString(tempDir.resolve("config.yml"), resource("config.yml"), StandardCharsets.UTF_8);
+        Files.writeString(tempDir.resolve("proxy-assertion.key"),
             Base64.getEncoder().encodeToString(new byte[32]), StandardCharsets.UTF_8);
-        Files.writeString(tempDir.resolve("admission/policy.yml"), resource("admission/policy.yml"), StandardCharsets.UTF_8);
+        Files.writeString(tempDir.resolve("policy.yml"), resource("policy.yml"), StandardCharsets.UTF_8);
         Files.writeString(tempDir.resolve("locales/en_us.properties"), resource("locales/en_us.properties"), StandardCharsets.UTF_8);
     }
 

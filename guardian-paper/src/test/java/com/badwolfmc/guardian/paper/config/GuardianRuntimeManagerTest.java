@@ -48,9 +48,8 @@ class GuardianRuntimeManagerTest {
         Files.writeString(config, malformed, StandardCharsets.UTF_8);
         Files.writeString(tempDir.resolve("locales/en_us.properties"),
             defaultResource("locales/en_us.properties"), StandardCharsets.UTF_8);
-        Files.createDirectories(tempDir.resolve("admission"));
-        Files.writeString(tempDir.resolve("admission/policy.yml"),
-            defaultResource("admission/policy.yml"), StandardCharsets.UTF_8);
+        Files.writeString(tempDir.resolve("policy.yml"),
+            defaultResource("policy.yml"), StandardCharsets.UTF_8);
 
         GuardianRuntimeManager manager = new GuardianRuntimeManager(config, tempDir.resolve("locales"));
 
@@ -70,9 +69,8 @@ class GuardianRuntimeManagerTest {
         Path locale = tempDir.resolve("locales/en_us.properties");
         String invalid = "schema-version=1\nadmission.denied=<red>Only one key</red>\n";
         Files.writeString(locale, invalid, StandardCharsets.UTF_8);
-        Files.createDirectories(tempDir.resolve("admission"));
-        Files.writeString(tempDir.resolve("admission/policy.yml"),
-            defaultResource("admission/policy.yml"), StandardCharsets.UTF_8);
+        Files.writeString(tempDir.resolve("policy.yml"),
+            defaultResource("policy.yml"), StandardCharsets.UTF_8);
 
         GuardianRuntimeManager manager = new GuardianRuntimeManager(
             tempDir.resolve("config.yml"), tempDir.resolve("locales"));
@@ -194,8 +192,8 @@ class GuardianRuntimeManagerTest {
     @Test
     void contradictoryUnknownBrandModeFailsValidationInSharedPolicy() throws Exception {
         writeDefaults(defaultResource("config.yml"));
-        Path policy = tempDir.resolve("admission/policy.yml");
-        String invalid = defaultResource("admission/policy.yml")
+        Path policy = tempDir.resolve("policy.yml");
+        String invalid = defaultResource("policy.yml")
             .replace("mode: ALLOWLIST", "mode: DENYLIST");
         Files.writeString(policy, invalid, StandardCharsets.UTF_8);
         GuardianConfigurationException ex = assertThrows(
@@ -211,8 +209,8 @@ class GuardianRuntimeManagerTest {
     void filesOnlyValidationDoesNotReplaceActiveSnapshot() throws Exception {
         GuardianRuntimeManager manager = managerWithDefaults();
         GuardianRuntimeSnapshot original = manager.loadInitial();
-        Path policy = tempDir.resolve("admission/policy.yml");
-        Files.writeString(policy, defaultResource("admission/policy.yml")
+        Path policy = tempDir.resolve("policy.yml");
+        Files.writeString(policy, defaultResource("policy.yml")
             .replace("default-profile: default", "default-profile: missing"), StandardCharsets.UTF_8);
         assertThrows(GuardianConfigurationException.class, manager::validateFiles);
         assertSame(original, manager.current());
@@ -228,9 +226,8 @@ class GuardianRuntimeManagerTest {
         Files.writeString(tempDir.resolve("config.yml"), config, StandardCharsets.UTF_8);
         Files.writeString(tempDir.resolve("locales/en_us.properties"),
             defaultResource("locales/en_us.properties"), StandardCharsets.UTF_8);
-        Files.createDirectories(tempDir.resolve("admission"));
-        Files.writeString(tempDir.resolve("admission/policy.yml"),
-            defaultResource("admission/policy.yml"), StandardCharsets.UTF_8);
+        Files.writeString(tempDir.resolve("policy.yml"),
+            defaultResource("policy.yml"), StandardCharsets.UTF_8);
     }
 
     private static String defaultResource(String name) throws IOException {

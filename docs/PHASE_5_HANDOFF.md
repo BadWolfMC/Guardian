@@ -1,6 +1,6 @@
-# Phase 5 handoff — implementation candidate and closeout gate
+# Phase 5 handoff — completed
 
-> The current repository and `Guardian_Cerberus_Authoritative_Project_Plan.md` are authoritative. This handoff records the Phase 5 candidate state and verification required before Phase 6.
+> Phase 5 is complete. This file is retained as the historical Phase 5 requirement/handoff record; `PHASE_6_HANDOFF.md` is the active next-phase handoff.
 
 ## Entering baseline
 
@@ -26,7 +26,7 @@ Guardian-Velocity
 
 The command roots are intentionally different. Do not register `/guardian` at Velocity, do not make Paper secretly proxy administrator requests to Velocity, and do not introduce a command RPC merely to retrieve remote Admission state.
 
-Phase 5 also adds strict Velocity operational configuration/data ownership, production assertion-secret provisioning, configurable handshake timing, explicit deployment diagnostics, atomic Velocity reload/files-only validation, `NORMAL`/`DEBUG` logging, bounded authority-owned inspection snapshots, authority-correct artifact administration, and generated rule-ID length hardening.
+Phase 5 also adds strict Velocity operational configuration/data ownership, production assertion-key provisioning, configurable handshake timing, explicit deployment diagnostics, atomic Velocity reload/files-only validation, `NORMAL`/`DEBUG` logging, bounded authority-owned inspection snapshots, authority-correct artifact administration, and generated rule-ID length hardening.
 
 The shared Phase 3 policy engine and Phase 4 Geyser/Floodgate semantics remain unchanged. Paper behind Velocity remains assertion-only for network Admission and receives no full Fabric manifest.
 
@@ -56,8 +56,18 @@ No compatibility alias is retained for the unreleased `guardian.artifacts.scan` 
 
 ## Closeout status
 
-The source candidate implements the BRIDGE-003/004 retirement responsibilities, but those bridges MUST remain active until the final Java 25 / Gradle 9.7.1 gate and the focused live tests in `PHASE_5_VERIFICATION.md` pass.
+Phase 5 closed on 2026-09-29. The final Java 25 / Gradle 9.7.1 gate is green at **178 tests, 0 failures, 0 errors, 0 skipped** (Core 64, Paper 44, Protection 20, Protocol 21, Velocity 29).
 
-This implementation sandbox had Java 21 and no cached Gradle 9.7.1 distribution; wrapper download was blocked by network/DNS. Do not record the Phase 5 candidate as green based on the retained Phase 4 XML.
+The focused live matrix passed:
 
-After the gate/live matrix passes, retire BRIDGE-003 and BRIDGE-004 and begin Phase 6. Do not pull signed Cerberus identity, hostile-client resistance, or the Minecraft/Paper/Fabric 26.3 port backward into Phase 5.
+- normal Guardian-Velocity Fabric/Cerberus Admission produced one concise authoritative `NORMAL` summary and backend Paper remained quiet on success;
+- Paper `/guardian status` and limited backend `/guardian inspect` correctly reported Velocity authority without receiving the full Fabric manifest;
+- `/guardianv` administration worked in-game once its `guardian.velocity.command.*` permissions were granted through the Velocity permission provider;
+- host-local validation/reload retained prior runtime state on invalid candidates and applied valid local changes only to the intended host;
+- Paper refused authoritative artifact mutation in Velocity mode while `/guardianv artifacts scan` owned the proxy catalog workflow;
+- Velocity-generated `proxy-assertion.key` provisioning, matching fingerprints, deliberate mismatch rejection, and restored-key recovery behaved as intended; and
+- active inspection data disappeared on disconnect rather than becoming historical manifest storage.
+
+The local permission troubleshooting also confirmed an important deployment fact: Paper and Velocity permissions are resolved by separate platform permission providers. With isolated LuckPerms stores, grant proxy permissions through the Velocity LuckPerms instance (for example `/lpv`); production networks using shared LuckPerms storage may not make this boundary obvious.
+
+These results retire BRIDGE-003 and BRIDGE-004. There are no active implementation bridges entering Phase 6. Continue with `PHASE_6_HANDOFF.md`; do not pull the Minecraft/Paper/Fabric 26.3 port forward from Phase 8.

@@ -35,7 +35,7 @@ final class VelocityRuntimeManager {
         Path data = dataDirectory.toAbsolutePath().normalize();
         this.configPath = data.resolve("config.yml");
         this.localesDirectory = data.resolve("locales");
-        this.policyPath = data.resolve("admission/policy.yml");
+        this.policyPath = data.resolve("policy.yml");
         this.artifactCatalogPath = data.resolve("artifacts.yml");
         this.configLoader = configLoader;
         this.policyLoader = policyLoader;

@@ -4,7 +4,7 @@
 
 Phase 5 starts from `0.1.0-phase4` (141 retained green tests) with BRIDGE-005 retired and BRIDGE-003/BRIDGE-004 as the only active implementation bridges. The shared Phase 3 policy engine and Phase 4 Bedrock semantics are preserved; this phase productionizes the hosts and administrator surfaces rather than creating new Admission policy semantics.
 
-The candidate version is `0.1.0-phase5`.
+The Phase 5 version is `0.1.0-phase5`.
 
 ## Command authority
 
@@ -60,34 +60,31 @@ Guardian-Velocity now owns a strict proxy-local `config.yml` beneath its injecte
 - `schema-version: 1`;
 - explicit `deployment.authority: velocity`;
 - locale;
-- `logging.level: NORMAL|DEBUG`;
-- bounded `admission.handshake-timeout-seconds`; and
-- production proxy assertion secret provisioning.
+- `logging.level: NORMAL|DEBUG`; and
+- bounded `admission.handshake-timeout-seconds`.
 
-It continues to consume the exact same `admission/policy.yml`, `artifacts.yml`, and locale format as the shared architecture requires.
+It continues to consume the exact same `policy.yml`, `artifacts.yml`, and locale format as the shared architecture requires.
 
 Velocity's runtime manager parses and validates the complete candidate (operational config, policy/catalog, locale), verifies the artifact catalog did not change concurrently while policy was being resolved, then atomically swaps one immutable runtime snapshot. `validate` builds the same candidate without activating it. Failed or internally inconsistent candidate loading leaves the previous runtime active.
 
-## Proxy assertion secret lifecycle
+## Proxy assertion key lifecycle
 
-The feasibility-era `GUARDIAN_PHASE0B_PROXY_SECRET` name is removed from production code. The default production environment variable is:
+The feasibility-era `GUARDIAN_PHASE0B_PROXY_SECRET` environment variable is removed from production code. Phase 5 uses one familiar file-based provisioning model:
 
-```text
-GUARDIAN_PROXY_ASSERTION_SECRET
-```
+1. Guardian-Velocity generates `proxy-assertion.key` automatically on first startup.
+2. The file contains Base64 for exactly 32 random key bytes.
+3. The administrator copies that file unchanged to `plugins/Guardian/proxy-assertion.key` on every Paper backend configured with `admission.authority: velocity`.
+4. Standalone Guardian-Paper does not require or generate the file.
 
-Both Paper and Velocity support:
+The key file is intentionally **not** configured in `config.yml`; there is one fixed conventional location on each host. This removes an unnecessary secret-source/path configuration surface and avoids requiring administrators to place secrets in JVM flags, startup scripts, or environment variables.
 
-```yaml
-proxy-assertion:
-  secret-source: ENVIRONMENT   # or FILE
-  environment-variable: GUARDIAN_PROXY_ASSERTION_SECRET
-  file: proxy-assertion.secret
-```
+Velocity creates the key with `CREATE_NEW` semantics and never overwrites an existing regular file. On POSIX filesystems Guardian attempts owner-read/write-only permissions; on Windows and other non-POSIX filesystems the host's inherited ACLs apply. Guardian never logs the key material. Both hosts perform bounded reads, reject symlinked key paths, require exact 32-byte Base64 key material, and expose only a short SHA-256-derived non-secret fingerprint through status diagnostics.
 
-The configured value is Base64 representing exactly 32 secret bytes. `FILE` paths must be relative to the Guardian data directory, may not escape it or traverse symbolic links, and are bounded before reading. Guardian never logs key material. Status exposes only the configured source and a short SHA-256-derived non-secret fingerprint so administrators can confirm that hosts loaded the same key.
+A missing key on a Velocity-authority Paper backend is an **external provisioning failure**, not a corrupt `config.yml`. Guardian-Paper therefore fails closed without backing up/replacing the config or silently changing Admission authority. The error tells the administrator to copy `proxy-assertion.key` from Guardian-Velocity.
 
-Protocol v1 accepts one active shared assertion key per host. Rotation is therefore coordinated rather than magically zero-downtime: use a maintenance window/no server switching, provision the same replacement on the proxy/backends, validate each host, and reload/restart the affected hosts in a tightly controlled sequence. `FILE` source can be picked up by Guardian reload; an `ENVIRONMENT` change normally requires restarting the process/service because the running process environment is not mutable by Guardian. Dual-key overlap is intentionally deferred rather than expanding the assertion format in Phase 5.
+Protocol v1 accepts one active shared assertion key per host. Rotation is coordinated: during a maintenance window, stop/cordon backend switching, replace or remove the Velocity key so a new one is generated, copy the new file to every Velocity-authority Paper backend, verify matching fingerprints, then resume normal traffic. Existing live proxy sessions should not be assumed to survive a key mismatch during rotation.
+
+Treat `proxy-assertion.key` as private infrastructure key material. Do not commit it to source control, publish it, paste it into support logs, or distribute it with Guardian.
 
 ## Logging
 
@@ -99,7 +96,7 @@ Both hosts expose only `NORMAL` and `DEBUG`. Administrator-visible operational s
 
 ## Paper ownership behavior
 
-Paper `config.yml` gains `server-name`, `logging.level`, and production assertion secret configuration. Explicitly present optional operational settings are type/format validated rather than silently treated as absent when malformed.
+Paper `config.yml` gains `server-name` and `logging.level`; proxy assertion key material lives outside YAML in the fixed `proxy-assertion.key` file. Explicitly present optional operational settings are type/format validated rather than silently treated as absent when malformed.
 
 In standalone authority mode, `/guardian` validates/reloads the complete Paper-owned candidate, exposes authoritative inspection, and permits artifact scanning.
 
@@ -117,6 +114,10 @@ Command routing, operational config, secret handling, and inspection storage are
 
 Production source no longer uses Phase 0B operational naming. Historical phase documents still describe Phase 0B as history and are intentionally not rewritten.
 
-## Phase 5 bridge status
+## Phase 5 closeout status
 
-The source candidate implements the objective BRIDGE-003 and BRIDGE-004 productionization responsibilities. They remain listed as active until the Java 25 / Gradle 9.7.1 gate and focused live Phase 5 verification pass; at that point they should be retired together rather than closed merely because the code exists.
+Phase 5 is complete. The final Java 25 / Gradle 9.7.1 gate is green at 178 tests with zero failures/errors/skips (Core 64, Paper 44, Protection 20, Protocol 21, Velocity 29). The focused live matrix passed, including normal Velocity Fabric/Cerberus Admission, Paper-local versus proxy-authoritative inspection, atomic host-local validation/reload, artifact authority, generated assertion-key provisioning and mismatch recovery, disconnect cleanup, and in-game `/guardianv` execution.
+
+BRIDGE-003 and BRIDGE-004 satisfy their objective retirement conditions and are retired together. No active implementation bridge enters Phase 6.
+
+One operator lesson is now explicit: Paper and Velocity command permissions are checked by their respective platform permission providers. In an isolated LuckPerms lab, Paper `/lp` changes do not grant Velocity `/guardianv` permissions; use the Velocity LuckPerms instance (for example `/lpv`) or shared LuckPerms storage. This is a deployment distinction, not a Guardian command-routing fallback.

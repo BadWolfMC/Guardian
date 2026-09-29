@@ -84,7 +84,7 @@ The implementation sandbox exposes Java 21 rather than the project's required Ja
 Before closeout, confirm from the built source/artifacts:
 
 - `guardian-core` policy model/parser/evaluator compiles without Paper or Velocity dependencies;
-- both adapters package the same shared `admission/policy.yml` resource and SnakeYAML runtime dependency;
+- both adapters package the same shared `policy.yml` resource and SnakeYAML runtime dependency;
 - standalone Paper loads/evaluates shared policy;
 - Velocity loads/evaluates the same shared policy;
 - Paper in Velocity authority mode does not re-evaluate the player's mod policy;

@@ -67,7 +67,7 @@ At every phase closeout, review the active bridge register before declaring the 
 
 ## Phase 3 shared Admission policy development
 
-Administrator Admission policy lives in `shared-resources/admission/policy.yml` and is copied to the platform data directory as `admission/policy.yml`. Do not move client/mod/profile policy back into Paper `config.yml` or add a Velocity-specific policy schema.
+Administrator Admission policy lives in `shared-resources/policy.yml` and is copied to the platform data directory as `policy.yml`. Do not move client/mod/profile policy back into Paper `config.yml` or add a Velocity-specific policy schema.
 
 The parse/normalize/validate/snapshot/evaluate path belongs in `guardian-core` and must stay free of Paper/Velocity types. Paper/Velocity may own data-directory discovery, lifecycle/reload invocation, optional provider adapters, transport state, scheduling, and logging.
 

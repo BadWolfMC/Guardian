@@ -866,7 +866,7 @@ plugins/Guardian/
 
 Import is explicit through `/guardian artifacts scan`, not automatic at startup. Startup creates the input directory and validates an existing catalog; the potentially heavier JAR inspection/hashing work runs only on administrator request and off the Paper primary thread.
 
-The durable catalog is intentionally separate from Phase 3 policy. It is Guardian-managed deterministic YAML with a strict schema and generated-format ownership: administrators may inspect/edit/version-control it, but arbitrary comments/formatting are not promised to survive a subsequent Guardian rewrite. A scan validates the existing catalog and every candidate before mutation, atomically rewrites only on a successful merge, adds newly discovered exact identities, deduplicates existing hashes, and never removes historical identities merely because an input JAR disappeared. A successful scan also refreshes `artifact-import-rules.yml`, a non-loaded convenience file containing direct exact-hash ALLOW rule blocks for the JARs currently in `artifact-import/`. Guardian MUST NOT silently edit `admission/policy.yml` as part of identity scanning because policy permission is profile-specific while artifact identity is global.
+The durable catalog is intentionally separate from Phase 3 policy. It is Guardian-managed deterministic YAML with a strict schema and generated-format ownership: administrators may inspect/edit/version-control it, but arbitrary comments/formatting are not promised to survive a subsequent Guardian rewrite. A scan validates the existing catalog and every candidate before mutation, atomically rewrites only on a successful merge, adds newly discovered exact identities, deduplicates existing hashes, and never removes historical identities merely because an input JAR disappeared. A successful scan also refreshes `artifact-import-rules.yml`, a non-loaded convenience file containing direct exact-hash ALLOW rule blocks for the JARs currently in `artifact-import/`. Guardian MUST NOT silently edit `policy.yml` as part of identity scanning because policy permission is profile-specific while artifact identity is global.
 
 The catalog supports multiple versions of one mod ID and multiple approved hashes for the same ID/version. It records identity only; it does not make an admission decision. Phase 3 decides whether a catalogued identity is required, optional, allowed, or irrelevant under a particular administrator policy.
 
@@ -1427,6 +1427,14 @@ A normal authoritative inspection SHOULD provide player identity, current backen
 
 Both status commands remain concise. `/guardian status` reports Paper-local version/protocol/server/authority/domain state, locale/logging, optional backend integrations, proxy assertion verifier state, and local snapshot counts. `/guardianv status` reports network-authoritative version/protocol/deployment state, loaded profiles/default profile, artifact catalog state, logging/timing, optional proxy integrations, assertion key source/fingerprint, and authoritative active snapshot count.
 
+### 29.4.1 Proxy assertion key provisioning
+
+Guardian-Velocity owns creation of the server-controlled shared assertion key. On first startup, if `proxy-assertion.key` does not already exist as a regular file in the Guardian-Velocity data directory, Velocity generates 32 random bytes with a cryptographically secure RNG and writes their Base64 representation to that file without overwriting existing key material.
+
+For every Guardian-Paper backend configured with `admission.authority: velocity`, the operator copies the same `proxy-assertion.key` unchanged into that backend's Guardian data directory. Guardian-Paper MUST NOT generate a replacement key when the file is missing; it fails closed and reports the provisioning requirement. Standalone Paper does not require proxy assertion key material.
+
+The key location is conventional/fixed rather than configured through JVM flags, environment variables, or inline YAML. Guardian never logs key material; status exposes only a non-secret fingerprint suitable for confirming that the proxy and backends loaded the same key. Key rotation is coordinated across the proxy/backends rather than silently accepting multiple active keys.
+
 ### 29.5 Permissions and command routing
 
 Paper administrative permissions are:
@@ -1907,7 +1915,7 @@ Acceptance tests MUST cover both client-class policy and mod-policy modes, inclu
 
 ### Phase 3 implementation decisions — `0.1.0-phase3` candidate
 
-The Phase 3 implementation candidate selects one portable file, `admission/policy.yml`, as the administrator-facing Admission policy source for either authoritative adapter. Paper `config.yml` remains operational/local configuration; `artifacts.yml` remains identity data only. Shared policy parsing uses a platform-neutral strict YAML parser in `guardian-core`, not Bukkit `YamlConfiguration`.
+The Phase 3 implementation candidate selects one portable file, `policy.yml`, as the administrator-facing Admission policy source for either authoritative adapter. Paper `config.yml` remains operational/local configuration; `artifacts.yml` remains identity data only. Shared policy parsing uses a platform-neutral strict YAML parser in `guardian-core`, not Bukkit `YamlConfiguration`.
 
 The selected policy-addressable manifest model is:
 
@@ -1963,11 +1971,11 @@ BadWolfMC's legacy username prefix may be recognized for migration diagnostics o
 
 Phase 4 also records the shared operations/observability architecture in Sections 27 and 29 so Phase 5 implements authority-aware commands, bounded inspection snapshots, and production logging controls as part of Velocity productionization rather than retrofitting them afterward.
 
-**Phase 4 completion record — 2026-09-28:** the final Java 25 / Gradle 9.7.1 gate is green at 141 tests (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9), with zero failures/errors/skips. Live verification covers Velocity Bedrock with agreeing Geyser/Floodgate and backend Floodgate evidence, Velocity Java Fabric/Cerberus regression, standalone Bedrock allow, and standalone Bedrock deny through shared `admission/policy.yml`. Bedrock never entered the Cerberus path. BRIDGE-005 is retired; BRIDGE-003 and BRIDGE-004 remain Phase 5 work.
+**Phase 4 completion record — 2026-09-28:** the final Java 25 / Gradle 9.7.1 gate is green at 141 tests (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9), with zero failures/errors/skips. Live verification covers Velocity Bedrock with agreeing Geyser/Floodgate and backend Floodgate evidence, Velocity Java Fabric/Cerberus regression, standalone Bedrock allow, and standalone Bedrock deny through shared `policy.yml`. Bedrock never entered the Cerberus path. BRIDGE-005 is retired; BRIDGE-003 and BRIDGE-004 remain Phase 5 work.
 
 ---
 
-## Phase 5 — Velocity authoritative mode — IMPLEMENTATION CANDIDATE
+## Phase 5 — Velocity authoritative mode — COMPLETE
 
 **Goal:** Productionize Guardian-Velocity as the preferred network-edge Admission host without making it mandatory and **without reimplementing or porting the Phase 3 policy engine**.
 
@@ -1975,7 +1983,7 @@ Phase 5 implements the final authority-aware operations design from Section 29:
 
 - Guardian-Paper owns `/guardian`; Guardian-Velocity owns `/guardianv`;
 - Velocity has a strict proxy-local `config.yml`, explicit `deployment.authority: velocity`, configurable handshake timing, locale/logging settings, and shared policy/catalog ownership in its data directory;
-- proxy assertion secrets use production naming and may be sourced from either a configured environment variable or a bounded relative secret file, with exact 32-byte Base64 validation and a non-secret fingerprint for deployment diagnostics;
+- Guardian-Velocity automatically generates `proxy-assertion.key` on first startup; operators copy that same bounded, exact-32-byte Base64 key file to each Velocity-authority Paper backend, while standalone Paper requires no proxy assertion key; status exposes only a non-secret fingerprint for deployment diagnostics;
 - reload/validation use complete immutable candidates and preserve the previous active runtime when validation fails;
 - one completed Admission is retained only as a minimal immutable proxy-session grant for backend assertions, while mutable admission sessions are discarded and authoritative inspection uses a separate bounded immutable in-memory snapshot;
 - backend switching reuses the original proxy Admission decision without re-attesting the client;
@@ -1986,11 +1994,13 @@ Phase 5 implements the final authority-aware operations design from Section 29:
 - `/guardian artifacts scan` refuses in Velocity-authoritative Paper mode while `/guardianv artifacts scan` manages the authoritative catalog; and
 - generated artifact policy rule IDs are deterministically shortened when necessary to remain within the 64-character rule-ID bound.
 
-Secret replacement/rotation is an administrator-coordinated operation because protocol v1 accepts one active shared key per host. `FILE` source is reloadable; `ENVIRONMENT` source follows the hosting process/service environment and normally requires process restart after that environment changes. Zero-downtime dual-key rotation is intentionally not introduced in Phase 5.
+Key replacement/rotation is an administrator-coordinated operation because protocol v1 accepts one active shared key per host. Velocity is the only host that generates key material; Paper consumes an operator-copied key file and never generates an independent replacement. Zero-downtime dual-key rotation is intentionally not introduced in Phase 5.
 
 Phase 5 MUST NOT introduce a Velocity-specific admission-policy schema/evaluator, duplicate Paper policy logic, require administrator policy files to be rewritten merely because authority moves from standalone Paper to Guardian-Velocity, forward full manifests to backends for command convenience, or turn backend Floodgate sanity evidence into a second Admission authority.
 
-The implementation candidate advances the project version to `0.1.0-phase5`. BRIDGE-003 and BRIDGE-004 remain open until the Java 25 / Gradle 9.7.1 gate and the focused Phase 5 live verification matrix confirm the productionization responsibilities documented in their retirement conditions.
+The implementation advances the project version to `0.1.0-phase5`.
+
+**Phase 5 completion record — 2026-09-29:** the final Java 25 / Gradle 9.7.1 gate is green at **178 tests** (Core 64, Paper 44, Protection 20, Protocol 21, Velocity 29), with zero failures/errors/skips. Focused live verification confirms normal Velocity Fabric/Cerberus Admission with one concise authoritative summary, assertion-only backend Paper behavior, authority-aware Paper/proxy inspection, host-local atomic validation/reload, artifact authority, Velocity-generated assertion-key provisioning and mismatch recovery, disconnect snapshot cleanup, and in-game `/guardianv` operation through the Velocity permission provider. BRIDGE-003 and BRIDGE-004 are retired; no active implementation bridge enters Phase 6.
 
 ---
 
@@ -2017,13 +2027,17 @@ Test and harden:
 - proxy assertion spoofing;
 - backend direct-connect attempts;
 - unknown/empty brand;
-- integration disappearance;
+- integration disappearance, including LuckPerms/profile-provider timeout or outage under profiles that are stricter than the default;
+- permission/profile-provider fail-safe semantics when provider-derived profile/bypass state cannot be obtained;
 - reconfiguration events;
 - development-environment mod origins;
 - malformed configuration;
 - key rotation scenarios;
 - PLAY-quarantine escape/interaction attempts;
-- delayed PLAY channel registration and timeout boundaries.
+- delayed PLAY channel registration and timeout boundaries;
+- active-inspection memory pressure and output bounds under maximum-size/top-level manifests;
+- untrusted version/release metadata containing control characters or log-forging sequences; and
+- inspection diagnostics after policy/catalog reload so output cannot be mistaken for the admission-time decision basis.
 
 Evaluate signed official Cerberus release identity as described in Section 16.1, including a canonical artifact digest signed by a release-only private key. Treat it only as compliance hardening against ordinary tampering/self-builds; explicitly test and document that a hostile client can potentially report valid metadata from an official release while running different code.
 
@@ -2046,7 +2060,7 @@ Refine/polish (basic command/inspection/logging implementation is owned by Phase
 - standalone Paper guide;
 - Velocity network guide;
 - Geyser/Floodgate guide;
-- LuckPerms/profile guide;
+- LuckPerms/profile guide, including Paper-versus-Velocity permission-provider ownership, shared-storage expectations, and `/lp` versus `/lpv` troubleshooting;
 - Guardian Protection guide;
 - eZProtector → Guardian configuration migration guide;
 - eZProtector → Guardian permission migration table;
@@ -2056,7 +2070,8 @@ Refine/polish (basic command/inspection/logging implementation is owned by Phase
 - clean-install tests;
 - upgrade tests;
 - CI release workflow;
-- attribution and GPL materials.
+- attribution and GPL materials;
+- bundled third-party dependency license/NOTICE audit for the final distributable JARs.
 
 Perform a final adversarial release-candidate audit.
 
@@ -2192,21 +2207,14 @@ The following should remain open until the indicated implementation phase rather
 - exact public-key signature algorithm;
 - server trust-store format in Cerberus;
 - BadWolfMC-only vs broader generic trust onboarding for third-party Guardian servers;
-- key rotation format;
-- exact nested/contained-mod policy DSL;
+- release-signing/server-authentication key rotation format beyond the Phase 5 single active proxy-assertion key model;
 - whether signed official Cerberus release identity is adopted;
 - if adopted, its canonical digest/signature algorithm, metadata format, and release-key lifecycle;
-- exact admission-policy YAML file split/spelling, provided it normalizes to the Section 10 action model;
-- whether named admission profiles support inheritance/composition in v1 or are complete standalone resolved profiles;
-- exact mod-version predicate syntax;
-- exact baseline/bootstrap/runtime manifest-entry set after Phase 2 real-manifest characterization;
 - whether per-command execution bypasses or per-namespace bypass leaves are needed beyond the initial permission hierarchy;
-- exact `guardian.command.*` administrative leaf permissions;
 - exact locale selection strategy beyond required default/fallback behavior;
 - whether optional PlaceholderAPI expansion is added to ordinary rendered messages;
 - whether a generic console-command Protection action ships in the initial public release;
 - whether Guardian-Velocity ever gains network-global/proxy-owned command Protection;
-- exact admin command syntax;
 - whether a public read-only Guardian API ships in v1.0;
 - whether optional persistent audit storage is ever needed.
 
@@ -2284,25 +2292,17 @@ The implementation should re-check current documentation when each phase begins 
 
 ---
 
-# 38. Phase 5 implementation/verification handoff
+# 38. Phase 6 handoff
 
-**Phases 0 through 4 are closed. Phase 5 is implemented as a `0.1.0-phase5` candidate and now requires the final Java 25 / Gradle 9.7.1 gate plus focused live verification before BRIDGE-003 and BRIDGE-004 are retired.**
+**Phases 0 through 5 are closed. Phase 6 is the active next phase: security and adversarial hardening.**
 
-Treat this document, the current repository, `docs/PHASE_5_IMPLEMENTATION.md`, `docs/PHASE_5_VERIFICATION.md`, `docs/IMPLEMENTATION_BRIDGES.md`, and `docs/PHASE_5_HANDOFF.md` as authoritative for Phase 5.
+Treat this document, the current repository, `docs/PHASE_6_HANDOFF.md`, `docs/PHASE_5_IMPLEMENTATION.md`, `docs/PHASE_5_VERIFICATION.md`, `docs/IMPLEMENTATION_BRIDGES.md`, and `docs/PROVENANCE.md` as authoritative entering Phase 6.
 
-The Phase 4 entering baseline was `0.1.0-phase4`, green at 141 tests with BRIDGE-005 retired. The Phase 5 candidate preserves the established architecture while adding:
+The Phase 5 closeout baseline is `0.1.0-phase5`, green at 178 tests with BRIDGE-003/004 retired and no active implementation bridge. The production architecture entering Phase 6 is intentionally stable: shared policy semantics are complete, Velocity is the preferred network Admission authority, standalone Paper remains supported, Bedrock classification precedes Java/Cerberus handling, proxy assertions use the Velocity-generated shared key file, and administrator operations are authority-explicit through `/guardian` and `/guardianv`.
 
-- `/guardian` on Paper and `/guardianv` on Velocity with separate permissions;
-- proxy-local Velocity configuration/data ownership, production assertion secret provisioning, configurable timing, and deployment diagnostics;
-- host-owned atomic reload and files-only validation;
-- bounded immutable active inspection snapshots with authoritative Fabric manifests retained only at the Admission authority;
-- proxy-wide `/guardianv inspect <player>` with no Paper↔Velocity command RPC;
-- Paper-local backend inspection/assertion evidence only in Velocity mode;
-- authority-correct artifact scanning;
-- `NORMAL` / `DEBUG` production logging; and
-- deterministic generated artifact rule IDs that remain within policy bounds.
+Phase 6 must attack these assumptions rather than redesign them casually. In addition to the adversarial matrix in the Phase 6 section, specifically exercise provider outages/fail-safe profile resolution, active-inspection memory/output bounds, control-character/log-forging inputs, key-rotation/mismatch timing, backend direct-connect posture, stale asynchronous completion/reconnect races, and inspection behavior across runtime/catalog changes.
 
-Before moving to Phase 6, run the complete Java 25 / Gradle 9.7.1 gate and the minimal live matrix in `PHASE_5_VERIFICATION.md`. Only after those pass should BRIDGE-003 and BRIDGE-004 be moved from active to retired.
+Do not begin the Minecraft/Paper/Fabric 26.3 port in Phase 6; that remains Phase 8.
 
 ---
 
@@ -2314,4 +2314,4 @@ Guardian now has stable independent Admission and Protection domains. Protocol v
 
 Phase 4 closes the Bedrock-origin gap. Both possible Admission authorities use supported Geyser/Floodgate evidence before Java brand/Cerberus handling; provider absence, disagreement, and provider failure have explicit semantics; standalone Paper Bedrock allow/deny is live-proven; and backend Floodgate remains diagnostic-only under Velocity authority. BRIDGE-005 is retired.
 
-For BadWolfMC's production topology, the Phase 5 implementation candidate now supplies the remaining operational productionization: a strict Velocity host configuration, production assertion-key lifecycle, distinct Paper/proxy command authorities, bounded active inspection, host-local reload/validation, and production logging. The remaining prerequisite before Phase 6 is verification of that candidate under Java 25 / Gradle 9.7.1 plus the focused live matrix; core Admission-policy invention remains complete.
+For BadWolfMC's production topology, Phase 5 now supplies the completed operational productionization: strict Velocity host configuration, production assertion-key lifecycle, distinct Paper/proxy command authorities, bounded active inspection, host-local reload/validation, authority-correct artifact administration, and production logging. The Java 25 / Gradle 9.7.1 gate and focused live matrix are green, BRIDGE-003/004 are retired, and Phase 6 can now concentrate on adversarial/security hardening rather than unfinished operations work.

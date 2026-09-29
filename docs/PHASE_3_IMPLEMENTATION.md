@@ -8,11 +8,11 @@ Phase 3 does not change Guardian/Cerberus protocol v1, the Phase 2.5 SHA-256 con
 
 ## 1. Shared policy ownership
 
-The administrator-facing Admission policy is now `admission/policy.yml`, packaged from `shared-resources/admission/policy.yml` and consumed with identical schema/semantics by standalone Guardian-Paper and Guardian-Velocity.
+The administrator-facing Admission policy is now `policy.yml`, packaged from `shared-resources/policy.yml` and consumed with identical schema/semantics by standalone Guardian-Paper and Guardian-Velocity.
 
 Paper `config.yml` remains operational/local configuration. It owns feature enablement, standalone/Velocity authority selection, standalone handshake timing, localization, and Guardian Protection. It no longer owns client-class or unknown-brand Admission policy.
 
-`artifacts.yml` remains the Phase 2.5 exact-artifact identity catalog. Catalog presence never grants admission by itself; policy must explicitly reference a catalog identity with `catalog: true` in a `HASH_REQUIRED` acceptance. The administrator import directory is named `artifact-import/` rather than `approved-artifacts/` so the filesystem name does not imply that scanning itself grants policy permission. A successful scan also writes non-loaded `artifact-import-rules.yml` with reviewable, copy/paste direct-hash ALLOW blocks; it never rewrites administrator-owned `admission/policy.yml`.
+`artifacts.yml` remains the Phase 2.5 exact-artifact identity catalog. Catalog presence never grants admission by itself; policy must explicitly reference a catalog identity with `catalog: true` in a `HASH_REQUIRED` acceptance. The administrator import directory is named `artifact-import/` rather than `approved-artifacts/` so the filesystem name does not imply that scanning itself grants policy permission. A successful scan also writes non-loaded `artifact-import-rules.yml` with reviewable, copy/paste direct-hash ALLOW blocks; it never rewrites administrator-owned `policy.yml`.
 
 ## 2. Platform-neutral parse/activation boundary
 
@@ -159,7 +159,7 @@ In `velocity` authority mode Paper does not load or evaluate player admission po
 
 ## 9. Velocity integration and BRIDGE-004 checkpoint
 
-Guardian-Velocity now loads the same `admission/policy.yml`, creates the same `AdmissionPolicySnapshot`, resolves the same profile model, and invokes the same `AdmissionPolicyEvaluator` for client and manifest decisions.
+Guardian-Velocity now loads the same `policy.yml`, creates the same `AdmissionPolicySnapshot`, resolves the same profile model, and invokes the same `AdmissionPolicyEvaluator` for client and manifest decisions.
 
 The former feasibility-era hard-coded admission branch has been removed. Cerberus presence can arrive before asynchronous profile resolution; early protocol failures are recorded but become connection-fatal only if shared client policy selects `REQUIRE_CERBERUS`, preserving the authoritative evaluation order.
 

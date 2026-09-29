@@ -107,8 +107,18 @@ public final class GuardianVelocityPlugin {
     @Subscribe
     public void onProxyInitialize(ProxyInitializeEvent event) {
         ensureAdministratorFile("config.yml");
-        ensureAdministratorFile("admission/policy.yml");
+        ensureAdministratorFile("policy.yml");
         ensureAdministratorFile("locales/" + VelocityMessages.FALLBACK_LOCALE + ".properties");
+
+        try {
+            if (new VelocityProxyAssertionKeyProvisioner().ensureGenerated(dataDirectory)) {
+                logger.warn("Guardian-Velocity generated proxy-assertion.key. Copy this file unchanged to "
+                    + "plugins/Guardian/proxy-assertion.key on every Paper backend configured with "
+                    + "admission.authority: velocity. Keep this key private.");
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Guardian-Velocity could not provision proxy-assertion.key", ex);
+        }
 
         runtimeManager = new VelocityRuntimeManager(dataDirectory);
         final VelocityRuntimeSnapshot runtime;

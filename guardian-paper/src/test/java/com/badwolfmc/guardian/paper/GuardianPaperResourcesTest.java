@@ -17,7 +17,7 @@ class GuardianPaperResourcesTest {
         assertNotNull(loader.getResource("config.yml"), "config.yml must be present");
         assertNotNull(loader.getResource("locales/en_us.properties"),
             "required fallback locale must be packaged");
-        assertNotNull(loader.getResource("admission/policy.yml"),
+        assertNotNull(loader.getResource("policy.yml"),
             "shared admission policy must be packaged");
     }
 

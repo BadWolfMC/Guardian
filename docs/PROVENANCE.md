@@ -193,9 +193,9 @@ The final Phase 4 closeout evidence is based on the operator-supplied repository
 - operator live result: Velocity Bedrock classified from agreeing Geyser/Floodgate evidence, admitted by shared Bedrock policy, asserted to Paper, and accepted through `PROXY_ADMISSION_VERIFIED` with agreeing backend Floodgate evidence
 - operator live result: Velocity Java Fabric/Cerberus remained `JAVA_FABRIC`, verified the representative 166-entry manifest, and preserved assertion-only backend Admission
 - operator live result: standalone Paper Bedrock `ALLOW` entered through `BEDROCK_POLICY` without Cerberus
-- operator live result: standalone Paper Bedrock `DENY` was rejected through ordinary shared `admission/policy.yml` with `CLIENT_DENIED`
+- operator live result: standalone Paper Bedrock `DENY` was rejected through ordinary shared `policy.yml` with `CLIENT_DENIED`
 
-The packaged Paper `config.yml` contains no Bedrock client-policy action and explicitly delegates shared Admission policy to `admission/policy.yml`, so no stale shipping configuration ownership was found during closeout.
+The packaged Paper `config.yml` contains no Bedrock client-policy action and explicitly delegates shared Admission policy to `policy.yml`, so no stale shipping configuration ownership was found during closeout.
 
 These results retire BRIDGE-005. Phase 5 begins with only BRIDGE-003 and BRIDGE-004 active.
 
@@ -210,6 +210,24 @@ The Phase 5 implementation candidate is based on the exact operator-supplied rep
 - retained entering Gradle XML reports: **141 tests, 0 failures, 0 errors, 0 skipped** (Core 57, Paper 34, Protection 20, Protocol 21, Velocity 9)
 - entering live baseline: Phase 4 Velocity/standalone Bedrock and Java/Fabric regressions complete; BRIDGE-005 retired
 
-The Phase 5 candidate advances to `0.1.0-phase5` and implements distinct Paper `/guardian` versus Velocity `/guardianv` administration, proxy-local production configuration, production assertion-secret provisioning, configurable timing, atomic Velocity reload/validation, bounded active inspection snapshots, `NORMAL`/`DEBUG` logging, authority-correct artifact administration, and deterministic long generated rule IDs. It preserves the shared Phase 3 policy engine and Phase 4 origin semantics rather than replacing them.
+The Phase 5 candidate advances to `0.1.0-phase5` and implements distinct Paper `/guardian` versus Velocity `/guardianv` administration, proxy-local production configuration, production assertion-key provisioning, configurable timing, atomic Velocity reload/validation, bounded active inspection snapshots, `NORMAL`/`DEBUG` logging, authority-correct artifact administration, and deterministic long generated rule IDs. It preserves the shared Phase 3 policy engine and Phase 4 origin semantics rather than replacing them.
 
 This implementation sandbox exposed OpenJDK 21 only. The repository wrapper attempted to retrieve Gradle 9.7.1 but outbound DNS/network access to `services.gradle.org` was unavailable, and no cached Gradle distribution was present. Therefore **no Phase 5 Java 25/Gradle result is claimed here**. The retained 141-test Phase 4 XML is entering evidence only. `PHASE_5_VERIFICATION.md` records the required local/CI gate and focused live checks before BRIDGE-003/004 retirement.
+
+## Phase 5 final closeout repository — 2026-09-29
+
+The final Phase 5 closeout evidence is based on the unchanged operator-supplied green repository after the build-fix, generated assertion-key provisioning redesign, and top-level `policy.yml` layout cleanup:
+
+- archive: `Guardian(20260929-092057).zip`
+- SHA-256: `7840744780fda1c45b945df28224dc187fce7082ac2a19cb592748b71cbaddeb`
+- project version: `0.1.0-phase5`
+- retained Gradle XML reports: **178 tests, 0 failures, 0 errors, 0 skipped** (Core 64, Paper 44, Protection 20, Protocol 21, Velocity 29)
+- built artifacts present for Guardian-Paper, Guardian-Velocity, and Cerberus-Fabric at the Phase 5 version
+- operator live result: normal Velocity Fabric/Cerberus Admission emitted one concise authoritative `NORMAL` summary and Paper remained silent on successful assertion verification
+- operator live result: Paper `/guardian status` and backend `/guardian inspect` reported Velocity authority and trusted backend evidence without receiving the authoritative Fabric manifest
+- operator live result: `/guardianv` commands executed successfully in-game after their `guardian.velocity.command.*` nodes were granted through the Velocity LuckPerms instance; the initial denial was an isolated-lab permission-store distinction rather than Guardian routing failure
+- operator live result: host-local invalid validation/reload preserved prior runtime state, valid changes applied only to the intended host, and Paper/Velocity artifact authority remained correctly separated
+- operator live result: Velocity-generated `proxy-assertion.key` provisioning, matching fingerprints, deliberate backend mismatch rejection, restoration/recovery, and trusted assertions passed
+- operator live result: active inspection data was removed on disconnect and did not become historical manifest storage
+
+These results satisfy BRIDGE-003 and BRIDGE-004 retirement conditions. Phase 5 is complete with no active implementation bridge entering Phase 6.
