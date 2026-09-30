@@ -1,7 +1,9 @@
 package com.badwolfmc.guardian.velocity;
 
 import com.badwolfmc.guardian.core.BedrockEvidence;
+import com.badwolfmc.guardian.core.BedrockProviderState;
 import com.badwolfmc.guardian.core.BedrockSignal;
+import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.velocitypowered.api.proxy.ProxyServer;
 import org.slf4j.Logger;
 
@@ -9,47 +11,75 @@ import java.util.UUID;
 
 /** Queries optional supported origin providers without treating usernames as identity evidence. */
 final class BedrockDetector {
+    private final ProxyServer server;
     private final Logger logger;
-    private final boolean geyserAvailable;
-    private final boolean floodgateAvailable;
+    private final BedrockProviderState geyserState;
+    private final BedrockProviderState floodgateState;
 
     BedrockDetector(ProxyServer server, Logger logger) {
+        this.server = server;
         this.logger = logger;
-        this.geyserAvailable = server.getPluginManager().getPlugin("geyser").isPresent();
-        this.floodgateAvailable = server.getPluginManager().getPlugin("floodgate").isPresent();
+        this.geyserState = new BedrockProviderState(server.getPluginManager().isLoaded("geyser"));
+        this.floodgateState = new BedrockProviderState(server.getPluginManager().isLoaded("floodgate"));
     }
 
     BedrockEvidence detect(UUID playerId) {
-        BedrockSignal geyser = queryGeyser(playerId);
-        BedrockSignal floodgate = queryFloodgate(playerId);
-        return new BedrockEvidence(geyser, floodgate);
+        refreshAvailability();
+        BedrockProviderState.Snapshot geyser = geyserState.snapshot();
+        BedrockProviderState.Snapshot floodgate = floodgateState.snapshot();
+        BedrockSignal geyserSignal = queryGeyser(playerId, geyser);
+        BedrockSignal floodgateSignal = queryFloodgate(playerId, floodgate);
+        // Refresh once more before finalizing provider evidence. Velocity has no supported
+        // hot-reload lifecycle contract for plugins, but this keeps even unusual manager-state
+        // changes from becoming stale origin authority.
+        refreshAvailability();
+        geyserSignal = geyserState.stabilizeSignal(geyser, geyserSignal);
+        floodgateSignal = floodgateState.stabilizeSignal(floodgate, floodgateSignal);
+        return new BedrockEvidence(geyserSignal, floodgateSignal);
     }
 
-    private BedrockSignal queryGeyser(UUID playerId) {
-        if (!geyserAvailable) {
-            return BedrockSignal.UNAVAILABLE;
+    /** Refreshes proxy plugin-manager capability state before/after each new origin decision. */
+    void refreshAvailability() {
+        updateState(geyserState, server.getPluginManager().isLoaded("geyser"));
+        updateState(floodgateState, server.getPluginManager().isLoaded("floodgate"));
+    }
+
+    private BedrockSignal queryGeyser(UUID playerId, BedrockProviderState.Snapshot provider) {
+        if (!provider.available()) {
+            return geyserState.unavailableSignal(provider);
         }
         try {
-            return GeyserBedrockLookup.isBedrockPlayer(playerId)
-                ? BedrockSignal.BEDROCK
-                : BedrockSignal.NOT_BEDROCK;
+            boolean bedrock = GeyserBedrockLookup.isBedrockPlayer(playerId);
+            return geyserState.queriedSignal(provider, bedrock);
         } catch (RuntimeException | LinkageError ex) {
-            logger.warn("Guardian could not query the optional Geyser API for {}.", playerId, ex);
+            logger.warn("Guardian could not query the optional Geyser API for {}: {}", playerId, safeException(ex));
             return BedrockSignal.ERROR;
         }
     }
 
-    private BedrockSignal queryFloodgate(UUID playerId) {
-        if (!floodgateAvailable) {
-            return BedrockSignal.UNAVAILABLE;
+    private BedrockSignal queryFloodgate(UUID playerId, BedrockProviderState.Snapshot provider) {
+        if (!provider.available()) {
+            return floodgateState.unavailableSignal(provider);
         }
         try {
-            return FloodgateBedrockLookup.isBedrockPlayer(playerId)
-                ? BedrockSignal.BEDROCK
-                : BedrockSignal.NOT_BEDROCK;
+            boolean bedrock = FloodgateBedrockLookup.isBedrockPlayer(playerId);
+            return floodgateState.queriedSignal(provider, bedrock);
         } catch (RuntimeException | LinkageError ex) {
-            logger.warn("Guardian could not query the optional Floodgate API for {}.", playerId, ex);
+            logger.warn("Guardian could not query the optional Floodgate API for {}: {}", playerId, safeException(ex));
             return BedrockSignal.ERROR;
         }
+    }
+
+    private static void updateState(BedrockProviderState state, boolean available) {
+        if (available) {
+            state.markAvailable();
+        } else {
+            state.markUnavailable();
+        }
+    }
+
+    private static String safeException(Throwable throwable) {
+        String message = throwable.getMessage();
+        return DiagnosticText.oneLine(message == null ? throwable.getClass().getSimpleName() : message);
     }
 }

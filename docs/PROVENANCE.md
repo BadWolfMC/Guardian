@@ -231,3 +231,41 @@ The final Phase 5 closeout evidence is based on the unchanged operator-supplied 
 - operator live result: active inspection data was removed on disconnect and did not become historical manifest storage
 
 These results satisfy BRIDGE-003 and BRIDGE-004 retirement conditions. Phase 5 is complete with no active implementation bridge entering Phase 6.
+
+## Phase 6 adversarial-hardening candidate — 2026-09-30
+
+The Phase 6 implementation candidate is reconstructed and continued against the operator-supplied Phase 5 repository baseline:
+
+- archive: `Guardian(20260930-065421).zip`
+- SHA-256: `190bccb805766981c16e4edf80308c2f395304352d4068e26642187e37c9c0fc`
+- entering project version: `0.1.0-phase5`
+- entering authoritative closeout evidence: Phase 5 green at 178 tests with BRIDGE-003/004 retired and no active implementation bridge
+
+During stream-recovery work the operator also supplied a later cumulative in-progress Phase 6 patch that preserved work from the preceding conversation:
+
+- patch: `guardian-phase6-checkpoint-through-server-authentication(2).patch`
+- SHA-256: `c05ffef3860f7ceb2b89d6e6df3795c7f6b9418a6534dd41a3c0e6353c9330f8`
+
+That checkpoint was compared against the reconstructed branch and accepted as the later coherent state before further hardening. The resulting candidate advances the source version to `0.1.0-phase6` and adds adversarial session/replay/protocol/provider/inspection/logging/filesystem hardening, optional signed official Cerberus release identity, and optional player-bound Guardian Ed25519 challenge authentication to Cerberus. The trust claims and residual limits are documented in `PHASE_6_IMPLEMENTATION.md` and `GUARDIAN_ADMISSION.md` rather than described as remote attestation.
+
+The current candidate contains a **354-test source inventory** (Core 117, Paper 91, Protection 20, Protocol 50, Velocity 58, Cerberus 18). This is not represented as an executed Phase 6 gate. The implementation sandbox exposes OpenJDK 21 only and cannot retrieve the uncached Gradle 9.7.1 wrapper distribution. Focused pure-Java protocol compilation/smokes, `git diff --check`, and cumulative `git apply --check` against the exact baseline have been used during construction. The required Java 25 / Gradle 9.7.1 gate and focused platform-level live checks remain operator closeout requirements in `PHASE_6_VERIFICATION.md`.
+
+
+## Phase 6 automated verification gate — 2026-09-30
+
+The Phase 6 automated closeout evidence is based on the operator-supplied repository after the final build-fix slice:
+
+- archive: `Guardian(20260930-103011).zip`
+- SHA-256: `513098cae43363090fa3406593a7edfe7c9c55a1779ac0e0f4b01160eb0e2945`
+- project version: `0.1.0-phase6`
+- environment: Oracle JDK 25.0.3 / Gradle 9.7.1 / Windows 11
+- retained Gradle XML reports: **354 tests, 0 failures, 0 errors, 11 skipped**
+- module totals: Core 117/0/0/4, Paper 91/0/0/4, Protection 20/0/0/0, Protocol 50/0/0/0, Velocity 58/0/0/3, Cerberus 18/0/0/0 (tests/failures/errors/skipped)
+- all 11 skips are JUnit-assumption skips for symlink-hardening cases where the Windows account lacks symbolic-link creation privilege; no unexplained product test is skipped
+- built artifact SHA-256 values:
+  - Guardian-Paper: `5c932b59ccfe92e32f3e65ffafe647a9761e2943b645b87d81c73aee819a1863`
+  - Guardian-Velocity: `2c3b471a71dad738eaebd401ce27a31b9b264eb15714d0aff12d869268de9df8`
+  - Cerberus-Fabric: `50db3cb5a7fdfc09f57d664f547791175d5e1e451116317dc6f6e0340b38de12`
+- built JAR inspection found no `proxy-assertion.key`, `guardian-server-auth.key`, PEM/private-key entry, or administrator-local private key material
+
+This satisfies the Phase 6 automated Java/Gradle gate. Phase 6 is **not yet closed**: the intentionally small signed-release/server-authentication/quarantine/Velocity live matrix and final post-live review remain required.

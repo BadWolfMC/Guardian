@@ -23,7 +23,7 @@ class Phase4BedrockArchitectureTest {
     void optionalProviderQueryFailuresAreDistinctFromProviderAbsence() throws Exception {
         String source = Files.readString(Path.of(
             "src/main/java/com/badwolfmc/guardian/velocity/BedrockDetector.java"));
-        assertTrue(source.contains("BedrockSignal.UNAVAILABLE"));
+        assertTrue(source.contains("unavailableSignal"));
         assertTrue(source.contains("BedrockSignal.ERROR"));
         assertFalse(source.contains("Guardian Phase 0B.3 could not query"));
     }

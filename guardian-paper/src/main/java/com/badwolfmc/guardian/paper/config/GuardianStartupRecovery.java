@@ -1,9 +1,13 @@
 package com.badwolfmc.guardian.paper.config;
 
+import com.badwolfmc.guardian.core.operations.SafeRegularFile;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Clock;
@@ -19,6 +23,8 @@ import java.util.Objects;
  * parse/validate/activate and keeps the prior runtime snapshot on failure.</p>
  */
 public final class GuardianStartupRecovery {
+    public static final int MAX_RECOVERY_BACKUP_BYTES = 1024 * 1024;
+
     private static final DateTimeFormatter BACKUP_TIMESTAMP = DateTimeFormatter
         .ofPattern("uuuuMMdd'T'HHmmssSSS'Z'")
         .withZone(ZoneOffset.UTC);
@@ -68,9 +74,10 @@ public final class GuardianStartupRecovery {
 
     private Path backup(Path path) throws IOException {
         Path absolute = path.toAbsolutePath().normalize();
-        if (!Files.isRegularFile(absolute)) {
-            throw new IOException("cannot back up missing/non-file path " + absolute);
+        if (!Files.exists(absolute, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("cannot back up missing path " + absolute);
         }
+        final byte[] original = SafeRegularFile.readAllowEmpty(absolute, MAX_RECOVERY_BACKUP_BYTES);
 
         String timestamp = BACKUP_TIMESTAMP.format(Instant.now(clock));
         String baseName = absolute.getFileName() + ".invalid-" + timestamp;
@@ -81,10 +88,10 @@ public final class GuardianStartupRecovery {
 
         Path backup = parent.resolve(baseName + ".bak");
         int suffix = 2;
-        while (Files.exists(backup)) {
+        while (Files.exists(backup, LinkOption.NOFOLLOW_LINKS)) {
             backup = parent.resolve(baseName + "-" + suffix++ + ".bak");
         }
-        Files.copy(absolute, backup);
+        Files.write(backup, original, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
         return backup;
     }
 

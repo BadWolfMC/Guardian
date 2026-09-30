@@ -19,4 +19,10 @@ public interface AdmissionProfileProvider {
     static AdmissionProfileProvider none() {
         return (ignoredPlayer, ignoredPolicy) -> CompletableFuture.completedFuture(AdmissionPermissionSnapshot.none());
     }
+
+    static AdmissionProfileProvider unavailable(String reason) {
+        String message = reason == null || reason.isBlank() ? "admission profile provider unavailable" : reason;
+        return (ignoredPlayer, ignoredPolicy) ->
+            CompletableFuture.failedFuture(new IllegalStateException(message));
+    }
 }

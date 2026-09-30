@@ -1,6 +1,7 @@
 package com.badwolfmc.guardian.paper;
 
 import com.badwolfmc.guardian.core.GuardianDecision;
+import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.protocol.ConnectionOrigin;
 
 import java.util.Objects;
@@ -29,11 +30,12 @@ record BackendInspectionSnapshot(
     enum FloodgateSanity {
         AGREES,
         DISAGREES,
+        ERROR,
         NOT_AVAILABLE,
         NOT_APPLICABLE
     }
 
     private static String normalize(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
+        return value == null || value.isBlank() ? fallback : DiagnosticText.oneLine(value);
     }
 }

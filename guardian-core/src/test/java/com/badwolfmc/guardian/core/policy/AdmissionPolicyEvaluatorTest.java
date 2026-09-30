@@ -229,6 +229,27 @@ class AdmissionPolicyEvaluatorTest {
     }
 
     @Test
+    void explicitlyAllowedDevelopmentOriginsRemainPolicyAddressableWithoutPretendingToHaveArchiveIdentity() {
+        ModRule allowDev = new ModRule("allow-dev", "example", ModRuleAction.ALLOW, List.of());
+        ModPolicy policy = new ModPolicy(
+            ModPolicyMode.ALLOWLIST,
+            OriginPolicyAction.ALLOW,
+            OriginPolicyAction.ALLOW,
+            Set.of(),
+            Map.of(),
+            Map.of("example", allowDev)
+        );
+        ResolvedAdmissionProfile profile = resolved(AdmissionPolicy.defaults(), policy, Map.of());
+
+        for (OriginKind origin : List.of(OriginKind.DIRECTORY, OriginKind.MIXED_OR_UNKNOWN)) {
+            PolicyEvaluation result = evaluator.evaluateManifest(profile,
+                manifest(new ManifestEntry("example", "1.0", null, origin)));
+            assertEquals(DecisionOutcome.ALLOW, result.decision().outcome());
+            assertTrue(result.violations().isEmpty());
+        }
+    }
+
+    @Test
     void modBypassesApplyOnlyAfterPolicyViolationExists() {
         ModPolicy policy = new ModPolicy(ModPolicyMode.ALLOWLIST, OriginPolicyAction.DENY,
             OriginPolicyAction.DENY, Set.of(), Map.of(), Map.of());

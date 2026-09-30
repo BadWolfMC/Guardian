@@ -11,17 +11,19 @@ import com.badwolfmc.guardian.core.artifact.ApprovedArtifact;
 import com.badwolfmc.guardian.core.artifact.ArtifactCatalog;
 import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
 import com.badwolfmc.guardian.core.artifact.ArtifactCatalogStore;
+import com.badwolfmc.guardian.core.operations.SafeRegularFile;
 import com.badwolfmc.guardian.protocol.ArtifactSha256;
+import com.badwolfmc.guardian.protocol.CerberusReleaseCrypto;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 import org.snakeyaml.engine.v2.schema.CoreSchema;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
+import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -44,11 +46,12 @@ public final class AdmissionPolicyLoader {
     private static final int MAX_RULES_PER_PROFILE = 512;
     private static final int MAX_ACCEPTANCES_PER_RULE = 128;
     private static final int MAX_BRAND_RULES = 256;
+    private static final int MAX_CERBERUS_RELEASE_KEYS = 8;
     private static final Pattern PROFILE_ID = Pattern.compile("[a-z0-9._-]{1,48}");
     private static final Pattern RULE_ID = Pattern.compile("[a-z0-9._-]{1,64}");
     private static final Pattern MOD_ID = Pattern.compile("[a-z][a-z0-9_-]{1,63}");
     private static final Set<String> ROOT_KEYS = Set.of(
-        "schema-version", "default-profile", "identity-overrides", "profiles");
+        "schema-version", "default-profile", "identity-overrides", "profiles", "cerberus-release-trust");
     private static final Set<String> PROFILE_KEYS = Set.of("priority", "clients", "unknown-brands", "mods");
     private static final Set<String> CLIENT_KEYS = Set.of("bedrock", "vanilla", "optifine", "fabric", "unknown");
     private static final Set<String> UNKNOWN_BRAND_KEYS = Set.of("mode", "brands");
@@ -57,6 +60,7 @@ public final class AdmissionPolicyLoader {
     private static final Set<String> REQUIRED_KEYS = Set.of("mod", "accept");
     private static final Set<String> RULE_KEYS = Set.of("mod", "action", "accept");
     private static final Set<String> ACCEPT_KEYS = Set.of("version", "verification", "catalog", "sha256");
+    private static final Set<String> CERBERUS_RELEASE_TRUST_KEYS = Set.of("required", "ed25519-public-keys");
 
     public AdmissionPolicySnapshot load(Path policyPath, Path artifactCatalogPath) throws AdmissionPolicyException {
         Objects.requireNonNull(policyPath, "policyPath");
@@ -80,6 +84,8 @@ public final class AdmissionPolicyLoader {
         }
 
         Map<UUID, String> overrides = parseOverrides(root.get("identity-overrides"), policyPath);
+        CerberusReleaseTrust releaseTrust = parseCerberusReleaseTrust(
+            root.get("cerberus-release-trust"), policyPath);
         Map<String, Object> rawProfiles = map(root.get("profiles"), policyPath, "profiles");
         if (rawProfiles.isEmpty()) throw error(policyPath, "profiles must contain at least one profile");
         if (rawProfiles.size() > MAX_PROFILES) {
@@ -115,7 +121,7 @@ public final class AdmissionPolicyLoader {
                     + " references missing profile '" + override.getValue() + "'");
             }
         }
-        return new AdmissionPolicySnapshot(schema, defaultProfile, profiles, overrides);
+        return new AdmissionPolicySnapshot(schema, defaultProfile, profiles, overrides, releaseTrust);
     }
 
     private static AdmissionProfile parseProfile(
@@ -331,6 +337,47 @@ public final class AdmissionPolicyLoader {
         return List.copyOf(result);
     }
 
+    private static CerberusReleaseTrust parseCerberusReleaseTrust(Object rawValue, Path path)
+        throws AdmissionPolicyException {
+        if (rawValue == null) return CerberusReleaseTrust.disabled();
+        Map<String, Object> map = map(rawValue, path, "cerberus-release-trust");
+        rejectUnknown(map, CERBERUS_RELEASE_TRUST_KEYS, path, "cerberus-release-trust");
+        boolean required = optionalBoolean(
+            map.get("required"), false, path, "cerberus-release-trust.required");
+        Object rawKeys = map.get("ed25519-public-keys");
+        List<Object> keys = rawKeys == null ? List.of()
+            : list(rawKeys, path, "cerberus-release-trust.ed25519-public-keys");
+        if (keys.size() > MAX_CERBERUS_RELEASE_KEYS) {
+            throw error(path, "cerberus-release-trust.ed25519-public-keys exceeds "
+                + MAX_CERBERUS_RELEASE_KEYS + " keys");
+        }
+        ArrayList<PublicKey> parsed = new ArrayList<>();
+        HashSet<String> canonical = new HashSet<>();
+        for (int i = 0; i < keys.size(); i++) {
+            String encoded = scalarString(keys.get(i), path,
+                "cerberus-release-trust.ed25519-public-keys[" + i + "]");
+            if (encoded.length() > 256) {
+                throw error(path, "cerberus-release-trust.ed25519-public-keys[" + i + "] is too long");
+            }
+            try {
+                PublicKey key = CerberusReleaseCrypto.decodePublicKey(encoded);
+                String canonicalEncoding = Base64.getEncoder().encodeToString(key.getEncoded());
+                if (!canonical.add(canonicalEncoding)) {
+                    throw error(path, "cerberus-release-trust.ed25519-public-keys contains a duplicate key");
+                }
+                parsed.add(key);
+            } catch (GeneralSecurityException ex) {
+                throw error(path, "cerberus-release-trust.ed25519-public-keys[" + i
+                    + "] is not a valid Ed25519 X.509 public key: " + ex.getMessage());
+            }
+        }
+        try {
+            return new CerberusReleaseTrust(required, parsed);
+        } catch (IllegalArgumentException ex) {
+            throw error(path, "cerberus-release-trust invalid: " + ex.getMessage());
+        }
+    }
+
     private static Map<UUID, String> parseOverrides(Object rawValue, Path path) throws AdmissionPolicyException {
         if (rawValue == null) return Map.of();
         Map<String, Object> raw = map(rawValue, path, "identity-overrides");
@@ -355,16 +402,12 @@ public final class AdmissionPolicyLoader {
     }
 
     private static Map<String, Object> loadYaml(Path path) throws AdmissionPolicyException {
-        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-            throw error(path, "admission policy must be a regular non-symlink file");
-        }
+        final String text;
         try {
-            long size = Files.size(path);
-            if (size > MAX_POLICY_BYTES) {
-                throw error(path, "admission policy exceeds " + MAX_POLICY_BYTES + " byte safety limit");
-            }
+            text = SafeRegularFile.readUtf8(path, MAX_POLICY_BYTES);
         } catch (IOException ex) {
-            throw new AdmissionPolicyException(path, "could not inspect admission policy", ex);
+            throw new AdmissionPolicyException(
+                path, "admission policy must be a stable regular non-symlink UTF-8 file: " + ex.getMessage(), ex);
         }
 
         LoadSettings settings = LoadSettings.builder()
@@ -375,12 +418,10 @@ public final class AdmissionPolicyLoader {
             .setCodePointLimit(MAX_POLICY_BYTES)
             .build();
         Object loaded;
-        try (InputStream in = Files.newInputStream(path)) {
-            loaded = new Load(settings).loadFromInputStream(in);
+        try {
+            loaded = new Load(settings).loadFromString(text);
         } catch (RuntimeException ex) {
             throw new AdmissionPolicyException(path, "malformed admission policy YAML: " + ex.getMessage(), ex);
-        } catch (IOException ex) {
-            throw new AdmissionPolicyException(path, "could not read admission policy", ex);
         }
         if (!(loaded instanceof Map<?, ?> map)) {
             throw error(path, "admission policy root must be a YAML map");

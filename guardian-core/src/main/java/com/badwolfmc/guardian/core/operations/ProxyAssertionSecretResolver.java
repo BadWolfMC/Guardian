@@ -3,12 +3,9 @@ package com.badwolfmc.guardian.core.operations;
 import com.badwolfmc.guardian.protocol.ProxyAdmissionCodec;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Objects;
 
 /** Resolves and validates the shared Guardian-Velocity -> Guardian-Paper assertion key file. */
@@ -32,30 +29,19 @@ public final class ProxyAssertionSecretResolver {
             throw new IllegalArgumentException("proxy assertion key file escapes the Guardian data directory");
         }
         rejectSymlinkComponents(base, configured.normalize());
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalArgumentException("proxy assertion key file is missing: " + configured);
         }
         try {
-            long size = Files.size(path);
-            if (size <= 0 || size > MAX_SECRET_FILE_BYTES) {
-                throw new IllegalArgumentException(
-                    "proxy assertion key file must contain at most " + MAX_SECRET_FILE_BYTES + " bytes");
-            }
-            final byte[] bytes;
-            try (InputStream input = Files.newInputStream(path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-                bytes = input.readNBytes(MAX_SECRET_FILE_BYTES + 1);
-            }
-            if (bytes.length == 0 || bytes.length > MAX_SECRET_FILE_BYTES) {
-                throw new IllegalArgumentException(
-                    "proxy assertion key file must contain at most " + MAX_SECRET_FILE_BYTES + " bytes");
-            }
-            String raw = new String(bytes, StandardCharsets.UTF_8).trim();
+            String raw = SafeRegularFile.readUtf8(path, MAX_SECRET_FILE_BYTES).trim();
             if (raw.isEmpty()) {
                 throw new IllegalArgumentException("proxy assertion key file is empty");
             }
             return decode(raw, "file:" + configured.toString().replace('\\', '/'));
         } catch (IOException ex) {
-            throw new IllegalArgumentException("could not read proxy assertion key file: " + configured, ex);
+            throw new IllegalArgumentException(
+                "proxy assertion key file must be a stable regular non-symlink UTF-8 file: "
+                    + configured + ": " + ex.getMessage(), ex);
         }
     }
 

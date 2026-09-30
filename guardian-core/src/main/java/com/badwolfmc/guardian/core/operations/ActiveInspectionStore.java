@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** In-memory-only active inspection storage. Historical persistence is intentionally out of scope. */
 public final class ActiveInspectionStore {
-    public static final int DEFAULT_MAX_SNAPSHOTS = 10_000;
+    public static final int DEFAULT_MAX_SNAPSHOTS = 2_048;
 
     private final int maxSnapshots;
     private final ConcurrentHashMap<UUID, ActiveInspectionSnapshot> snapshots = new ConcurrentHashMap<>();

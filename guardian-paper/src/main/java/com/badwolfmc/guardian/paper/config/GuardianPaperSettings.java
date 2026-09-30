@@ -2,6 +2,7 @@ package com.badwolfmc.guardian.paper.config;
 
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
+import com.badwolfmc.guardian.core.operations.GuardianServerChallengeSigner;
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.protection.ProtectionPolicy;
 
@@ -19,6 +20,7 @@ public record GuardianPaperSettings(
     int challengeChannelWaitTicks,
     OperationalLogLevel loggingLevel,
     ProxyAssertionSecret proxyAssertionSecret,
+    GuardianServerChallengeSigner serverChallengeSigner,
     ProtectionPolicy protectionPolicy
 ) {
     public GuardianPaperSettings {
@@ -36,4 +38,23 @@ public record GuardianPaperSettings(
     public long handshakeTimeoutTicks() {
         return handshakeTimeoutSeconds * 20L;
     }
+    public GuardianPaperSettings(
+        int schemaVersion,
+        boolean admissionEnabled,
+        boolean protectionEnabled,
+        String serverName,
+        String locale,
+        String helpUrl,
+        PaperAuthorityMode authorityMode,
+        int handshakeTimeoutSeconds,
+        int challengeChannelWaitTicks,
+        OperationalLogLevel loggingLevel,
+        ProxyAssertionSecret proxyAssertionSecret,
+        ProtectionPolicy protectionPolicy
+    ) {
+        this(schemaVersion, admissionEnabled, protectionEnabled, serverName, locale, helpUrl, authorityMode,
+            handshakeTimeoutSeconds, challengeChannelWaitTicks, loggingLevel, proxyAssertionSecret, null,
+            protectionPolicy);
+    }
+
 }

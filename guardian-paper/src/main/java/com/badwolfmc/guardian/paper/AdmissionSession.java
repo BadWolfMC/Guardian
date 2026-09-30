@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class AdmissionSession {
     private final UUID playerId;
     private final GuardianRuntimeSnapshot snapshot;
+    private final Object configurationConnectionIdentity;
     private final CompletableFuture<Response> response = new CompletableFuture<>();
     private final AtomicReference<GuardianDecision> decision = new AtomicReference<>();
     private final AtomicBoolean challengeSent = new AtomicBoolean();
@@ -34,11 +35,19 @@ final class AdmissionSession {
     private volatile BedrockEvidence bedrockEvidence;
     private volatile String observedBrand;
     private volatile Manifest manifest;
+    private volatile BackendInspectionSnapshot.FloodgateSanity backendFloodgateSanity;
     private final AtomicBoolean summaryLogged = new AtomicBoolean();
+    private final AtomicReference<Object> playConnectionIdentity = new AtomicReference<>();
+    private final AtomicBoolean readyForPlay = new AtomicBoolean();
 
     AdmissionSession(UUID playerId, GuardianRuntimeSnapshot snapshot) {
+        this(playerId, snapshot, null);
+    }
+
+    AdmissionSession(UUID playerId, GuardianRuntimeSnapshot snapshot, Object configurationConnectionIdentity) {
         this.playerId = playerId;
         this.snapshot = snapshot;
+        this.configurationConnectionIdentity = configurationConnectionIdentity;
     }
 
     UUID playerId() {
@@ -47,6 +56,41 @@ final class AdmissionSession {
 
     GuardianRuntimeSnapshot snapshot() {
         return snapshot;
+    }
+
+    boolean matchesConfigurationConnection(Object connectionIdentity) {
+        return configurationConnectionIdentity != null && configurationConnectionIdentity == connectionIdentity;
+    }
+
+    Object configurationConnectionIdentity() {
+        return configurationConnectionIdentity;
+    }
+
+    boolean bindPlayConnection(Object connectionIdentity) {
+        java.util.Objects.requireNonNull(connectionIdentity, "connectionIdentity");
+        Object existing = playConnectionIdentity.get();
+        return existing == connectionIdentity
+            || (existing == null && playConnectionIdentity.compareAndSet(null, connectionIdentity));
+    }
+
+    boolean matchesPlayConnection(Object connectionIdentity) {
+        return playConnectionIdentity.get() == connectionIdentity;
+    }
+
+    boolean playConnectionBound() {
+        return playConnectionIdentity.get() != null;
+    }
+
+    Object playConnectionIdentity() {
+        return playConnectionIdentity.get();
+    }
+
+    void markReadyForPlay() {
+        readyForPlay.set(true);
+    }
+
+    boolean readyForPlay() {
+        return readyForPlay.get();
     }
 
     CompletableFuture<Response> response() {
@@ -144,20 +188,19 @@ final class AdmissionSession {
 
     void setManifest(Manifest value) { manifest = value; }
 
+    BackendInspectionSnapshot.FloodgateSanity backendFloodgateSanity() { return backendFloodgateSanity; }
+
+    void setBackendFloodgateSanity(BackendInspectionSnapshot.FloodgateSanity value) {
+        backendFloodgateSanity = value;
+    }
+
     boolean tryMarkSummaryLogged() { return summaryLogged.compareAndSet(false, true); }
 
     ProxyAdmissionAssertion proxyAdmission() {
         return proxyAdmission.get();
     }
 
-    synchronized boolean recordProxyAdmission(ProxyAdmissionAssertion assertion) {
-        ProxyAdmissionAssertion existing = proxyAdmission.get();
-        if (existing != null) {
-            return java.util.Arrays.equals(existing.proxySessionId(), assertion.proxySessionId())
-                && existing.playerId().equals(assertion.playerId())
-                && existing.connectionOrigin() == assertion.connectionOrigin();
-        }
-        proxyAdmission.set(assertion);
-        return true;
+    boolean recordProxyAdmission(ProxyAdmissionAssertion assertion) {
+        return proxyAdmission.compareAndSet(null, java.util.Objects.requireNonNull(assertion, "assertion"));
     }
 }

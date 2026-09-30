@@ -57,10 +57,10 @@ class Phase5OperationsArchitectureTest {
     void authoritativeInspectionStaysAtProxyAndIsRemovedOnDisconnect() throws Exception {
         String plugin = Files.readString(Path.of(
             "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
-        assertTrue(plugin.contains("ActiveInspectionStore"));
+        assertTrue(plugin.contains("VelocityInspectionService"));
         assertTrue(plugin.contains("captureInspection"));
-        assertTrue(plugin.contains("inspections.remove(playerId)"));
-        assertTrue(plugin.contains("sessions.get(player.getUniqueId()) != session"),
+        assertTrue(plugin.contains("inspections.remove(player)"));
+        assertTrue(plugin.contains("sessions.get(player) != session"),
             "asynchronous Admission completion must not resurrect state after disconnect/session replacement");
         int start = plugin.indexOf("private boolean sendProxyAdmission");
         int end = plugin.indexOf("private void captureInspection", start);
@@ -77,10 +77,11 @@ class Phase5OperationsArchitectureTest {
         assertTrue(runtime.contains("VelocityOperationalSettings settings = configLoader.load(configPath)"));
         assertTrue(runtime.contains("policyLoader.load(policyPath, artifactCatalogPath)"));
         assertTrue(runtime.contains("VelocityMessages.load(localesDirectory, settings.locale())"));
-        assertTrue(runtime.contains("ArtifactCatalog catalogBefore = loadArtifactCatalog()"));
-        assertTrue(runtime.contains("if (!catalogBefore.equals(artifactCatalog))"),
+        assertTrue(runtime.contains("String catalogBefore = fingerprintOptional(artifactCatalogPath"));
+        assertTrue(runtime.contains("requireUnchanged(artifactCatalogPath, catalogBefore"),
             "candidate must reject a catalog that changes concurrently with policy validation");
-        assertTrue(runtime.contains("VelocityRuntimeSnapshot candidate = loadCandidate();"));
+        assertTrue(runtime.contains("VelocityRuntimeSnapshot candidate = loadCandidate(1L)"));
+        assertTrue(runtime.contains("loadCandidate(nextGeneration)"));
         assertTrue(runtime.contains("active.set(candidate);"));
         assertTrue(runtime.contains("validateFiles()"));
     }

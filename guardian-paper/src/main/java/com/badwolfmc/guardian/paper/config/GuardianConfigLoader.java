@@ -4,6 +4,9 @@ import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretResolver;
+import com.badwolfmc.guardian.core.operations.SafeRegularFile;
+import com.badwolfmc.guardian.core.operations.GuardianServerChallengeKeyResolver;
+import com.badwolfmc.guardian.core.operations.GuardianServerChallengeSigner;
 
 import com.badwolfmc.guardian.paper.PaperAuthorityMode;
 import com.badwolfmc.guardian.protection.ProtectionPolicy;
@@ -15,24 +18,34 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 
 public final class GuardianConfigLoader {
     public static final int SCHEMA_VERSION = 1;
+    public static final int MAX_CONFIG_BYTES = 64 * 1024;
     private static final int MAX_HANDSHAKE_SECONDS = (int) (GuardianProtocol.MAX_HANDSHAKE_MILLIS / 1000L);
     private static final int MAX_LOCALE_ID_LENGTH = 32;
 
     public GuardianPaperSettings load(Path path) throws GuardianConfigurationException {
-        if (!Files.isRegularFile(path)) {
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
             throw error(path, GuardianConfigurationException.Kind.MISSING, "file is missing");
+        }
+
+        final String configText;
+        try {
+            configText = SafeRegularFile.readUtf8(path, MAX_CONFIG_BYTES);
+        } catch (IOException ex) {
+            throw new GuardianConfigurationException(path, GuardianConfigurationException.Kind.INVALID,
+                "configuration must be a stable regular non-symlink UTF-8 file: " + ex.getMessage(), ex);
         }
 
         YamlConfiguration yaml = new YamlConfiguration();
         try {
-            yaml.load(path.toFile());
-        } catch (IOException | InvalidConfigurationException ex) {
+            yaml.loadFromString(configText);
+        } catch (InvalidConfigurationException ex) {
             throw new GuardianConfigurationException(path, GuardianConfigurationException.Kind.MALFORMED,
                 "malformed YAML: " + ex.getMessage(), ex);
         }
@@ -93,6 +106,20 @@ public final class GuardianConfigLoader {
             throw error(path, "admission.standalone.challenge-channel-wait-ticks must be between 1 and " + maxWait);
         }
 
+        GuardianServerChallengeSigner serverChallengeSigner = null;
+        boolean serverAuthenticationEnabled = requireBoolean(
+            yaml, path, "admission.standalone.server-authentication.enabled");
+        if (serverAuthenticationEnabled && admissionEnabled && authority == PaperAuthorityMode.STANDALONE) {
+            try {
+                Path dataDirectory = path.toAbsolutePath().normalize().getParent();
+                if (dataDirectory == null) throw new IllegalArgumentException("config path has no parent directory");
+                serverChallengeSigner = GuardianServerChallengeKeyResolver.resolveFile(dataDirectory);
+            } catch (IllegalArgumentException ex) {
+                throw error(path, GuardianConfigurationException.Kind.EXTERNAL_DEPENDENCY,
+                    "Guardian server authentication key invalid: " + ex.getMessage());
+            }
+        }
+
         final ProtectionPolicy protectionPolicy;
         try {
             protectionPolicy = new ProtectionPolicy(
@@ -133,6 +160,7 @@ public final class GuardianConfigLoader {
             challengeWait,
             loggingLevel,
             proxySecret,
+            serverChallengeSigner,
             protectionPolicy
         );
     }

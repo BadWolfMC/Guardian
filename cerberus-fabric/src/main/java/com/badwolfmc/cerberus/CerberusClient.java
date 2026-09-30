@@ -4,6 +4,7 @@ import com.badwolfmc.cerberus.network.ChallengePayload;
 import com.badwolfmc.cerberus.network.PresencePayload;
 import com.badwolfmc.cerberus.network.ResponsePayload;
 import com.badwolfmc.guardian.protocol.Challenge;
+import com.badwolfmc.guardian.protocol.CerberusReleaseIdentity;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import com.badwolfmc.guardian.protocol.Manifest;
 import com.badwolfmc.guardian.protocol.Presence;
@@ -23,6 +24,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.badwolfmc.cerberus.manifest.FabricManifestCollector;
+import com.badwolfmc.cerberus.release.CerberusReleaseIdentityProvider;
+import com.badwolfmc.cerberus.trust.GuardianServerTrustStore;
+
+import java.util.UUID;
 
 public final class CerberusClient implements ClientModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("Cerberus");
@@ -50,7 +55,8 @@ public final class CerberusClient implements ClientModInitializer {
     private static void registerConfigurationTransport() {
         ClientConfigurationNetworking.registerGlobalReceiver(ChallengePayload.TYPE, (payload, context) -> {
             LOGGER.info("Guardian CONFIGURATION challenge received; responding.");
-            respondToChallenge(payload, context.responseSender(), "CONFIGURATION");
+            respondToChallenge(payload, context.responseSender(), "CONFIGURATION",
+                context.client().getUser().getProfileId());
         });
 
         ClientConfigurationConnectionEvents.START.register((listener, client) -> {
@@ -69,7 +75,7 @@ public final class CerberusClient implements ClientModInitializer {
 
                 int protocol = selectedProtocol();
                 ClientConfigurationNetworking.send(
-                    new PresencePayload(ProtocolCodec.encodePresence(new Presence(protocol, protocol, GuardianProtocol.KNOWN_CAPABILITIES, cerberusVersion())))
+                    new PresencePayload(ProtocolCodec.encodePresence(new Presence(protocol, protocol, capabilities(), cerberusVersion())))
                 );
                 LOGGER.info("Attempted Guardian CONFIGURATION presence with protocol {} (serverAdvertised={}).",
                     protocol, canSendPresence);
@@ -81,7 +87,8 @@ public final class CerberusClient implements ClientModInitializer {
 
     private static void registerPlayTransport() {
         ClientPlayNetworking.registerGlobalReceiver(ChallengePayload.TYPE, (payload, context) ->
-            respondToChallenge(payload, context.responseSender(), "PLAY"));
+            respondToChallenge(payload, context.responseSender(), "PLAY",
+                context.client().getUser().getProfileId()));
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             try {
@@ -98,7 +105,7 @@ public final class CerberusClient implements ClientModInitializer {
                 }
 
                 int protocol = selectedProtocol();
-                sender.sendPacket(new PresencePayload(ProtocolCodec.encodePresence(new Presence(protocol, protocol, GuardianProtocol.KNOWN_CAPABILITIES, cerberusVersion()))));
+                sender.sendPacket(new PresencePayload(ProtocolCodec.encodePresence(new Presence(protocol, protocol, capabilities(), cerberusVersion()))));
                 LOGGER.info("Attempted Guardian PLAY presence with protocol {} (serverAdvertised={}).",
                     protocol, canSendPresence);
             } catch (RuntimeException ex) {
@@ -107,9 +114,17 @@ public final class CerberusClient implements ClientModInitializer {
         });
     }
 
-    private static void respondToChallenge(ChallengePayload payload, PacketSender sender, String phase) {
+    private static void respondToChallenge(
+        ChallengePayload payload, PacketSender sender, String phase, UUID localPlayerId
+    ) {
         try {
             Challenge challenge = ProtocolCodec.decodeChallenge(payload.bytes());
+
+            if (GuardianServerTrustStore.requiresAuthenticatedChallenge()
+                && !GuardianServerTrustStore.verify(challenge, localPlayerId)) {
+                LOGGER.warn("Ignoring unauthenticated or untrusted Guardian {} challenge; Cerberus manifest was not disclosed.", phase);
+                return;
+            }
 
             // Re-announce presence when Guardian actively challenges us. On Velocity, the initial
             // CONFIGURATION START presence can arrive before a backend connection is in flight and
@@ -117,7 +132,7 @@ public final class CerberusClient implements ClientModInitializer {
             // the distinct CERBERUS_REQUIRED vs CERBERUS_TIMEOUT states robust without changing the
             // standalone Paper PLAY fallback.
             int responseProtocol = selectedProtocol();
-            sender.sendPacket(new PresencePayload(ProtocolCodec.encodePresence(new Presence(responseProtocol, responseProtocol, GuardianProtocol.KNOWN_CAPABILITIES, cerberusVersion()))));
+            sender.sendPacket(new PresencePayload(ProtocolCodec.encodePresence(new Presence(responseProtocol, responseProtocol, capabilities(), cerberusVersion()))));
 
             if (Boolean.getBoolean("guardian.cerberus.dev.suppressResponse")) {
                 LOGGER.info(
@@ -134,22 +149,34 @@ public final class CerberusClient implements ClientModInitializer {
                 return;
             }
 
-            if (challenge.protocolVersion() != GuardianProtocol.VERSION || (GuardianProtocol.KNOWN_CAPABILITIES & challenge.requiredCapabilities()) != challenge.requiredCapabilities()) {
+            long capabilities = capabilities();
+            if (challenge.protocolVersion() != GuardianProtocol.VERSION || (capabilities & challenge.requiredCapabilities()) != challenge.requiredCapabilities()) {
                 LOGGER.warn("Guardian {} challenge requested unsupported protocol/capabilities; no response will be sent.", phase);
                 return;
             }
-            Manifest manifest = FabricManifestCollector.collect();
+            Manifest manifest = FabricManifestCollector.collect(capabilities);
             if (Boolean.getBoolean("guardian.cerberus.dev.logManifest")) {
                 LOGGER.info("Cerberus sanitized canonical manifest: minecraft={}, loader={}, cerberus={}, entries={}",
                     manifest.minecraftVersion(), manifest.fabricLoaderVersion(), manifest.cerberusVersion(), manifest.entries());
             }
-            Response response = new Response(responseProtocol, GuardianProtocol.KNOWN_CAPABILITIES, challenge.nonce(), manifest);
+            Response response = new Response(responseProtocol, capabilities, challenge.nonce(), manifest, releaseIdentity());
             sender.sendPacket(new ResponsePayload(ProtocolCodec.encodeResponse(response)));
             LOGGER.info("Responded to Guardian {} challenge with protocol {} and {} canonical manifest entries.",
                 phase, responseProtocol, manifest.entries().size());
         } catch (ProtocolException | RuntimeException ex) {
             LOGGER.warn("Ignoring invalid Guardian {} challenge", phase, ex);
         }
+    }
+
+    private static long capabilities() {
+        return GuardianProtocol.REQUIRED_CAPABILITIES
+            | (releaseIdentity() == null ? 0L : GuardianProtocol.CAP_SIGNED_CERBERUS_RELEASE)
+            | (GuardianServerTrustStore.requiresAuthenticatedChallenge()
+                ? GuardianProtocol.CAP_AUTHENTICATED_GUARDIAN_CHALLENGE : 0L);
+    }
+
+    private static CerberusReleaseIdentity releaseIdentity() {
+        return CerberusReleaseIdentityProvider.current();
     }
 
     private static int selectedProtocol() {

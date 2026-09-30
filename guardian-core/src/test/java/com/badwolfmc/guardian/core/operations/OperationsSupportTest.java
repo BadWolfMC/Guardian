@@ -18,6 +18,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,7 +72,66 @@ class OperationsSupportTest {
 
         assertEquals(4, snapshot.loaderKnownCount());
         assertEquals(List.of("fabric-api", "sodium"), snapshot.policyAddressableMods().stream()
-            .map(ManifestEntry::modId).sorted().toList());
+            .map(InspectionMod::modId).sorted().toList());
+        assertTrue(snapshot.policyAddressableMods().stream()
+            .allMatch(mod -> mod.originKind() == OriginKind.ARCHIVE));
+    }
+
+    @Test
+    void activeInspectionSnapshotRetainsOnlyBoundedPolicyProjection() {
+        ArtifactSha256 hash = new ArtifactSha256("11".repeat(32));
+        ArrayList<ManifestEntry> entries = new ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            entries.add(new ManifestEntry("mod-%03d".formatted(i), "1.0", null, OriginKind.ARCHIVE, hash));
+        }
+        entries.add(new ManifestEntry("nested", "1.0", "mod-000", OriginKind.NESTED));
+        Manifest manifest = new Manifest("26.2", "0.18.6", "test", GuardianProtocol.REQUIRED_CAPABILITIES, entries);
+
+        ActiveInspectionSnapshot snapshot = new ActiveInspectionSnapshot(
+            UUID.randomUUID(), "Alice", "alpha", ClientClassification.JAVA_FABRIC, "fabric", "default",
+            ProfileResolutionSource.DEFAULT, null, GuardianDecision.allow(DecisionReason.CERBERUS_VERIFIED, "ok"),
+            manifest, new BedrockEvidence(BedrockSignal.NOT_BEDROCK, BedrockSignal.NOT_BEDROCK), 7L);
+
+        assertEquals(101, snapshot.loaderKnownCount());
+        assertEquals(100, snapshot.policyAddressableCount());
+        assertEquals(ActiveInspectionSnapshot.MAX_RETAINED_POLICY_MODS, snapshot.policyAddressableMods().size());
+        assertEquals(36, snapshot.omittedPolicyAddressableCount());
+        assertEquals("mod-000", snapshot.policyAddressableMods().getFirst().modId());
+        assertEquals(7L, snapshot.admissionRuntimeGeneration());
+        assertFalse(snapshot.predatesRuntime(7L));
+        assertTrue(snapshot.predatesRuntime(8L));
+    }
+
+    @Test
+    void activeInspectionSnapshotDoesNotRetainCompleteManifestObject() {
+        assertTrue(List.of(ActiveInspectionSnapshot.class.getRecordComponents()).stream()
+            .noneMatch(component -> component.getType() == Manifest.class));
+    }
+
+    @Test
+    void activeInspectionStoreDefaultCapacityIsOperationallyBounded() {
+        assertEquals(2_048, ActiveInspectionStore.DEFAULT_MAX_SNAPSHOTS);
+    }
+
+    @Test
+    void activeInspectionDisplayFieldsCannotForgeAdditionalStaffLines() {
+        ActiveInspectionSnapshot snapshot = new ActiveInspectionSnapshot(
+            UUID.randomUUID(),
+            "Alice\n[WARN] forged",
+            "alpha\rnext",
+            ClientClassification.JAVA_UNKNOWN,
+            "brand\t<red>fake</red>\u202E",
+            "default",
+            ProfileResolutionSource.DEFAULT,
+            null,
+            GuardianDecision.allow(DecisionReason.UNKNOWN_BRAND_POLICY, "ok"),
+            null,
+            new BedrockEvidence(BedrockSignal.NOT_BEDROCK, BedrockSignal.NOT_BEDROCK)
+        );
+
+        assertEquals("Alice\\n[WARN] forged", snapshot.playerName());
+        assertEquals("alpha\\rnext", snapshot.backend());
+        assertEquals("brand\\t<red>fake</red>\\u202E", snapshot.observedBrand());
     }
 
     @Test

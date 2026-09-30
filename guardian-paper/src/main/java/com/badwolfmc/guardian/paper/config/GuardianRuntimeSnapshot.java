@@ -9,15 +9,25 @@ import java.util.Objects;
 public record GuardianRuntimeSnapshot(
     GuardianPaperSettings settings,
     GuardianLocaleCatalog localeCatalog,
-    AdmissionPolicySnapshot admissionPolicy
+    AdmissionPolicySnapshot admissionPolicy,
+    long generation
 ) {
     public GuardianRuntimeSnapshot {
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(localeCatalog, "localeCatalog");
+        if (generation < 1) throw new IllegalArgumentException("generation must be positive");
         if (settings.admissionEnabled()
             && settings.authorityMode() == com.badwolfmc.guardian.paper.PaperAuthorityMode.STANDALONE) {
             Objects.requireNonNull(admissionPolicy, "standalone admissionPolicy");
         }
+    }
+
+    public GuardianRuntimeSnapshot(
+        GuardianPaperSettings settings,
+        GuardianLocaleCatalog localeCatalog,
+        AdmissionPolicySnapshot admissionPolicy
+    ) {
+        this(settings, localeCatalog, admissionPolicy, 1L);
     }
 
     public AdmissionPolicySnapshot requireAdmissionPolicy() {

@@ -131,6 +131,12 @@ The final Java 25 / Gradle 9.7.1 gate is green at **141 tests** with zero failur
 
 Phase 5 is complete. The final Java 25 / Gradle 9.7.1 gate is green at **178 tests** with zero failures/errors/skips (Core 64, Paper 44, Protection 20, Protocol 21, Velocity 29). Focused live verification passed normal Velocity Fabric/Cerberus Admission, authority-aware Paper/proxy inspection, host-local validation/reload, artifact authority, generated assertion-key provisioning/mismatch recovery, disconnect cleanup, and in-game `/guardianv` execution through the Velocity permission provider. BRIDGE-003 and BRIDGE-004 are retired; there are no active implementation bridges entering Phase 6. See `docs/PHASE_5_IMPLEMENTATION.md`, `docs/PHASE_5_VERIFICATION.md`, and `docs/PHASE_6_HANDOFF.md`.
 
+## Phase 6 status: automated gate green; live closeout pending
+
+`0.1.0-phase6` is the current security/adversarial-hardening candidate. It preserves the Phase 5 authority architecture while hardening exact-connection session ownership, proxy assertion replay/timestamp/key boundaries, profile/Bedrock provider failures, bounded active inspection, log/diagnostic injection, development origins, stable administrator-file reads/reloads, exact artifact hashing, and standalone Paper PLAY quarantine. It also adds two optional Ed25519 mechanisms with deliberately narrow trust claims: signed official Cerberus release provenance and player-bound Guardian challenge authentication before stock Cerberus discloses its manifest. Neither is remote attestation, and no reusable secret is embedded in Cerberus.
+
+The Java 25 / Gradle 9.7.1 gate is now green at **354 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips** (Core 117/4 skipped, Paper 91/4, Protection 20/0, Protocol 50/0, Velocity 58/3, Cerberus 18/0). Built Phase 6 Paper/Velocity/Cerberus JARs were inspected with no private-key entry present. Phase 6 is not yet closed: the focused signed-release/server-auth/quarantine/Velocity live smokes and final post-live review remain pending. See `docs/PHASE_6_IMPLEMENTATION.md`, `docs/PHASE_6_VERIFICATION.md`, and the candidate `docs/PHASE_7_HANDOFF.md`.
+
 See:
 
 - `docs/PHASE_0A_FINDINGS.md`
@@ -149,6 +155,9 @@ See:
 - `docs/PHASE_3_VERIFICATION.md`
 - `docs/PHASE_5_HANDOFF.md`
 - `docs/PHASE_6_HANDOFF.md`
+- `docs/PHASE_6_IMPLEMENTATION.md`
+- `docs/PHASE_6_VERIFICATION.md`
+- `docs/PHASE_7_HANDOFF.md`
 - `docs/PHASE_5_IMPLEMENTATION.md`
 - `docs/PHASE_5_VERIFICATION.md`
 - `docs/PHASE_4_VERIFICATION.md`

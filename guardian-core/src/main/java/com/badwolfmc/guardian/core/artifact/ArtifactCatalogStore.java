@@ -1,11 +1,9 @@
 package com.badwolfmc.guardian.core.artifact;
 
 import com.badwolfmc.guardian.protocol.ArtifactSha256;
+import com.badwolfmc.guardian.core.operations.SafeRegularFile;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -37,29 +35,12 @@ public final class ArtifactCatalogStore {
 
     public ArtifactCatalog load() throws ArtifactCatalogException {
         if (!exists()) return ArtifactCatalog.empty();
-        if (Files.isSymbolicLink(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-            throw new ArtifactCatalogException("artifact catalog must be a regular non-symlink file");
-        }
-        final byte[] bytes;
-        try {
-            long size = Files.size(path);
-            if (size > MAX_CATALOG_BYTES) {
-                throw new ArtifactCatalogException(
-                    "artifact catalog exceeds " + MAX_CATALOG_BYTES + " byte safety limit");
-            }
-            bytes = Files.readAllBytes(path);
-        } catch (IOException ex) {
-            throw new ArtifactCatalogException("could not read artifact catalog", ex);
-        }
         final String text;
         try {
-            text = StandardCharsets.UTF_8.newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .onUnmappableCharacter(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(bytes))
-                .toString();
-        } catch (CharacterCodingException ex) {
-            throw new ArtifactCatalogException("artifact catalog is not valid UTF-8", ex);
+            text = SafeRegularFile.readUtf8(path, MAX_CATALOG_BYTES);
+        } catch (IOException ex) {
+            throw new ArtifactCatalogException(
+                "artifact catalog must be a stable regular non-symlink UTF-8 file: " + ex.getMessage(), ex);
         }
         return parse(text);
     }

@@ -37,6 +37,12 @@ public final class ProxyAssertionSecret {
         return fingerprint;
     }
 
+    /** Constant-time equality check that does not expose either secret. */
+    public boolean sameKey(ProxyAssertionSecret other) {
+        Objects.requireNonNull(other, "other");
+        return MessageDigest.isEqual(bytes, other.bytes);
+    }
+
     private static String fingerprint(byte[] bytes) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);

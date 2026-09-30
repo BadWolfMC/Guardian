@@ -25,12 +25,15 @@ final class PaperLuckPermsProfileProvider implements AdmissionProfileProvider {
             plugin.getLogger().info("Guardian Admission profile provider: LuckPerms not present; default/identity profiles only.");
             return AdmissionProfileProvider.none();
         }
+
         RegisteredServiceProvider<LuckPerms> registration =
             plugin.getServer().getServicesManager().getRegistration(LuckPerms.class);
         if (registration == null || registration.getProvider() == null) {
-            plugin.getLogger().warning("LuckPerms is enabled but its API service is unavailable; Guardian will use default/identity profiles.");
-            return AdmissionProfileProvider.none();
+            plugin.getLogger().warning("LuckPerms is enabled but its API service is currently unavailable; "
+                + "affected admissions will fail closed until the service is available.");
+            return AdmissionProfileProvider.unavailable("LuckPerms API service is unavailable");
         }
+
         plugin.getLogger().info("Guardian Admission profile provider: LuckPerms (static pre-login query options).");
         return new PaperLuckPermsProfileProvider(registration.getProvider());
     }

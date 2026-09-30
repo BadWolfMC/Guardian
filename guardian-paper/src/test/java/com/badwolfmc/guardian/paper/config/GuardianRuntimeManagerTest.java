@@ -4,6 +4,7 @@ import com.badwolfmc.guardian.core.BrandRuleMode;
 import com.badwolfmc.guardian.core.ClientAction;
 import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.protection.ProtectionRuleMode;
+import com.badwolfmc.guardian.protocol.GuardianChallengeCrypto;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,6 +13,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPairGenerator;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -38,6 +40,20 @@ class GuardianRuntimeManagerTest {
         assertTrue(snapshot.settings().protectionPolicy().perCommandVisibilityBypass());
         assertTrue(snapshot.settings().protectionPolicy().notificationsEnabled());
         assertSame(snapshot, manager.current());
+        assertEquals(1L, snapshot.generation());
+    }
+
+    @Test
+    void successfulReloadAdvancesRuntimeGenerationButValidationDoesNot() throws Exception {
+        GuardianRuntimeManager manager = managerWithDefaults();
+        GuardianRuntimeSnapshot original = manager.loadInitial();
+        GuardianRuntimeSnapshot candidate = manager.validateFiles();
+        assertEquals(original.generation(), candidate.generation());
+        assertSame(original, manager.current());
+
+        GuardianRuntimeSnapshot reloaded = manager.reload();
+        assertEquals(original.generation() + 1L, reloaded.generation());
+        assertSame(reloaded, manager.current());
     }
 
     @Test
@@ -203,6 +219,52 @@ class GuardianRuntimeManagerTest {
         assertEquals(GuardianConfigurationException.Kind.ADMISSION_POLICY, ex.kind());
         assertFalse(ex.recoverableAtStartup());
         assertTrue(ex.getMessage().contains("unknown client action must be ALLOW"));
+    }
+
+
+    @Test
+    void serverAuthenticationKeyRotationIsCandidateScopedAndActivatesOnlyOnReload() throws Exception {
+        var first = KeyPairGenerator.getInstance(GuardianChallengeCrypto.ALGORITHM).generateKeyPair();
+        var second = KeyPairGenerator.getInstance(GuardianChallengeCrypto.ALGORITHM).generateKeyPair();
+        String config = defaultResource("config.yml")
+            .replace("server-authentication:\n      enabled: false",
+                "server-authentication:\n      enabled: true");
+        writeDefaults(config);
+        Path key = tempDir.resolve("guardian-server-auth.key");
+        Files.write(key, first.getPrivate().getEncoded());
+
+        GuardianRuntimeManager manager = new GuardianRuntimeManager(
+            tempDir.resolve("config.yml"), tempDir.resolve("locales"));
+        GuardianRuntimeSnapshot original = manager.loadInitial();
+        assertNotNull(original.settings().serverChallengeSigner());
+
+        Files.write(key, second.getPrivate().getEncoded());
+        GuardianRuntimeSnapshot candidate = manager.validateFiles();
+        assertFalse(original.settings().serverChallengeSigner()
+            .sameKey(candidate.settings().serverChallengeSigner()));
+        assertSame(original, manager.current(), "validation must not activate the rotated key");
+
+        GuardianRuntimeSnapshot reloaded = manager.reload();
+        assertSame(reloaded, manager.current());
+        assertFalse(original.settings().serverChallengeSigner()
+            .sameKey(reloaded.settings().serverChallengeSigner()));
+        assertTrue(candidate.settings().serverChallengeSigner()
+            .sameKey(reloaded.settings().serverChallengeSigner()));
+    }
+
+    @Test
+    void repeatedFailedReloadsNeverAdvanceGenerationOrReplaceActiveSnapshot() throws Exception {
+        GuardianRuntimeManager manager = managerWithDefaults();
+        GuardianRuntimeSnapshot original = manager.loadInitial();
+        Path policy = tempDir.resolve("policy.yml");
+        Files.writeString(policy, defaultResource("policy.yml")
+            .replace("default-profile: default", "default-profile: missing"), StandardCharsets.UTF_8);
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            assertThrows(GuardianConfigurationException.class, manager::reload);
+            assertSame(original, manager.current());
+            assertEquals(1L, manager.current().generation());
+        }
     }
 
     @Test

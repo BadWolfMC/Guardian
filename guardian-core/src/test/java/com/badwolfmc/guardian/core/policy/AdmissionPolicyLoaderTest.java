@@ -11,6 +11,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPairGenerator;
+import java.util.Base64;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,6 +29,66 @@ class AdmissionPolicyLoaderTest {
             snapshot.defaultProfile().clientPolicy().configuredAction(ClientClassification.JAVA_FABRIC));
         assertEquals(ModPolicyMode.ALLOWLIST, snapshot.defaultProfile().modPolicy().mode());
         assertTrue(snapshot.defaultProfile().modPolicy().baselineModIds().contains("fabricloader"));
+    }
+
+    @Test
+    void signedCerberusReleaseTrustDefaultsDisabled() throws Exception {
+        AdmissionPolicySnapshot snapshot = new AdmissionPolicyLoader().load(
+            writePolicy(basePolicy("")), tempDir.resolve("artifacts.yml"));
+        assertFalse(snapshot.cerberusReleaseTrust().required());
+        assertTrue(snapshot.cerberusReleaseTrust().trustedEd25519Keys().isEmpty());
+    }
+
+    @Test
+    void signedCerberusReleaseTrustRequiresKeysWhenEnabled() throws Exception {
+        String yaml = basePolicy("").replace("identity-overrides: {}", """
+            identity-overrides: {}
+            cerberus-release-trust:
+              required: true
+              ed25519-public-keys: []
+            """.stripTrailing());
+        AdmissionPolicyException ex = assertThrows(AdmissionPolicyException.class,
+            () -> new AdmissionPolicyLoader().load(writePolicy(yaml), tempDir.resolve("artifacts.yml")));
+        assertTrue(ex.getMessage().contains("no trusted Ed25519 key"));
+    }
+
+    @Test
+    void signedCerberusReleaseTrustParsesEd25519X509PublicKey() throws Exception {
+        String publicKey = Base64.getEncoder().encodeToString(
+            KeyPairGenerator.getInstance("Ed25519").generateKeyPair().getPublic().getEncoded());
+        String yaml = basePolicy("").replace("identity-overrides: {}", """
+            identity-overrides: {}
+            cerberus-release-trust:
+              required: true
+              ed25519-public-keys:
+                - "%s"
+            """.formatted(publicKey).stripTrailing());
+        AdmissionPolicySnapshot snapshot = new AdmissionPolicyLoader().load(
+            writePolicy(yaml), tempDir.resolve("artifacts.yml"));
+        assertTrue(snapshot.cerberusReleaseTrust().required());
+        assertEquals(1, snapshot.cerberusReleaseTrust().trustedEd25519Keys().size());
+        assertEquals(
+            com.badwolfmc.guardian.protocol.GuardianProtocol.REQUIRED_CAPABILITIES
+                | com.badwolfmc.guardian.protocol.GuardianProtocol.CAP_SIGNED_CERBERUS_RELEASE,
+            snapshot.cerberusReleaseTrust().requiredCapabilities());
+    }
+
+    @Test
+    void signedCerberusReleaseTrustRejectsDuplicateKeyMaterialAcrossBase64Spellings() throws Exception {
+        String canonical = Base64.getEncoder().encodeToString(
+            KeyPairGenerator.getInstance("Ed25519").generateKeyPair().getPublic().getEncoded());
+        String unpadded = canonical.replaceAll("=+$", "");
+        String yaml = basePolicy("").replace("identity-overrides: {}", """
+            identity-overrides: {}
+            cerberus-release-trust:
+              required: true
+              ed25519-public-keys:
+                - "%s"
+                - "%s"
+            """.formatted(canonical, unpadded).stripTrailing());
+        AdmissionPolicyException ex = assertThrows(AdmissionPolicyException.class,
+            () -> new AdmissionPolicyLoader().load(writePolicy(yaml), tempDir.resolve("artifacts.yml")));
+        assertTrue(ex.getMessage().contains("duplicate key"));
     }
 
     @Test

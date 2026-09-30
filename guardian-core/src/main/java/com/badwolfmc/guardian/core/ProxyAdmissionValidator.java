@@ -19,18 +19,31 @@ public final class ProxyAdmissionValidator {
         if (!assertion.playerId().equals(expectedPlayerId)) {
             return invalid("proxy assertion UUID does not match authenticated player");
         }
-        if (assertion.expiresAtEpochMillis() <= assertion.issuedAtEpochMillis()) {
+
+        final long lifetime;
+        try {
+            lifetime = Math.subtractExact(assertion.expiresAtEpochMillis(), assertion.issuedAtEpochMillis());
+        } catch (ArithmeticException ex) {
+            return invalid("proxy assertion timestamp range overflowed");
+        }
+        if (lifetime <= 0L) {
             return invalid("proxy assertion expiry is not after issuance");
         }
-        if (assertion.expiresAtEpochMillis() - assertion.issuedAtEpochMillis()
-            > GuardianProtocol.PROXY_ASSERTION_TTL_MILLIS) {
+        if (lifetime > GuardianProtocol.PROXY_ASSERTION_TTL_MILLIS) {
             return invalid("proxy assertion lifetime exceeds limit");
         }
-        if (assertion.issuedAtEpochMillis()
-            > nowEpochMillis + GuardianProtocol.PROXY_ASSERTION_CLOCK_SKEW_MILLIS) {
+
+        final long latestAcceptedIssueTime;
+        try {
+            latestAcceptedIssueTime = Math.addExact(
+                nowEpochMillis, GuardianProtocol.PROXY_ASSERTION_CLOCK_SKEW_MILLIS);
+        } catch (ArithmeticException ex) {
+            return invalid("proxy assertion clock-skew boundary overflowed");
+        }
+        if (assertion.issuedAtEpochMillis() > latestAcceptedIssueTime) {
             return invalid("proxy assertion issuance is too far in the future");
         }
-        if (assertion.expiresAtEpochMillis() < nowEpochMillis) {
+        if (assertion.expiresAtEpochMillis() <= nowEpochMillis) {
             return invalid("proxy assertion has expired");
         }
         return GuardianDecision.allow(

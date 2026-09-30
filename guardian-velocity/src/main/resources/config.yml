@@ -16,6 +16,12 @@ admission:
   # Time allowed for profile resolution + Cerberus CONFIGURATION attestation where required.
   handshake-timeout-seconds: 10
 
+  # Optional privacy hardening for Cerberus manifests. When enabled, Guardian-Velocity
+  # signs each challenge with guardian-server-auth.key in this plugin data directory.
+  # Official Cerberus releases must carry the corresponding public trust anchor.
+  server-authentication:
+    enabled: false
+
 # Guardian-Velocity automatically generates proxy-assertion.key in this plugin
 # data directory on first startup. Keep it private and copy the same file
 # unchanged to plugins/Guardian/proxy-assertion.key on every Paper backend

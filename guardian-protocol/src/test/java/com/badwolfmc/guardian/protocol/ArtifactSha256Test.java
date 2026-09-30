@@ -8,6 +8,7 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ArtifactSha256Test {
     @TempDir Path temp;
@@ -28,4 +29,20 @@ class ArtifactSha256Test {
         Files.write(file, new byte[33]);
         assertThrows(java.io.IOException.class, () -> ArtifactSha256.hashRegularFile(file, 32));
     }
+    @Test
+    void symbolicLinkIsNeverFollowedForArtifactHashing() throws Exception {
+        Path target = temp.resolve("target.jar");
+        Files.writeString(target, "secret-ish bytes");
+        Path link = temp.resolve("linked.jar");
+        try {
+            Files.createSymbolicLink(link, target.getFileName());
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException ex) {
+            return; // Host does not permit symlink creation.
+        }
+
+        java.io.IOException thrown = assertThrows(
+            java.io.IOException.class, () -> ArtifactSha256.hashRegularFile(link, 1024));
+        assertTrue(thrown.getMessage().contains("regular non-symlink"));
+    }
+
 }

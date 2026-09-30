@@ -1,11 +1,13 @@
 package com.badwolfmc.guardian.paper.locale;
 
 import com.badwolfmc.guardian.paper.config.GuardianConfigurationException;
+import com.badwolfmc.guardian.core.operations.SafeRegularFile;
+import com.badwolfmc.guardian.core.operations.SafeDirectory;
 
 import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
+import java.io.StringReader;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,6 +17,7 @@ import java.util.Set;
 public final class GuardianLocaleLoader {
     public static final int SCHEMA_VERSION = 1;
     public static final String FALLBACK_LOCALE = "en_us";
+    public static final int MAX_LOCALE_BYTES = 256 * 1024;
 
     public static final Set<String> REQUIRED_KEYS = Set.of(
         "admission.denied",
@@ -23,6 +26,9 @@ public final class GuardianLocaleLoader {
         "admission.cerberus-required",
         "admission.cerberus-timeout",
         "admission.cerberus-protocol-unsupported",
+        "admission.cerberus-server-auth-required",
+        "admission.cerberus-release-required",
+        "admission.cerberus-release-untrusted",
         "admission.manifest-denied",
         "admission.manifest-denied.required-mod-missing",
         "admission.manifest-denied.explicit-mod-deny",
@@ -33,6 +39,7 @@ public final class GuardianLocaleLoader {
         "admission.manifest-denied.mixed-origin",
         "admission.manifest-invalid",
         "admission.client-denied",
+        "admission.profile-resolution-failed",
         "admission.configuration-error",
         "protection.command-denied",
         "protection.namespace-denied",
@@ -58,11 +65,15 @@ public final class GuardianLocaleLoader {
         "command.value.artifact.no-hash",
         "command.value.artifact.catalogued",
         "command.value.artifact.not-catalogued",
+        "command.value.runtime.current",
+        "command.value.runtime.pre-reload",
         "command.validate.success",
         "command.validate.failed",
         "command.reload.success",
         "command.reload.failed",
         "command.inspect.no-active-data",
+        "command.inspect.runtime-context",
+        "command.inspect.mods-omitted",
         "command.status.paper.header",
         "command.status.paper.runtime",
         "command.status.paper.integrations",
@@ -82,6 +93,14 @@ public final class GuardianLocaleLoader {
 
     public GuardianLocaleCatalog load(Path localesDirectory, String selectedLocale)
         throws GuardianConfigurationException {
+        try {
+            SafeDirectory.requireRealDirectory(localesDirectory);
+        } catch (IOException ex) {
+            throw new GuardianConfigurationException(
+                localesDirectory, GuardianConfigurationException.Kind.INVALID,
+                "locales path must be a real directory rather than a symlink or other file type: "
+                    + ex.getMessage(), ex);
+        }
         Path fallbackPath = localesDirectory.resolve(FALLBACK_LOCALE + ".properties");
         Map<String, String> fallback = loadFile(fallbackPath, true);
 
@@ -90,7 +109,7 @@ public final class GuardianLocaleLoader {
         }
 
         Path selectedPath = localesDirectory.resolve(selectedLocale + ".properties");
-        if (!Files.exists(selectedPath)) {
+        if (!Files.exists(selectedPath, LinkOption.NOFOLLOW_LINKS)) {
             return new GuardianLocaleCatalog(selectedLocale, Map.of(), fallback);
         }
         Map<String, String> selected = loadFile(selectedPath, false);
@@ -99,13 +118,22 @@ public final class GuardianLocaleLoader {
 
     private static Map<String, String> loadFile(Path path, boolean requireAllKeys)
         throws GuardianConfigurationException {
-        if (!Files.isRegularFile(path)) {
+        if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) {
             throw new GuardianConfigurationException(
                 path, GuardianConfigurationException.Kind.MISSING, "required locale file is missing");
         }
 
+        final String text;
+        try {
+            text = SafeRegularFile.readUtf8(path, MAX_LOCALE_BYTES);
+        } catch (IOException ex) {
+            throw new GuardianConfigurationException(
+                path, GuardianConfigurationException.Kind.INVALID,
+                "locale must be a stable regular non-symlink UTF-8 file: " + ex.getMessage(), ex);
+        }
+
         Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+        try (StringReader reader = new StringReader(text)) {
             properties.load(reader);
         } catch (IOException | IllegalArgumentException ex) {
             throw new GuardianConfigurationException(

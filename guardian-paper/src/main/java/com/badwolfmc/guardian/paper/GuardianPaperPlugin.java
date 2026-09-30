@@ -1,5 +1,7 @@
 package com.badwolfmc.guardian.paper;
 
+import com.badwolfmc.guardian.core.operations.SafeDirectory;
+import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportService;
 import com.badwolfmc.guardian.paper.config.GuardianConfigurationException;
@@ -14,6 +16,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.Set;
@@ -143,7 +146,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
                 }
 
                 getLogger().severe("Guardian rejected invalid startup file '" + problemPath + "': "
-                    + ex.getMessage());
+                    + DiagnosticText.oneLine(ex.getMessage()));
                 try {
                     recoverStartupFile(dataDirectory, problemPath, recovery);
                 } catch (IOException recoveryError) {
@@ -223,7 +226,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
             // In Phase 3, standalone Admission policy validation has already rejected an invalid catalog
             // when policy authority needs it. Keep this later surface warning non-fatal for deployments
             // where Admission is disabled or policy authority lives at Velocity.
-            getLogger().warning("Guardian artifact catalog is not ready for import: " + ex.getMessage());
+            getLogger().warning("Guardian artifact catalog is not ready for import: " + DiagnosticText.oneLine(ex.getMessage()));
         }
     }
 
@@ -239,10 +242,21 @@ public final class GuardianPaperPlugin extends JavaPlugin {
     }
 
     private void ensureAdministratorFile(String resourcePath) {
-        Path destination = getDataFolder().toPath().resolve(resourcePath);
-        if (Files.exists(destination)) {
-            return;
+        Path data = getDataFolder().toPath().toAbsolutePath().normalize();
+        Path destination = data.resolve(resourcePath).normalize();
+        if (!destination.startsWith(data)) {
+            throw new IllegalStateException("Guardian administrator resource escapes plugin data directory: " + resourcePath);
         }
-        saveResource(resourcePath, false);
+        try {
+            Path parent = destination.getParent();
+            if (parent != null && !parent.equals(data)) {
+                SafeDirectory.ensureChildDirectories(data, parent);
+            }
+            if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) return;
+            saveResource(resourcePath, false);
+        } catch (IOException ex) {
+            throw new IllegalStateException(
+                "could not prepare Guardian administrator resource " + destination + ": " + ex.getMessage(), ex);
+        }
     }
 }

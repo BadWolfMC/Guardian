@@ -2,6 +2,7 @@ package com.badwolfmc.guardian.velocity.config;
 
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
+import com.badwolfmc.guardian.core.operations.GuardianServerChallengeSigner;
 
 import java.util.Objects;
 
@@ -11,7 +12,8 @@ public record VelocityOperationalSettings(
     String locale,
     int handshakeTimeoutSeconds,
     OperationalLogLevel loggingLevel,
-    ProxyAssertionSecret proxyAssertionSecret
+    ProxyAssertionSecret proxyAssertionSecret,
+    GuardianServerChallengeSigner serverChallengeSigner
 ) {
     public VelocityOperationalSettings {
         Objects.requireNonNull(locale, "locale");

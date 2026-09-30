@@ -12,8 +12,9 @@ class Phase3PaperPolicyArchitectureTest {
     void paperConsumesSharedPolicyEvaluatorAndKeepsVelocityModeAssertionOnly() throws Exception {
         String source = Files.readString(Path.of("src/main/java/com/badwolfmc/guardian/paper/PaperAdmissionAdapter.java"));
         assertTrue(source.contains("AdmissionPolicyEvaluator"));
-        assertTrue(source.contains("profileProvider.resolve(session.playerId(), session.snapshot().requireAdmissionPolicy())"),
-            "Paper profile resolution must receive the immutable session policy snapshot");
+        assertTrue(source.contains("AdmissionProfileProviderGate.resolve("));
+        assertTrue(source.contains("profileProvider, session.playerId(), policySnapshot"),
+            "Paper profile resolution must receive the immutable session policy snapshot through the fail-closed provider gate");
         assertTrue(source.contains("evaluateManifest(resolvedProfile(session), response.manifest())"));
         assertFalse(source.contains("settings().admissionPolicy()"),
             "Paper operational config must not own the shared admission policy");

@@ -19,6 +19,7 @@
 *.patch
 *.zip
 proxy-assertion.key
+guardian-server-auth.key
 
 # OS noise
 .DS_Store

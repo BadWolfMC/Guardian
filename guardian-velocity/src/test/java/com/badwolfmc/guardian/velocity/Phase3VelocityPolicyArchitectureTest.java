@@ -17,8 +17,9 @@ class Phase3VelocityPolicyArchitectureTest {
         assertTrue(source.contains("VelocityRuntimeSnapshot policySnapshot") ||
             source.contains("AdmissionPolicySnapshot policySnapshot = session.runtimeSnapshot().admissionPolicy()"),
             "one immutable shared policy/runtime snapshot must be captured for the proxy admission session");
-        assertTrue(source.contains("resolve(player.getUniqueId(), policySnapshot)"),
-            "profile-provider resolution must receive the same immutable policy context");
+        assertTrue(source.contains("AdmissionProfileProviderGate.resolve("));
+        assertTrue(source.contains("profileProvider, player.getUniqueId(), policySnapshot"),
+            "profile-provider resolution must receive the same immutable policy context through the fail-closed provider gate");
         assertTrue(source.contains("policyEvaluator.evaluateManifest"));
         assertFalse(source.contains("GuardianDecision.allow(\n                DecisionReason.BEDROCK_POLICY"));
         assertFalse(source.contains("if (classification == ClientClassification."),
@@ -29,6 +30,8 @@ class Phase3VelocityPolicyArchitectureTest {
         assertTrue(source.contains("configurationAttestationFailure()"),
             "early Cerberus protocol failures must not outrun shared client-policy resolution");
         assertTrue(source.contains("AdmissionProfileProvider.none()"),
-            "LuckPerms absence/failure must retain deterministic default/identity fallback");
+            "intentional LuckPerms absence must retain deterministic default/identity fallback");
+        assertTrue(source.contains("DecisionReason.PROFILE_RESOLUTION_FAILED"),
+            "runtime provider failure must fail closed instead of silently selecting the default profile");
     }
 }

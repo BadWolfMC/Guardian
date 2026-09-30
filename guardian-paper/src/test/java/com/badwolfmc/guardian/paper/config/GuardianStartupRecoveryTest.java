@@ -1,5 +1,6 @@
 package com.badwolfmc.guardian.paper.config;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -37,6 +38,19 @@ class GuardianStartupRecoveryTest {
     }
 
     @Test
+    void emptyInvalidFileCanStillBePreservedAndRecovered() throws Exception {
+        Path config = tempDir.resolve("config.yml");
+        Files.write(config, new byte[0]);
+        byte[] defaults = "schema-version: 1\n".getBytes(StandardCharsets.UTF_8);
+
+        GuardianStartupRecovery.RecoveryResult result = new GuardianStartupRecovery(FIXED_CLOCK)
+            .backupAndRestoreDefault(config, new ByteArrayInputStream(defaults));
+
+        assertEquals(0, Files.size(result.backup()));
+        assertArrayEquals(defaults, Files.readAllBytes(config));
+    }
+
+    @Test
     void collidingTimestampUsesSuffixWithoutOverwritingEarlierBackup() throws Exception {
         Path config = tempDir.resolve("config.yml");
         Files.writeString(config, "first", StandardCharsets.UTF_8);
@@ -52,6 +66,28 @@ class GuardianStartupRecoveryTest {
         assertEquals("config.yml.invalid-20260924T112356789Z-2.bak", second.backup().getFileName().toString());
         assertEquals("first", Files.readString(first.backup(), StandardCharsets.UTF_8));
         assertEquals("second", Files.readString(second.backup(), StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void recoveryRefusesSymlinkInsteadOfFollowingExternalTarget() throws Exception {
+        Path target = tempDir.resolve("external.txt");
+        Files.writeString(target, "do-not-copy-or-replace", StandardCharsets.UTF_8);
+        Path link = tempDir.resolve("config.yml");
+        try {
+            Files.createSymbolicLink(link, target.getFileName());
+        } catch (UnsupportedOperationException | java.io.IOException | SecurityException ex) {
+            Assumptions.assumeTrue(false, "symbolic links unavailable in this test environment: " + ex);
+        }
+
+        GuardianStartupRecovery recovery = new GuardianStartupRecovery(FIXED_CLOCK);
+        assertThrows(java.io.IOException.class, () -> recovery.backupAndRestoreDefault(
+            link, new ByteArrayInputStream("schema-version: 1\n".getBytes(StandardCharsets.UTF_8))));
+
+        assertTrue(Files.isSymbolicLink(link));
+        assertEquals("do-not-copy-or-replace", Files.readString(target, StandardCharsets.UTF_8));
+        try (var stream = Files.list(tempDir)) {
+            assertTrue(stream.noneMatch(path -> path.getFileName().toString().contains(".invalid-")));
+        }
     }
 
     @Test

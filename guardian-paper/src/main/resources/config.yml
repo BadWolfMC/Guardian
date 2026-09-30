@@ -41,6 +41,12 @@ admission:
     handshake-timeout-seconds: 10
     challenge-channel-wait-ticks: 40
 
+    # Optional privacy hardening for Cerberus manifests. When enabled, standalone
+    # Guardian signs each challenge with plugins/Guardian/guardian-server-auth.key.
+    # Official Cerberus releases must carry the corresponding public trust anchor.
+    server-authentication:
+      enabled: false
+
   # Shared admission policy lives in policy.yml. This file intentionally
   # contains only Paper-local operational settings.
 

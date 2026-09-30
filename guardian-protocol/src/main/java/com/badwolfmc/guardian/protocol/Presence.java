@@ -9,6 +9,7 @@ public record Presence(int minProtocolVersion, int maxProtocolVersion, long capa
             || maxProtocolVersion > GuardianProtocol.MAX_PROTOCOL_VERSION) {
             throw new IllegalArgumentException("protocol range must be within 1.." + GuardianProtocol.MAX_PROTOCOL_VERSION);
         }
+        ProtocolText.validate(cerberusVersion, GuardianProtocol.MAX_RELEASE_METADATA_BYTES, "Cerberus version");
     }
 
     public boolean supports(int protocolVersion) {

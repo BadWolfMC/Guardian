@@ -1,6 +1,5 @@
 package com.badwolfmc.guardian.protocol;
 
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -27,7 +26,14 @@ public final class ManifestCanonicalizer {
         for(ManifestEntry e:manifest.entries()){
             bounded(e.modId(),GuardianProtocol.MAX_MOD_ID_BYTES,"mod id"); if (!FABRIC_MOD_ID.matcher(e.modId()).matches()) throw new IllegalArgumentException("invalid Fabric mod id: "+e.modId()); bounded(e.version(),GuardianProtocol.MAX_VERSION_BYTES,"mod version");
             if(e.parentModId()!=null) bounded(e.parentModId(),GuardianProtocol.MAX_MOD_ID_BYTES,"parent mod id");
-            boolean requiresArtifactHash = e.parentModId() == null && e.originKind() == OriginKind.ARCHIVE;
+            boolean nestedOrigin = e.originKind() == OriginKind.NESTED;
+            boolean hasParent = e.parentModId() != null;
+            if (nestedOrigin != hasParent) {
+                throw new IllegalArgumentException(
+                    "manifest containment/origin mismatch for " + e.modId()
+                        + ": NESTED origin and parentModId must either both be present or both be absent");
+            }
+            boolean requiresArtifactHash = e.originKind() == OriginKind.ARCHIVE;
             if (requiresArtifactHash && e.artifactSha256() == null) {
                 throw new IllegalArgumentException("top-level archive is missing SHA-256 artifact identity: " + e.modId());
             }
@@ -41,5 +47,5 @@ public final class ManifestCanonicalizer {
         for(ManifestEntry e:manifest.entries()) if(e.parentModId()!=null&&!byId.containsKey(e.parentModId())) throw new IllegalArgumentException("missing containing mod: "+e.parentModId());
         for(ManifestEntry e:manifest.entries()) { Set<String> seen=new HashSet<>(); ManifestEntry cursor=e; int depth=0; while(cursor.parentModId()!=null){if(!seen.add(cursor.modId()))throw new IllegalArgumentException("containment cycle at "+cursor.modId());if(++depth>GuardianProtocol.MAX_RELATIONSHIP_DEPTH)throw new IllegalArgumentException("containment depth exceeds limit");cursor=byId.get(cursor.parentModId());} }
     }
-    private static void bounded(String value,int max,String name){if(value==null||value.isBlank())throw new IllegalArgumentException(name+" is blank");int n=value.getBytes(StandardCharsets.UTF_8).length;if(n>max)throw new IllegalArgumentException(name+" exceeds "+max+" UTF-8 bytes");}
+    private static void bounded(String value,int max,String name){ProtocolText.validate(value,max,name);}
 }

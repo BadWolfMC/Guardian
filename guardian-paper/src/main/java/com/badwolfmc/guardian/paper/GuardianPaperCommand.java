@@ -4,11 +4,12 @@ import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportResult;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportService;
 import com.badwolfmc.guardian.core.operations.ActiveInspectionSnapshot;
+import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.paper.config.GuardianConfigurationException;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
 import com.badwolfmc.guardian.paper.locale.GuardianMessageRenderer;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
-import com.badwolfmc.guardian.protocol.ManifestEntry;
+import com.badwolfmc.guardian.core.operations.InspectionMod;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
@@ -141,7 +142,7 @@ final class GuardianPaperCommand implements BasicCommand {
             plugin.runtimeManager().validateFiles();
             send(sender, "command.validate.success", TagResolver.empty());
         } catch (GuardianConfigurationException ex) {
-            plugin.getLogger().warning("Guardian Paper validation rejected: " + ex.getMessage());
+            plugin.getLogger().warning("Guardian Paper validation rejected: " + DiagnosticText.oneLine(ex.getMessage()));
             send(sender, "command.validate.failed", tags("error", ex.getMessage()));
         }
     }
@@ -156,7 +157,7 @@ final class GuardianPaperCommand implements BasicCommand {
                 .build());
         } catch (GuardianConfigurationException ex) {
             plugin.getLogger().warning("Guardian Paper reload rejected; previous runtime remains active: "
-                + ex.getMessage());
+                + DiagnosticText.oneLine(ex.getMessage()));
             send(sender, "command.reload.failed", tags("error", ex.getMessage()));
         }
     }
@@ -171,7 +172,7 @@ final class GuardianPaperCommand implements BasicCommand {
         }
         GuardianRuntimeSnapshot runtime = plugin.runtimeManager().current();
         if (runtime.settings().authorityMode() == PaperAuthorityMode.VELOCITY) {
-            BackendInspectionSnapshot snapshot = inspectionService.backend(target.getUniqueId()).orElse(null);
+            BackendInspectionSnapshot snapshot = inspectionService.backend(target).orElse(null);
             if (snapshot == null) {
                 send(sender, "command.inspect.no-active-data", tags("player", target.getName()));
                 return;
@@ -184,12 +185,13 @@ final class GuardianPaperCommand implements BasicCommand {
             return;
         }
 
-        ActiveInspectionSnapshot snapshot = inspectionService.authoritative(target.getUniqueId()).orElse(null);
+        ActiveInspectionSnapshot snapshot = inspectionService.authoritative(target).orElse(null);
         if (snapshot == null) {
             send(sender, "command.inspect.no-active-data", tags("player", target.getName()));
             return;
         }
         send(sender, "command.inspect.paper.header", tags("player", snapshot.playerName()));
+        sendRuntimeContext(sender, snapshot, runtime.generation());
         send(sender, "command.inspect.paper.standalone.client", tags(
             "classification", snapshot.classification().name(), "brand", snapshot.observedBrand()));
         send(sender, "command.inspect.paper.standalone.profile", tags(
@@ -201,18 +203,35 @@ final class GuardianPaperCommand implements BasicCommand {
         if (snapshot.cerberusPresence() == null) {
             cerberusTags.resolver(Placeholder.component("cerberus", localized("command.value.not-applicable")));
         } else {
-            cerberusTags.resolver(Placeholder.unparsed("cerberus", snapshot.cerberusPresence().cerberusVersion()));
+            cerberusTags.resolver(Placeholder.unparsed("cerberus", DiagnosticText.oneLine(snapshot.cerberusPresence().cerberusVersion())));
         }
         send(sender, "command.inspect.paper.standalone.cerberus", cerberusTags.build());
         send(sender, "command.inspect.paper.standalone.decision", tags(
             "outcome", snapshot.decision().outcome().name(), "reason", snapshot.decision().reason().name()));
         send(sender, "command.inspect.paper.standalone.mods", tags(
-            "policy_mods", Integer.toString(snapshot.policyAddressableMods().size()),
+            "policy_mods", Integer.toString(snapshot.policyAddressableCount()),
             "loader_mods", Integer.toString(snapshot.loaderKnownCount())));
-        for (ManifestEntry entry : snapshot.policyAddressableMods()) {
+        for (InspectionMod entry : snapshot.policyAddressableMods()) {
             send(sender, "command.inspect.paper.standalone.mod", tags(
-                "mod_id", entry.modId(), "version", entry.version()));
+                "mod_id", entry.modId(), "version", entry.version(), "origin", entry.originKind().name()));
         }
+        sendOmittedMods(sender, snapshot.omittedPolicyAddressableCount());
+    }
+
+    private void sendRuntimeContext(CommandSender sender, ActiveInspectionSnapshot snapshot, long currentGeneration) {
+        String stateKey = snapshot.predatesRuntime(currentGeneration)
+            ? "command.value.runtime.pre-reload"
+            : "command.value.runtime.current";
+        send(sender, "command.inspect.runtime-context", TagResolver.builder()
+            .resolver(Placeholder.unparsed("admission_generation", Long.toString(snapshot.admissionRuntimeGeneration())))
+            .resolver(Placeholder.unparsed("current_generation", Long.toString(currentGeneration)))
+            .resolver(Placeholder.component("runtime_state", localized(stateKey)))
+            .build());
+    }
+
+    private void sendOmittedMods(CommandSender sender, int omitted) {
+        if (omitted <= 0) return;
+        send(sender, "command.inspect.mods-omitted", tags("omitted", Integer.toString(omitted)));
     }
 
     private void artifacts(CommandSender sender, String[] args) {
@@ -235,7 +254,7 @@ final class GuardianPaperCommand implements BasicCommand {
                 ArtifactImportResult result = artifactImportService.scanAndMerge();
                 Bukkit.getScheduler().runTask(plugin, () -> sendArtifactSuccess(sender, result));
             } catch (ArtifactCatalogException ex) {
-                plugin.getLogger().warning("Guardian artifact scan rejected: " + ex.getMessage());
+                plugin.getLogger().warning("Guardian artifact scan rejected: " + DiagnosticText.oneLine(ex.getMessage()));
                 Bukkit.getScheduler().runTask(plugin,
                     () -> send(sender, "artifacts.scan.failed", tags("error", ex.getMessage())));
             } finally {
@@ -274,7 +293,7 @@ final class GuardianPaperCommand implements BasicCommand {
     private static TagResolver tags(String... pairs) {
         TagResolver.Builder builder = TagResolver.builder();
         for (int i = 0; i < pairs.length; i += 2) {
-            builder.resolver(Placeholder.unparsed(pairs[i], pairs[i + 1] == null ? "" : pairs[i + 1]));
+            builder.resolver(Placeholder.unparsed(pairs[i], DiagnosticText.oneLine(pairs[i + 1] == null ? "" : pairs[i + 1])));
         }
         return builder.build();
     }

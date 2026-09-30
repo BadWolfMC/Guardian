@@ -50,6 +50,20 @@ class VelocityAdmissionSessionTest {
         assertTrue(session.admitted());
     }
 
+
+    @Test
+    void timeoutDecisionCannotBeReplacedByLateSuccessfulCompletion() {
+        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId());
+        GuardianDecision timeout = GuardianDecision.deny(DecisionReason.CERBERUS_TIMEOUT, "timeout");
+        GuardianDecision lateAllow = GuardianDecision.allow(DecisionReason.CERBERUS_VERIFIED, "late allow");
+
+        assertTrue(session.decide(timeout));
+        assertFalse(session.decide(lateAllow));
+        assertSame(timeout, session.decision());
+        assertSame(timeout, session.decisionFuture().join());
+        assertFalse(session.admitted());
+    }
+
     @Test
     void proxySessionIdIsDefensivelyCopied() {
         byte[] original = sessionId();

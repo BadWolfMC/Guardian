@@ -7,6 +7,15 @@ default-profile: default
 # Exact UUID -> profile overrides have the highest profile-resolution precedence.
 identity-overrides: {}
 
+# Optional official Cerberus release provenance. When required, Guardian asks Cerberus
+# for signed release identity metadata and verifies it against one of these Ed25519
+# X.509 SubjectPublicKeyInfo public keys (base64 DER). The private release key never
+# belongs on a Minecraft client or server. This proves only that the *reported*
+# canonical Cerberus release artifact identity was signed; it is not remote attestation.
+cerberus-release-trust:
+  required: false
+  ed25519-public-keys: []
+
 profiles:
   default:
     # Named-profile permissions are guardian.admission.profile.<profile-id>.

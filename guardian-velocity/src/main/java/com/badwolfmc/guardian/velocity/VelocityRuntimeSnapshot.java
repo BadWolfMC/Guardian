@@ -11,12 +11,23 @@ record VelocityRuntimeSnapshot(
     VelocityOperationalSettings settings,
     AdmissionPolicySnapshot admissionPolicy,
     VelocityMessages messages,
-    ArtifactCatalog artifactCatalog
+    ArtifactCatalog artifactCatalog,
+    long generation
 ) {
     VelocityRuntimeSnapshot {
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(admissionPolicy, "admissionPolicy");
         Objects.requireNonNull(messages, "messages");
         Objects.requireNonNull(artifactCatalog, "artifactCatalog");
+        if (generation < 1) throw new IllegalArgumentException("generation must be positive");
+    }
+
+    VelocityRuntimeSnapshot(
+        VelocityOperationalSettings settings,
+        AdmissionPolicySnapshot admissionPolicy,
+        VelocityMessages messages,
+        ArtifactCatalog artifactCatalog
+    ) {
+        this(settings, admissionPolicy, messages, artifactCatalog, 1L);
     }
 }

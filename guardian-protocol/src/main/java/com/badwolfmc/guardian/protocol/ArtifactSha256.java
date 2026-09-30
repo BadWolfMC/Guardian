@@ -1,15 +1,18 @@
 package com.badwolfmc.guardian.protocol;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Exact SHA-256 identity for one archive artifact. */
@@ -48,8 +51,12 @@ public record ArtifactSha256(String hex) implements Comparable<ArtifactSha256> {
             || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("artifact is not a regular non-symlink file: " + path.getFileName());
         }
-        long size = Files.size(path);
-        if (size > maxBytes) {
+        BasicFileAttributes before = Files.readAttributes(
+            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!before.isRegularFile()) {
+            throw new IOException("artifact is not a regular file: " + path.getFileName());
+        }
+        if (before.size() > maxBytes) {
             throw new IOException("artifact exceeds " + maxBytes + " byte safety limit: " + path.getFileName());
         }
 
@@ -60,21 +67,40 @@ public record ArtifactSha256(String hex) implements Comparable<ArtifactSha256> {
             throw new IllegalStateException("Java runtime does not provide SHA-256", ex);
         }
 
-        long read = 0;
-        byte[] buffer = new byte[16 * 1024];
-        try (InputStream input = new BufferedInputStream(Files.newInputStream(path))) {
+        long totalRead = 0L;
+        ByteBuffer buffer = ByteBuffer.allocate(16 * 1024);
+        try (SeekableByteChannel channel = Files.newByteChannel(
+            path, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
             int count;
-            while ((count = input.read(buffer)) != -1) {
-                read += count;
-                if (read > maxBytes) {
+            while ((count = channel.read(buffer)) != -1) {
+                if (count == 0) continue;
+                totalRead += count;
+                if (totalRead > maxBytes) {
                     throw new IOException(
                         "artifact exceeded " + maxBytes + " byte safety limit while hashing: "
                             + path.getFileName());
                 }
-                digest.update(buffer, 0, count);
+                digest.update(buffer.array(), 0, count);
+                buffer.clear();
             }
         }
+
+        BasicFileAttributes after = Files.readAttributes(
+            path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+        if (!sameSnapshot(before, after) || totalRead != after.size()) {
+            throw new IOException("artifact changed while it was being hashed: " + path.getFileName());
+        }
         return fromBytes(digest.digest());
+    }
+
+    private static boolean sameSnapshot(BasicFileAttributes before, BasicFileAttributes after) {
+        Object beforeKey = before.fileKey();
+        Object afterKey = after.fileKey();
+        boolean sameKey = beforeKey == null || afterKey == null || beforeKey.equals(afterKey);
+        return sameKey
+            && before.size() == after.size()
+            && before.lastModifiedTime().equals(after.lastModifiedTime())
+            && after.isRegularFile();
     }
 
     @Override

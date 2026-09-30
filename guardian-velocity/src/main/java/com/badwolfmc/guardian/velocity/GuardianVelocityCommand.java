@@ -5,9 +5,9 @@ import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportResult;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportService;
 import com.badwolfmc.guardian.core.operations.ActiveInspectionSnapshot;
-import com.badwolfmc.guardian.core.operations.ActiveInspectionStore;
+import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
-import com.badwolfmc.guardian.protocol.ManifestEntry;
+import com.badwolfmc.guardian.core.operations.InspectionMod;
 import com.badwolfmc.guardian.velocity.config.VelocityConfigurationException;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.command.SimpleCommand;
@@ -35,7 +35,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
     private final ProxyServer server;
     private final Logger logger;
     private final VelocityRuntimeManager runtimeManager;
-    private final ActiveInspectionStore inspections;
+    private final VelocityInspectionService inspections;
     private final ArtifactImportService artifactImportService;
     private final AtomicBoolean scanRunning = new AtomicBoolean();
 
@@ -44,7 +44,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
         ProxyServer server,
         Logger logger,
         VelocityRuntimeManager runtimeManager,
-        ActiveInspectionStore inspections,
+        VelocityInspectionService inspections,
         ArtifactImportService artifactImportService
     ) {
         this.plugin = plugin;
@@ -133,7 +133,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
             runtimeManager.validateFiles();
             send(source, "command.validate.success", TagResolver.empty());
         } catch (VelocityConfigurationException ex) {
-            logger.warn("Guardian-Velocity validation rejected: {}", ex.getMessage());
+            logger.warn("Guardian-Velocity validation rejected: {}", DiagnosticText.oneLine(ex.getMessage()));
             send(source, "command.validate.failed", tags("error", ex.getMessage()));
         }
     }
@@ -147,7 +147,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
                 .resolver(Placeholder.component("scope", localized("command.value.scope.velocity-admission")))
                 .build());
         } catch (VelocityConfigurationException ex) {
-            logger.warn("Guardian-Velocity reload rejected; previous runtime remains active: {}", ex.getMessage());
+            logger.warn("Guardian-Velocity reload rejected; previous runtime remains active: {}", DiagnosticText.oneLine(ex.getMessage()));
             send(source, "command.reload.failed", tags("error", ex.getMessage()));
         }
     }
@@ -160,7 +160,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
             send(source, "command.inspect.no-active-data", tags("player", args[1]));
             return;
         }
-        ActiveInspectionSnapshot snapshot = inspections.get(target.getUniqueId()).orElse(null);
+        ActiveInspectionSnapshot snapshot = inspections.get(target).orElse(null);
         if (snapshot == null) {
             send(source, "command.inspect.no-active-data", tags("player", target.getUsername()));
             return;
@@ -169,12 +169,13 @@ final class GuardianVelocityCommand implements SimpleCommand {
             .map(connection -> connection.getServerInfo().getName())
             .orElse(snapshot.backend());
         if (!backend.equals(snapshot.backend())) {
+            // Display the proxy's live backend without mutating admission-time snapshot ownership.
             snapshot = snapshot.withBackend(backend);
-            inspections.put(snapshot);
         }
 
         VelocityRuntimeSnapshot runtime = runtimeManager.current();
         send(source, "command.inspect.velocity.header", tags("player", snapshot.playerName()));
+        sendRuntimeContext(source, snapshot, runtime.generation());
         send(source, "command.inspect.velocity.identity", tags(
             "backend", snapshot.backend(), "uuid", snapshot.playerId().toString()));
         send(source, "command.inspect.velocity.client", tags(
@@ -188,15 +189,15 @@ final class GuardianVelocityCommand implements SimpleCommand {
         if (snapshot.cerberusPresence() == null) {
             cerberusTags.resolver(Placeholder.component("cerberus", localized("command.value.not-applicable")));
         } else {
-            cerberusTags.resolver(Placeholder.unparsed("cerberus", snapshot.cerberusPresence().cerberusVersion()));
+            cerberusTags.resolver(Placeholder.unparsed("cerberus", DiagnosticText.oneLine(snapshot.cerberusPresence().cerberusVersion())));
         }
         send(source, "command.inspect.velocity.cerberus", cerberusTags.build());
         send(source, "command.inspect.velocity.decision", tags(
             "outcome", snapshot.decision().outcome().name(), "reason", snapshot.decision().reason().name()));
         send(source, "command.inspect.velocity.mods-summary", tags(
-            "policy_mods", Integer.toString(snapshot.policyAddressableMods().size()),
+            "policy_mods", Integer.toString(snapshot.policyAddressableCount()),
             "loader_mods", Integer.toString(snapshot.loaderKnownCount())));
-        for (ManifestEntry entry : snapshot.policyAddressableMods()) {
+        for (InspectionMod entry : snapshot.policyAddressableMods()) {
             String statusKey;
             if (entry.artifactSha256() == null) {
                 statusKey = "command.value.artifact.no-hash";
@@ -209,12 +210,30 @@ final class GuardianVelocityCommand implements SimpleCommand {
             send(source, "command.inspect.velocity.mod", TagResolver.builder()
                 .resolver(Placeholder.unparsed("mod_id", entry.modId()))
                 .resolver(Placeholder.unparsed("version", entry.version()))
+                .resolver(Placeholder.unparsed("origin", entry.originKind().name()))
                 .resolver(Placeholder.component("artifact_status", localized(statusKey)))
                 .build());
+        }
+        if (snapshot.omittedPolicyAddressableCount() > 0) {
+            send(source, "command.inspect.mods-omitted", tags(
+                "omitted", Integer.toString(snapshot.omittedPolicyAddressableCount())));
         }
         send(source, "command.inspect.velocity.bedrock", tags(
             "geyser", snapshot.bedrockEvidence().geyser().name(),
             "floodgate", snapshot.bedrockEvidence().floodgate().name()));
+    }
+
+    private void sendRuntimeContext(
+        CommandSource source, ActiveInspectionSnapshot snapshot, long currentGeneration
+    ) {
+        String stateKey = snapshot.predatesRuntime(currentGeneration)
+            ? "command.value.runtime.pre-reload"
+            : "command.value.runtime.current";
+        send(source, "command.inspect.runtime-context", TagResolver.builder()
+            .resolver(Placeholder.unparsed("admission_generation", Long.toString(snapshot.admissionRuntimeGeneration())))
+            .resolver(Placeholder.unparsed("current_generation", Long.toString(currentGeneration)))
+            .resolver(Placeholder.component("runtime_state", localized(stateKey)))
+            .build());
     }
 
     private void artifacts(CommandSource source, String[] args) {
@@ -237,7 +256,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
                     "added", Integer.toString(result.addedCatalogEntries()),
                     "total", Integer.toString(result.totalCatalogEntries())));
             } catch (ArtifactCatalogException ex) {
-                logger.warn("Guardian-Velocity artifact scan rejected: {}", ex.getMessage());
+                logger.warn("Guardian-Velocity artifact scan rejected: {}", DiagnosticText.oneLine(ex.getMessage()));
                 send(source, "artifacts.scan.failed", tags("error", ex.getMessage()));
             } finally {
                 scanRunning.set(false);
@@ -267,7 +286,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
     private static TagResolver tags(String... pairs) {
         TagResolver.Builder builder = TagResolver.builder();
         for (int i = 0; i < pairs.length; i += 2) {
-            builder.resolver(Placeholder.unparsed(pairs[i], pairs[i + 1] == null ? "" : pairs[i + 1]));
+            builder.resolver(Placeholder.unparsed(pairs[i], DiagnosticText.oneLine(pairs[i + 1] == null ? "" : pairs[i + 1])));
         }
         return builder.build();
     }

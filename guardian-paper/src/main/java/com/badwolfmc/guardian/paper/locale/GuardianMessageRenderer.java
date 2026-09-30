@@ -4,6 +4,7 @@ import com.badwolfmc.guardian.core.ClientClassification;
 import com.badwolfmc.guardian.core.DecisionReason;
 import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.paper.config.GuardianRuntimeSnapshot;
+import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.protection.ProtectionDecision;
 import com.badwolfmc.guardian.protection.ProtectionReason;
 import net.kyori.adventure.text.Component;
@@ -23,9 +24,9 @@ public final class GuardianMessageRenderer {
         return render(snapshot, keyFor(decision), TagResolver.builder()
             .resolver(Placeholder.unparsed("classification", classificationValue))
             .resolver(Placeholder.unparsed("reason", decision.reason().name()))
-            .resolver(Placeholder.unparsed("help_url", snapshot.settings().helpUrl()))
-            .resolver(Placeholder.unparsed("mod_id", decision.context().getOrDefault("mod_id", "unknown")))
-            .resolver(Placeholder.unparsed("version", decision.context().getOrDefault("version", "unknown")))
+            .resolver(Placeholder.unparsed("help_url", DiagnosticText.oneLine(snapshot.settings().helpUrl())))
+            .resolver(Placeholder.unparsed("mod_id", DiagnosticText.oneLine(decision.context().getOrDefault("mod_id", "unknown"))))
+            .resolver(Placeholder.unparsed("version", DiagnosticText.oneLine(decision.context().getOrDefault("version", "unknown"))))
             .build());
     }
 
@@ -76,9 +77,13 @@ public final class GuardianMessageRenderer {
             case CERBERUS_REQUIRED -> "admission.cerberus-required";
             case CERBERUS_TIMEOUT -> "admission.cerberus-timeout";
             case CERBERUS_PROTOCOL_UNSUPPORTED -> "admission.cerberus-protocol-unsupported";
+            case CERBERUS_SERVER_AUTH_REQUIRED -> "admission.cerberus-server-auth-required";
+            case CERBERUS_RELEASE_REQUIRED -> "admission.cerberus-release-required";
+            case CERBERUS_RELEASE_UNTRUSTED -> "admission.cerberus-release-untrusted";
             case MANIFEST_DENIED -> "admission.manifest-denied";
             case MANIFEST_INVALID -> "admission.manifest-invalid";
             case CLIENT_DENIED -> "admission.client-denied";
+            case PROFILE_RESOLUTION_FAILED -> "admission.profile-resolution-failed";
             case CONFIGURATION_ERROR -> "admission.configuration-error";
             default -> "admission.denied";
         };
@@ -106,8 +111,8 @@ public final class GuardianMessageRenderer {
         String command
     ) {
         return TagResolver.builder()
-            .resolver(Placeholder.unparsed("player", playerName))
-            .resolver(Placeholder.unparsed("command", command))
+            .resolver(Placeholder.unparsed("player", DiagnosticText.oneLine(playerName)))
+            .resolver(Placeholder.unparsed("command", DiagnosticText.oneLine(command)))
             .resolver(Placeholder.unparsed("root", decision.root().value()))
             .resolver(Placeholder.unparsed("reason", decision.reason().name()))
             .build();

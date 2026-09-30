@@ -382,6 +382,8 @@ When the relevant APIs are available:
 
 Provider capability absence and provider query failure are distinct states. Positive supported API evidence MUST classify the current connection as Bedrock even if another optional provider is absent, negative, or unhealthy. If no provider supplies positive Bedrock evidence and an integration that Guardian expected to query fails, connection origin is indeterminate and Admission MUST fail closed rather than silently reinterpret the connection as Java. Contradictory explicit Geyser/Floodgate answers MUST remain diagnostically visible.
 
+Phase 6 provider-lifecycle hardening distinguishes a provider that was never present from one that disappears after Guardian had observed it as available. A provider that was never present remains ordinary `UNAVAILABLE`. A previously available provider that disappears becomes an integration error for subsequent authoritative origin decisions until it is restored. Provider observations are accepted only if that provider's lifecycle generation remains stable across the combined origin check; a lifecycle change during that observation makes the affected signal `ERROR` and therefore fails closed unless another stable supported provider supplied positive Bedrock evidence. Once one Admission session has completed a stable origin classification, that admission-time evidence remains its immutable decision input; later provider changes affect later origin checks rather than silently reclassifying an in-flight or already-admitted connection.
+
 A positively classified Bedrock connection MUST NOT receive a Cerberus challenge.
 
 A Java player whose username resembles the configured Floodgate prefix MUST NOT be classified as Bedrock solely because of that name.
@@ -564,6 +566,14 @@ If no pre-login-capable provider is installed:
 - Guardian MUST still function using a default policy;
 - permission-selected profiles MUST NOT silently pretend to work;
 - administrative emergency overrides SHOULD use a mechanism that is valid before login, such as explicit UUID configuration.
+
+If a pre-login provider has been selected because it is present, but resolution for a connection
+throws, times out, returns no usable snapshot, becomes unavailable, or disappears after startup,
+Guardian MUST NOT silently reinterpret that player under the default profile. The connection MUST
+fail closed with `PROFILE_RESOLUTION_FAILED` because the unavailable provider may have selected a
+stricter profile. An explicit UUID identity override remains independently authoritative during such
+a failure; Guardian MAY continue using that configured profile with an empty provider-permission
+snapshot, which deliberately removes rather than invents provider-derived bypasses.
 
 The exact generic profile-provider SPI MAY be defined during implementation.
 
@@ -878,31 +888,37 @@ Hashing can help detect:
 
 Hashing cannot prove that a hostile Cerberus client honestly hashed what is executing.
 
-### 16.1 Signed Cerberus release identity — Phase 6 exploration
+### 16.1 Signed Cerberus release identity — Phase 6 adopted design
 
-During Phase 6, the project SHOULD evaluate an optional signed-release mechanism for official Cerberus artifacts.
+Phase 6 adopts an **optional** signed official Cerberus release identity. The feature remains disabled by default and is configured in the portable shared `policy.yml`, so standalone Paper and Guardian-Velocity Admission authorities use the same trust rule.
 
-One candidate model is:
+The adopted release model is:
 
-1. build an official Cerberus JAR;
-2. compute a canonical cryptographic digest over the release artifact;
-3. sign that digest with a release private key that never ships in Cerberus;
-4. distribute the signed digest/signature with the official release;
-5. allow Guardian to verify that the *reported* artifact identity corresponds to an official signed release.
+1. build the normal remapped Cerberus JAR;
+2. compute a domain-separated SHA-256 **canonical logical JAR-content digest** over sorted entry names, uncompressed content lengths, and per-entry content hashes; ZIP ordering, compression, and timestamps are not identity inputs;
+3. exclude only `META-INF/guardian/cerberus-release.bin` from that digest to avoid a circular signature dependency;
+4. sign the Cerberus release version plus canonical digest using Ed25519 and a release-only private key;
+5. embed the version/digest/signature in bounded binary `CRS1` release metadata inside the signed JAR;
+6. let stock Cerberus advertise the optional signed-release capability only after its own Fabric metadata version and recomputed canonical digest agree with the embedded release metadata; and
+7. when shared policy requires it, have the authoritative Guardian host require that capability and verify the reported identity against one of the configured Ed25519 public keys.
 
-This can provide useful compliance hardening against:
+The release private key is consumed only by the offline Gradle release-tool source set and MUST NOT be committed, embedded in Cerberus, copied to Guardian-Paper/Guardian-Velocity, or placed in their data directories. Guardian policy contains public keys only. Multiple trusted public keys may overlap during a simple key rotation; the protocol does not require a private key or shared secret on the client.
+
+The offline signer snapshots the unsigned JAR through a bounded no-follow read into a temporary sibling before inspecting or signing it. Release metadata/trust-anchor preflight checks, canonical digest calculation, and signature injection operate on that stable snapshot; a source JAR that changes identity, size, or modification time during the copy fails closed. This prevents a check-to-copy race from causing different bytes than the reviewed unsigned input snapshot to receive the release signature.
+
+This provides useful compliance hardening against:
 
 - casual modification of an official Cerberus JAR;
 - accidental local changes;
-- ordinary self-compiled builds that do not possess the release private key.
+- ordinary self-compiled/unsigned builds that do not possess the release private key.
 
-It MUST NOT be represented as proof that the currently executing client code is identical to the signed artifact.
+It MUST NOT be represented as proof that the currently executing client code is identical to the signed artifact. The server receives signed **reported metadata** from a cooperating client. A hostile modified client can bypass Cerberus's local self-check and replay or falsely report the version/digest/signature from an official signed release while executing different code. The signature is intentionally reusable release metadata and is not bound to Guardian's fresh challenge nonce. Guardian's nonce still binds the surrounding manifest response to the current handshake, but it cannot transform release metadata into hostile-client remote attestation.
 
-A hostile client can potentially replay or falsely report the hash/signature metadata from an official signed release while executing modified code. The mechanism therefore establishes **signed release-artifact identity**, not hardware-backed or hostile-client remote attestation.
+The canonical signed-release digest is also distinct from the Phase 2.5 exact-artifact SHA-256 policy identity. Exact mod-artifact hashing means the reported top-level archive bytes; signed Cerberus release identity intentionally tolerates ZIP repacking that preserves the same logical JAR files.
 
-The exact digest canonicalization, signature algorithm, metadata format, build/release integration, and whether this feature is worth the maintenance cost remain deferred until Phase 6.
+This mechanism therefore establishes **signed release-artifact provenance for the identity the client reports**, not hardware-backed attestation, DRM, anti-tamper execution proof, or proof of client honesty. No long-term client secret, TOTP secret, or HMAC proof is added.
 
-Guardian documentation MUST preserve these distinctions.
+Guardian-to-Cerberus server authentication is separately adopted under Section 17.3. Its server-identity key pair remains distinct from this release-signing identity; a valid Cerberus release signature does not by itself authenticate a Guardian server.
 
 ---
 
@@ -933,15 +949,19 @@ TOTP-like schemes or HMAC secrets embedded in Cerberus would not solve the hosti
 
 ### 17.3 Server authentication to Cerberus
 
-It is useful for Cerberus to authenticate Guardian before disclosing a mod manifest.
+Phase 6 adopts optional Guardian-to-Cerberus server authentication as a **manifest-privacy boundary**, not as client attestation. The design uses a Guardian-authority-held Ed25519 private key and one or more client-pinned Ed25519 public trust anchors. No long-term secret is embedded in Cerberus.
 
-A server-held private signing key with a client-pinned public trust anchor is the preferred conceptual model.
+The public trust-anchor bundle is stored in an official Cerberus release as `META-INF/guardian/trusted-server-keys.txt`. The bundle is injected before the canonical Cerberus release digest is calculated, so signed official Cerberus release identity covers the exact server-authentication public keys shipped to clients. Stock Cerberus resolves the bundle from its own Fabric `ModContainer` with `findPath(...)`, not from an unscoped shared-classloader resource lookup; a different mod therefore cannot substitute a same-named trust-anchor resource. Up to eight keys may be pinned concurrently for staged rotation.
 
-For BadWolfMC, Cerberus MAY ship with the BadWolfMC Guardian public key/trust anchor so the ordinary user experience remains "install Cerberus and connect."
+When trust anchors are embedded, stock Cerberus requires an authenticated Guardian challenge before collecting or disclosing its mod manifest. The signed challenge is domain-separated and covers protocol version, required capabilities, fresh Guardian nonce, the server-authenticated player UUID, issue time, and expiration. Cerberus MUST verify both the signature and that the signed UUID equals its own authenticated Minecraft session UUID before manifest collection. UUID binding is required so a malicious server cannot obtain a valid BadWolfMC challenge for one account and relay it to a different victim merely to harvest that victim's manifest.
 
-The exact public-key algorithm, trust-store format, multi-server/general-public distribution model, and key-rotation process are deferred until protocol design.
+Guardian server authentication is opt-in at the authority. Standalone Paper uses `plugins/Guardian/guardian-server-auth.key`; Guardian-Velocity uses the same filename in its own plugin data directory. Velocity-authority Paper backends do not hold this key because they are not the Cerberus Admission authority. If Cerberus advertises that it requires authenticated challenges and the authority has no signer configured, Guardian MUST fail explicitly rather than encourage manifest disclosure to an unauthenticated server. If Guardian enables server authentication, it MUST require the corresponding client capability so an older client cannot silently downgrade the privacy contract.
 
-Private keys MUST NOT be committed to source control or embedded in Cerberus.
+Key rotation SHOULD overlap trust roots: distribute a Cerberus release containing old+new public keys, switch the Guardian authority to the new private key, then later remove the old public key in a subsequent Cerberus release. Compromise of a server-auth private key allows impersonation of that Guardian trust identity to clients that continue to pin the compromised public key until they update; this design has no online revocation service.
+
+This mechanism authenticates possession of a configured server key, not a DNS hostname. A deliberately modified Cerberus can disable its own privacy check. A captured signed challenge for the same player UUID can remain reusable within the bounded validity/clock-skew window because v1 does not include a client-contributed freshness nonce; eliminating that residual replay would require an additional client-first protocol step. Initial Presence metadata remains visible before server authentication; the protected disclosure is the manifest. None of these limitations weaken Guardian's server-side Admission decision, and none turn the client into remote attestation.
+
+Private server-authentication keys MUST NOT be committed to source control or embedded in Cerberus. The server-authentication key pair, Cerberus release-signing key pair, and Velocity proxy-assertion secret are separate trust domains.
 
 ### 17.4 Proxy-to-backend trust
 
@@ -954,6 +974,8 @@ Proxy assertion data SHOULD be connection-scoped and short-lived.
 A client MUST NOT be able to submit a payload that Guardian-Paper interprets as a valid proxy assertion.
 
 Guardian-Velocity MUST consume/intercept its client protocol messages rather than blindly forwarding security-sensitive channels to backend servers.
+
+**Phase 6 hardening:** Guardian-Paper treats each successfully authenticated proxy assertion payload as one-time within its signed lifetime. The backend keeps only a bounded, memory-only replay fingerprint until expiry and rejects an exact replay even for the same UUID. Assertion expiry is strict at `expiresAt`; verification uses the immutable key/runtime snapshot captured for that exact Paper configuration connection so an administrative key reload cannot change verifier state halfway through admission. A Paper configuration session accepts at most one proxy assertion. The wire format remains unchanged because the authenticated payload itself supplies a stable replay fingerprint.
 
 ---
 
@@ -1185,6 +1207,10 @@ Reload MUST:
 4. construct immutable candidate snapshots;
 5. activate all relevant candidate snapshots atomically only after successful validation.
 
+Administrator-controlled runtime files are read through bounded, stable, no-follow regular-file snapshots. `config.yml`, `policy.yml`, loaded locale resources, `artifacts.yml`, and `proxy-assertion.key` MUST NOT be accepted through a symbolic-link final path or other non-regular filesystem object. Text inputs are strict UTF-8. Candidate construction brackets the relevant files with content fingerprints so ordinary concurrent edits are detected and the candidate is rejected rather than combining file generations. This is an administrator-race consistency control, not protection from a hostile local administrator capable of changing and restoring file contents/metadata arbitrarily.
+
+Paper startup recovery is narrower than validation: only an existing bounded, stable ordinary file may be preserved and replaced/removed. A symlink, directory, oversized recovery candidate, or unstable file is not followed or auto-recovered; Guardian remains disabled and requires administrator correction.
+
 If reload fails, the prior known-good runtime snapshot MUST remain active.
 
 Configuration and locale files SHOULD report actionable diagnostics including the file and key/path involved and, where the YAML parser exposes it, line/column information.
@@ -1409,6 +1435,10 @@ Successful mutable Admission sessions MUST be discarded when Admission completes
 
 The authoritative host maintains a separate bounded immutable/read-only **active inspection snapshot** for currently connected players. It is in-memory only by default, privacy-conscious, removed on disconnect/session end, and distinct from mutable Admission state.
 
+Phase 6 binds each platform snapshot to the exact live connection object that produced it rather than UUID alone. Same-UUID reconnects MUST NOT inherit an older connection's inspection evidence before the new admission captures its own snapshot, and delayed disconnect callbacks from an older connection MUST NOT remove a newer connection's snapshot. UUID remains the staff lookup key only after the platform has confirmed that the current live connection owns that evidence.
+
+Phase 6 tightens that bound in both dimensions. The active store is capped independently of Admission state, and an authoritative snapshot MUST NOT retain the complete canonical manifest after Admission completes. It retains complete Loader-known and policy-addressable counts plus at most 64 deterministic policy-addressable/top-level mod summaries for ordinary staff inspection; additional entries are reported as omitted rather than retained/output without bound. Backend-only Paper evidence is subject to the same active-snapshot count cap.
+
 Authority boundaries are mandatory:
 
 - standalone Paper -> Guardian-Paper stores the authoritative snapshot;
@@ -1420,6 +1450,8 @@ A normal authoritative inspection SHOULD provide player identity, current backen
 ### 29.3 Reload and validation
 
 `/guardian reload` and `/guardianv reload` use host-owned atomic runtime seams. Each parses/normalizes/validates a complete candidate first, activates only a fully valid immutable replacement, and preserves the previous runtime when candidate validation fails. Paper reload reconciles Paper-local Admission/Protection enablement and command visibility as applicable. Velocity reload changes authoritative network Admission configuration/policy for new decisions immediately. Neither command fans out to the other platform.
+
+Each successfully activated host runtime has a monotonically increasing in-memory generation for operational diagnostics. Active inspection snapshots record the generation that made the admission decision. Staff inspection MUST label that admission-time generation separately from the currently loaded generation so a pre-reload decision/profile/mod snapshot cannot be mistaken for a re-evaluation under current policy. Files-only validation does not advance or activate a generation. On Velocity, exact-artifact membership shown during inspection is explicitly evaluated against the **current** catalog and labelled as such; it is diagnostic context, not a claim about the admission-time catalog state.
 
 `/guardian validate` and `/guardianv validate` are files-only/non-activating and respect ownership. Paper in Velocity-authoritative mode MUST NOT pretend to validate the proxy's policy; Velocity validates its authoritative operational configuration, policy, catalog, and locale state.
 
@@ -2039,9 +2071,29 @@ Test and harden:
 - untrusted version/release metadata containing control characters or log-forging sequences; and
 - inspection diagnostics after policy/catalog reload so output cannot be mistaken for the admission-time decision basis.
 
-Evaluate signed official Cerberus release identity as described in Section 16.1, including a canonical artifact digest signed by a release-only private key. Treat it only as compliance hardening against ordinary tampering/self-builds; explicitly test and document that a hostile client can potentially report valid metadata from an official release while running different code.
+**Phase 6 protocol/input hardening:** protocol v1 now treats the capability mask as closed for that protocol version: all required v1 bits must be present and any unknown bit is rejected rather than silently ignored. Wire booleans are canonical and must be encoded as exactly `0` or `1`; alternative non-zero encodings are malformed. Human-readable protocol metadata is strict UTF-8, bounded by the existing field limits, and rejects control, Unicode format, line-separator, and paragraph-separator code points before it can enter policy/inspection diagnostics. The aggregate payload limit remains inclusive: a valid payload of exactly `MAX_PAYLOAD_BYTES` is accepted and one byte over is rejected. Invalid response manifests are not retained as active inspection evidence.
 
-Add server-authentication signing to Cerberus if the protocol design confirms it is practical.
+Log/staff-facing diagnostic values are independently converted to bounded single-line text. CR/LF/tab, terminal/control characters, Unicode formatting controls, and Unicode line/paragraph separators are rendered as visible escapes; MiniMessage placeholders remain `unparsed`. This is output hardening only and does not reinterpret the raw client brand used for classification.
+
+**Phase 6 Velocity session-lifecycle hardening:** in-flight Admission sessions and retained proxy grants are keyed by the exact Velocity `Player` connection object rather than by UUID/equality alone. A same-UUID reconnect therefore receives independent mutable state, a delayed disconnect from the older connection cannot erase the newer connection's session/grant, and asynchronous completions verify that the exact connection still owns the session before applying a result. A terminal denied session remains connection-bound until disconnect so a late client packet cannot recreate a fresh Admission session after the final deny decision. Reconfiguration on an already admitted proxy connection continues to reuse only that exact connection's immutable grant.
+Paper's corresponding terminal-state invariant is first-decision-wins: once a timeout/deny is recorded, a delayed success cannot replace it. In Velocity-authority mode, a direct backend connection that reaches final configuration validation without an authenticated proxy assertion fails closed with `PROXY_ASSERTION_REQUIRED`; there is no direct-connect fallback to standalone policy evaluation.
+Proxy assertion timestamp arithmetic also fails closed on overflow instead of widening clock-skew acceptance at pathological time values.
+
+**Phase 6 Fabric-origin hardening:** Guardian now enforces that protocol-v1 containment is structurally canonical: `NESTED` and `parentModId` must either both be present or both be absent. Cerberus cross-checks Fabric Loader's `ModContainer#getContainingMod()` relationship against `ModOrigin.Kind.NESTED` and `ModOrigin#getParentModId()`; inconsistent Loader observations are reported conservatively as top-level `MIXED_OR_UNKNOWN` rather than receiving nested-policy treatment. One ordinary regular non-symlink PATH remains `ARCHIVE`; one directory remains `DIRECTORY`; multiple/empty/unsupported path shapes remain `MIXED_OR_UNKNOWN`; Loader/game-provider `builtin` metadata remains `BUILTIN` only when it is not simultaneously claiming a nested container. If an observed archive cannot be safely hashed at collection time, Cerberus downgrades that entry to `MIXED_OR_UNKNOWN` with no digest rather than emitting an impossible unhashed `ARCHIVE` or silently dropping the entire challenge into a timeout. Production defaults continue to deny `DIRECTORY` and `MIXED_OR_UNKNOWN`, while an administrator may deliberately allow those coarse origins. Active staff inspection retains and displays the admission-time origin classification so an unhashed development/ambiguous entry is not mistaken for an ordinary archive whose hash is merely missing. Fabric Loader documents `ModOrigin` as the installation/initial-loading origin and not necessarily the runtime code source; Guardian therefore does not claim that this origin hash independently attests the classes executing in a hostile client. No client filesystem path is added to the wire or staff output.
+
+**Phase 6 standalone Paper quarantine hardening:** the bounded PLAY handshake quarantine is enforced by a dedicated event listener bound to the exact `Player` identity for the admission session. It cancels movement plus the distinct teleport/portal/End-gateway event families, inventory open/click/drag and direct item-state changes, world/entity interactions, commands/chat, item and experience pickup/drop, bucket/fishing/shearing/leash actions, mount/vehicle transitions, outgoing direct/projectile combat, projectile launch, and spectator/flight/sneak/sprint state changes until the final allow decision releases the session. Incoming damage to the quarantined player is also cancelled. Specialized interaction/state-mutation events that own distinct Bukkit/Paper handler lists are registered explicitly rather than assumed to inherit the parent event listener. Spectator-target transitions are blocked explicitly rather than relying only on teleport cancellation. This is event-layer containment for the short supported handshake window, not packet-level sandboxing.
+
+**Phase 6 active-inspection hardening:** completed Admission no longer leaves the full canonical manifest reachable through the long-lived active snapshot. Snapshot retention is reduced to complete counts plus at most 64 deterministic top-level/policy-addressable mod summaries, and the active snapshot stores are capped at 2,048 entries per authority surface. Ordinary inspect output therefore has a fixed upper bound independent of the protocol-v1 512-entry manifest maximum. Successful runtime activation increments a host-local generation; snapshots retain their admission generation and staff output marks whether the evidence belongs to the current generation or predates a reload. Velocity catalog labels are evaluated against and explicitly describe the current catalog, while the decision/profile/mod evidence remains admission-time state. Same-UUID Velocity inspection cleanup is additionally bound to the exact `Player` object that owns the current snapshot so a delayed disconnect from an older connection cannot erase a newer snapshot.
+
+**Phase 6 administrator-file hardening:** runtime loaders now consume bounded stable regular-file snapshots with no-follow semantics rather than validating a path and then reopening it through a separate unbounded/following read. Paper and Velocity `config.yml` are capped at 64 KiB; loaded locale resources at 256 KiB; `policy.yml`, `artifacts.yml`, and `proxy-assertion.key` retain their existing explicit bounds. These text resources are strict UTF-8. Final-path symlinks and non-regular objects are rejected. Guardian-owned nested directory components such as `locales/` are also required to be real directories before startup provisioning or runtime reads, preventing a symlinked child directory from redirecting resource writes/reads outside the plugin data tree; the plugin data root itself remains a deployment-owned mount boundary. Paper startup recovery also refuses to follow an unsafe path and backs up only a bounded stable ordinary file before replacement/removal. In Velocity-authority Paper mode, candidate construction re-resolves the assertion key and compares the actual 32-byte secret with the secret already loaded into the candidate, closing the narrow swap window between config parsing and generation fingerprinting. Successful reload remains parse/validate/immutable-candidate/atomic-activation; failed validation leaves the prior runtime active and the edited files untouched.
+
+**Phase 6 artifact-hash filesystem hardening:** the shared exact-artifact SHA-256 primitive now opens archive paths with no-follow semantics, enforces the byte ceiling during the read, and verifies regular-file identity/size/mtime before and after hashing. This closes the check-to-open replacement window shared by Cerberus archive collection and administrative artifact import. A client archive that cannot be stably hashed is downgraded to conservative `MIXED_OR_UNKNOWN`; an unstable administrative candidate is rejected without catalog mutation. Paths remain local-only and are never placed on the wire.
+
+**Phase 6 signed official Cerberus release identity:** adopted as described in Section 16.1. Official release metadata uses an Ed25519 signature over the release version plus a canonical logical JAR-content SHA-256 digest; the release-only private key is consumed by an offline signing source set and never ships in Cerberus or Guardian. Shared policy may optionally require the signed-release capability and trust one or more public keys. Regression coverage explicitly demonstrates the residual hostile-client limit: the same valid signed release metadata can be reported inside responses bound to different fresh nonces, so the signature proves only the reported official release identity and is not remote attestation.
+
+**Phase 6 Guardian-to-Cerberus server authentication:** adopted as described in Section 17.3. Stock Cerberus may pin one or more Guardian Ed25519 public keys and, when pins are present, verifies a short-lived challenge signature bound to the fresh nonce, required capability mask, and its own authenticated player UUID before collecting or disclosing the manifest. The private key remains only on the Admission authority. This is manifest-privacy/server-authentication hardening, not remote attestation; same-player replay within the bounded validity/skew window and private-key compromise remain documented residual limits. The embedded trust-anchor resource itself is read through a bounded no-follow descriptor and revalidated for stable regular-file identity/size/mtime, so development/directory origins do not weaken the filesystem boundary used by signed production JARs.
+
+Server-authentication key replacement is runtime-snapshot scoped: files-only validation may inspect a replacement key but cannot activate it; successful reload atomically activates the new signer for later sessions, while sessions already holding an immutable runtime snapshot retain their prior signer. Repeated failed reloads leave the active generation untouched. Both runtime and offline release-signing PEM readers reject truncated/invalid PEM material explicitly.
 
 Document residual limitations honestly.
 
@@ -2204,12 +2256,7 @@ The following are hard project invariants unless explicitly revised:
 
 The following should remain open until the indicated implementation phase rather than being guessed prematurely:
 
-- exact public-key signature algorithm;
-- server trust-store format in Cerberus;
 - BadWolfMC-only vs broader generic trust onboarding for third-party Guardian servers;
-- release-signing/server-authentication key rotation format beyond the Phase 5 single active proxy-assertion key model;
-- whether signed official Cerberus release identity is adopted;
-- if adopted, its canonical digest/signature algorithm, metadata format, and release-key lifecycle;
 - whether per-command execution bypasses or per-namespace bypass leaves are needed beyond the initial permission hierarchy;
 - exact locale selection strategy beyond required default/fallback behavior;
 - whether optional PlaceholderAPI expansion is added to ordinary rendered messages;
@@ -2302,6 +2349,8 @@ The Phase 5 closeout baseline is `0.1.0-phase5`, green at 178 tests with BRIDGE-
 
 Phase 6 must attack these assumptions rather than redesign them casually. In addition to the adversarial matrix in the Phase 6 section, specifically exercise provider outages/fail-safe profile resolution, active-inspection memory/output bounds, control-character/log-forging inputs, key-rotation/mismatch timing, backend direct-connect posture, stale asynchronous completion/reconnect races, and inspection behavior across runtime/catalog changes.
 
+The current implementation candidate is `0.1.0-phase6`. The operator-executed Java 25.0.3 / Gradle 9.7.1 gate is green at **354 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips** (Core 117/4 skipped, Paper 91/4, Protection 20/0, Protocol 50/0, Velocity 58/3, Cerberus 18/0). Built Phase 6 JARs were inspected with no private-key entry present. `docs/PHASE_6_IMPLEMENTATION.md` records the implemented security boundaries and `docs/PHASE_6_VERIFICATION.md` now records the automated gate as PASS; Phase 6 remains open for only the minimal real Paper/Velocity/Fabric signing/authentication/quarantine smokes and final post-live review. Phase 7 therefore remains a candidate handoff until those live results are recorded.
+
 Do not begin the Minecraft/Paper/Fabric 26.3 port in Phase 6; that remains Phase 8.
 
 ---
@@ -2315,3 +2364,5 @@ Guardian now has stable independent Admission and Protection domains. Protocol v
 Phase 4 closes the Bedrock-origin gap. Both possible Admission authorities use supported Geyser/Floodgate evidence before Java brand/Cerberus handling; provider absence, disagreement, and provider failure have explicit semantics; standalone Paper Bedrock allow/deny is live-proven; and backend Floodgate remains diagnostic-only under Velocity authority. BRIDGE-005 is retired.
 
 For BadWolfMC's production topology, Phase 5 now supplies the completed operational productionization: strict Velocity host configuration, production assertion-key lifecycle, distinct Paper/proxy command authorities, bounded active inspection, host-local reload/validation, authority-correct artifact administration, and production logging. The Java 25 / Gradle 9.7.1 gate and focused live matrix are green, BRIDGE-003/004 are retired, and Phase 6 can now concentrate on adversarial/security hardening rather than unfinished operations work.
+
+Phase 6's current candidate preserves that architecture while hardening exact-connection lifecycle ownership, proxy replay/timestamp/key boundaries, provider outages, inspection/logging bounds, administrator filesystem reads, development origins, and protocol abuse surfaces. It also adopts two deliberately narrow Ed25519 mechanisms: signed official Cerberus release provenance and Guardian-to-Cerberus player-bound challenge authentication for manifest privacy. Neither mechanism is documented as hostile-client remote attestation. The Java 25.0.3 / Gradle 9.7.1 automated gate is green at 354 tests; the phase remains open only for the focused live checks and final post-live review.

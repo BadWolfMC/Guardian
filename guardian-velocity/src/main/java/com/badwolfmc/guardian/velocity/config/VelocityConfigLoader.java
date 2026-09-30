@@ -3,15 +3,15 @@ package com.badwolfmc.guardian.velocity.config;
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecret;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretResolver;
+import com.badwolfmc.guardian.core.operations.GuardianServerChallengeKeyResolver;
+import com.badwolfmc.guardian.core.operations.GuardianServerChallengeSigner;
+import com.badwolfmc.guardian.core.operations.SafeRegularFile;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import org.snakeyaml.engine.v2.api.Load;
 import org.snakeyaml.engine.v2.api.LoadSettings;
 import org.snakeyaml.engine.v2.schema.CoreSchema;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
@@ -28,7 +28,8 @@ public final class VelocityConfigLoader {
     private static final Set<String> DEPLOYMENT_KEYS = Set.of("authority");
     private static final Set<String> LOCALE_KEYS = Set.of("default");
     private static final Set<String> LOGGING_KEYS = Set.of("level");
-    private static final Set<String> ADMISSION_KEYS = Set.of("handshake-timeout-seconds");
+    private static final Set<String> ADMISSION_KEYS = Set.of("handshake-timeout-seconds", "server-authentication");
+    private static final Set<String> SERVER_AUTH_KEYS = Set.of("enabled");
     public VelocityOperationalSettings load(Path path) throws VelocityConfigurationException {
         Map<String, Object> root = loadYaml(path);
         rejectUnknown(root, ROOT_KEYS, path, "root");
@@ -67,6 +68,12 @@ public final class VelocityConfigLoader {
             throw error(path, "admission.handshake-timeout-seconds must be between 1 and " + MAX_HANDSHAKE_SECONDS);
         }
 
+        Map<String, Object> serverAuthentication = map(
+            required(admission, "server-authentication", path, "admission"), path, "admission.server-authentication");
+        rejectUnknown(serverAuthentication, SERVER_AUTH_KEYS, path, "admission.server-authentication");
+        boolean serverAuthenticationEnabled = bool(
+            serverAuthentication, "enabled", path, "admission.server-authentication");
+
         final ProxyAssertionSecret secret;
         try {
             Path dataDirectory = path.toAbsolutePath().normalize().getParent();
@@ -77,32 +84,42 @@ public final class VelocityConfigLoader {
             throw error(path, "proxy assertion key invalid: " + ex.getMessage());
         }
 
-        return new VelocityOperationalSettings(schema, locale, timeout, logLevel, secret);
+        final GuardianServerChallengeSigner serverChallengeSigner;
+        if (serverAuthenticationEnabled) {
+            try {
+                Path dataDirectory = path.toAbsolutePath().normalize().getParent();
+                if (dataDirectory == null) throw new IllegalArgumentException("config path has no parent directory");
+                serverChallengeSigner = GuardianServerChallengeKeyResolver.resolveFile(dataDirectory);
+            } catch (IllegalArgumentException ex) {
+                throw error(path, "Guardian server authentication key invalid: " + ex.getMessage());
+            }
+        } else {
+            serverChallengeSigner = null;
+        }
+
+        return new VelocityOperationalSettings(schema, locale, timeout, logLevel, secret, serverChallengeSigner);
     }
 
     private static Map<String, Object> loadYaml(Path path) throws VelocityConfigurationException {
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-            throw error(path, "file is missing or is not a regular file");
+        final String text;
+        try {
+            text = SafeRegularFile.readUtf8(path, MAX_CONFIG_BYTES);
+        } catch (IOException ex) {
+            throw new VelocityConfigurationException(path,
+                "configuration must be a stable regular non-symlink UTF-8 file: " + ex.getMessage(), ex);
         }
         try {
-            long size = Files.size(path);
-            if (size <= 0 || size > MAX_CONFIG_BYTES) {
-                throw error(path, "configuration must contain between 1 and " + MAX_CONFIG_BYTES + " bytes");
-            }
             LoadSettings settings = LoadSettings.builder()
                 .setSchema(new CoreSchema())
                 .setCodePointLimit(MAX_CONFIG_BYTES)
                 .setMaxAliasesForCollections(0)
                 .setAllowDuplicateKeys(false)
                 .build();
-            Object raw;
-            try (InputStream input = Files.newInputStream(path)) {
-                raw = new Load(settings).loadFromInputStream(input);
-            }
+            Object raw = new Load(settings).loadFromString(text);
             return map(raw, path, "root");
         } catch (VelocityConfigurationException ex) {
             throw ex;
-        } catch (IOException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw new VelocityConfigurationException(path, "malformed YAML: " + ex.getMessage(), ex);
         }
     }
@@ -120,6 +137,13 @@ public final class VelocityConfigLoader {
             throw error(path, context + "." + key + " must be a non-blank string");
         }
         return string.trim();
+    }
+
+    private static boolean bool(Map<String, Object> map, String key, Path path, String context)
+        throws VelocityConfigurationException {
+        Object value = required(map, key, path, context);
+        if (!(value instanceof Boolean bool)) throw error(path, context + "." + key + " must be true or false");
+        return bool;
     }
 
     private static int integer(Map<String, Object> map, String key, Path path, String context)

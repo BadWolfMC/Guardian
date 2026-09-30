@@ -19,8 +19,24 @@ public final class GuardianProtocol {
     public static final long CAP_CONTAINMENT_RELATIONSHIPS = 1L << 1;
     public static final long CAP_ORIGIN_KIND = 1L << 2;
     public static final long CAP_ARTIFACT_SHA256 = 1L << 3;
+    public static final long CAP_SIGNED_CERBERUS_RELEASE = 1L << 4;
+    public static final long CAP_AUTHENTICATED_GUARDIAN_CHALLENGE = 1L << 5;
     public static final long REQUIRED_CAPABILITIES = CAP_CANONICAL_MANIFEST_V1 | CAP_CONTAINMENT_RELATIONSHIPS | CAP_ORIGIN_KIND | CAP_ARTIFACT_SHA256;
-    public static final long KNOWN_CAPABILITIES = REQUIRED_CAPABILITIES;
+    public static final long KNOWN_CAPABILITIES = REQUIRED_CAPABILITIES | CAP_SIGNED_CERBERUS_RELEASE
+        | CAP_AUTHENTICATED_GUARDIAN_CHALLENGE;
+
+    public static boolean hasUnknownCapabilities(long capabilities) {
+        return (capabilities & ~KNOWN_CAPABILITIES) != 0L;
+    }
+
+    public static boolean supportsProtocolV1Capabilities(long capabilities) {
+        return !hasUnknownCapabilities(capabilities)
+            && (capabilities & REQUIRED_CAPABILITIES) == REQUIRED_CAPABILITIES;
+    }
+
+    public static final int GUARDIAN_CHALLENGE_SIGNATURE_BYTES = 64;
+    public static final long GUARDIAN_CHALLENGE_AUTH_TTL_MILLIS = 15_000L;
+    public static final long GUARDIAN_CHALLENGE_AUTH_CLOCK_SKEW_MILLIS = 2_000L;
 
     public static final int PROXY_ASSERTION_VERSION = 2;
     public static final int PROXY_SESSION_ID_BYTES = 16;
