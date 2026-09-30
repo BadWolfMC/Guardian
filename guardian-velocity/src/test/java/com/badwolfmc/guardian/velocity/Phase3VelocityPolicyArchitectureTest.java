@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class Phase3VelocityPolicyArchitectureTest {
     @Test
     void velocityConsumesSharedEvaluatorInsteadOfFeasibilityClientSwitch() throws Exception {
-        String source = Files.readString(Path.of(
-            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
+        String source = normalizeNewlines(Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java")));
         assertTrue(source.contains("AdmissionPolicyEvaluator"));
         assertTrue(source.contains("policyEvaluator.evaluateClient"));
         assertTrue(source.contains("VelocityRuntimeSnapshot policySnapshot") ||
@@ -33,5 +33,9 @@ class Phase3VelocityPolicyArchitectureTest {
             "intentional LuckPerms absence must retain deterministic default/identity fallback");
         assertTrue(source.contains("DecisionReason.PROFILE_RESOLUTION_FAILED"),
             "runtime provider failure must fail closed instead of silently selecting the default profile");
+    }
+
+    private static String normalizeNewlines(String value) {
+        return value.replace("\r\n", "\n").replace('\r', '\n');
     }
 }

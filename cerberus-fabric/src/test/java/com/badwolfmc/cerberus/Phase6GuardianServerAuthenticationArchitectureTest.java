@@ -57,13 +57,17 @@ class Phase6GuardianServerAuthenticationArchitectureTest {
 
     @Test
     void releaseSignerEmbedsTrustAnchorsBeforeSigningCanonicalRelease() throws Exception {
-        String signer = Files.readString(Path.of(
-            "src/releaseTool/java/com/badwolfmc/cerberus/release/CerberusReleaseSigner.java"));
+        String signer = normalizeNewlines(Files.readString(Path.of(
+            "src/releaseTool/java/com/badwolfmc/cerberus/release/CerberusReleaseSigner.java")));
         int trustInjection = signer.indexOf("injectEntry(\n                    temporary,\n                    GuardianChallengeTrustAnchors.ENTRY_NAME");
         int canonicalDigest = signer.indexOf("CerberusReleaseArtifact.canonicalDigest");
         assertTrue(trustInjection >= 0);
         assertTrue(canonicalDigest > trustInjection,
             "server-auth trust anchors must be part of the canonical contents covered by release signing");
         assertTrue(signer.contains("GuardianChallengeTrustAnchors.canonicalText"));
+    }
+
+    private static String normalizeNewlines(String value) {
+        return value.replace("\r\n", "\n").replace('\r', '\n');
     }
 }

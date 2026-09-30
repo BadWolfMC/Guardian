@@ -145,7 +145,11 @@ class VelocityRuntimeManagerTest {
     private static String resource(String name) throws Exception {
         try (InputStream input = VelocityRuntimeManagerTest.class.getClassLoader().getResourceAsStream(name)) {
             assertNotNull(input, "missing resource " + name);
-            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            return normalizeNewlines(new String(input.readAllBytes(), StandardCharsets.UTF_8));
         }
+    }
+
+    private static String normalizeNewlines(String value) {
+        return value.replace("\r\n", "\n").replace('\r', '\n');
     }
 }

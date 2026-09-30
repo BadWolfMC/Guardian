@@ -1,12 +1,16 @@
 #
 # https://help.github.com/articles/dealing-with-line-endings/
 #
-# Linux start script should use lf
-/gradlew        text eol=lf
+# Normalize all detected text files in the repository and check them out as LF.
+* text=auto eol=lf
 
-# These are Windows script files and should use crlf
-*.bat           text eol=crlf
+# Windows command scripts require/prefer CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Explicitly retain LF for Unix/Gradle launchers.
+gradlew text eol=lf
+*.sh text eol=lf
 
 # Binary files should be left untouched
-*.jar           binary
-
+*.jar binary

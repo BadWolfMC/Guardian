@@ -11,8 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class Phase6VelocitySessionLifecycleArchitectureTest {
     @Test
     void mutableAdmissionAndGrantsAreBoundToExactPlayerConnectionIdentity() throws Exception {
-        String plugin = Files.readString(Path.of(
-            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
+        String plugin = normalizeNewlines(Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java")));
 
         assertTrue(plugin.contains(
             "ConnectionIdentityRegistry<VelocityAdmissionSession> sessions"));
@@ -29,8 +29,8 @@ class Phase6VelocitySessionLifecycleArchitectureTest {
 
     @Test
     void delayedDisconnectCanRemoveOnlyItsOwnConnectionState() throws Exception {
-        String plugin = Files.readString(Path.of(
-            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
+        String plugin = normalizeNewlines(Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java")));
 
         int disconnect = plugin.indexOf("public void onDisconnect(DisconnectEvent event)");
         int presence = plugin.indexOf("private void handlePresence", disconnect);
@@ -44,8 +44,8 @@ class Phase6VelocitySessionLifecycleArchitectureTest {
 
     @Test
     void terminalDenialRemainsBoundUntilDisconnectSoLatePacketsCannotStartFreshSession() throws Exception {
-        String plugin = Files.readString(Path.of(
-            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
+        String plugin = normalizeNewlines(Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java")));
 
         int complete = plugin.indexOf("private void completeDecision(");
         int apply = plugin.indexOf("private void applyDecision(", complete);
@@ -55,5 +55,9 @@ class Phase6VelocitySessionLifecycleArchitectureTest {
         assertTrue(body.contains("sessions.remove(player, session)"));
         assertFalse(body.contains("sessions.remove(player, session);\n    }"),
             "session removal must not be unconditional after a deny");
+    }
+
+    private static String normalizeNewlines(String value) {
+        return value.replace("\r\n", "\n").replace('\r', '\n');
     }
 }

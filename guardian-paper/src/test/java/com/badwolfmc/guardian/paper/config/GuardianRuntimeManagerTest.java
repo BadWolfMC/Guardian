@@ -295,7 +295,11 @@ class GuardianRuntimeManagerTest {
     private static String defaultResource(String name) throws IOException {
         try (InputStream in = GuardianRuntimeManagerTest.class.getClassLoader().getResourceAsStream(name)) {
             assertNotNull(in, "missing test resource " + name);
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+            return normalizeNewlines(new String(in.readAllBytes(), StandardCharsets.UTF_8));
         }
+    }
+
+    private static String normalizeNewlines(String value) {
+        return value.replace("\r\n", "\n").replace('\r', '\n');
     }
 }
