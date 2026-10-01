@@ -1,6 +1,6 @@
 # Phase 7 handoff — operations, UX, and release hardening
 
-> **Candidate handoff only until `PHASE_6_VERIFICATION.md` records the focused live Phase 6 closeout.** The Java 25.0.3 / Gradle 9.7.1 automated gate is already green at 354 tests (0 failures, 0 errors, 11 documented Windows symlink-privilege skips), but do not begin Phase 7 merely because the automated gate passed.
+**Active handoff.** Phase 6 is closed. The final Java 25 / Gradle 9.7.1 gate is green at 355 tests (0 failures, 0 errors, 11 documented Windows symlink-privilege skips), the focused signed-release/server-authentication/quarantine/Velocity live matrix passed, and the final post-live security/privacy/code-quality review found no Phase 6 blocker.
 
 ## Expected entering architecture
 
@@ -38,6 +38,25 @@ Primary work remains the authoritative plan's Phase 7 scope:
 - clean-install and upgrade tests;
 - CI/release workflow, release checksums, attribution/GPL material, and third-party dependency license/NOTICE audit; and
 - final adversarial release-candidate audit.
+
+## Phase 6 live-closeout evidence entering Phase 7
+
+The verified Phase 6 repository adds concrete production evidence beyond the automated matrix:
+
+- standalone Paper accepted a real 166-entry Fabric client only after authenticated Guardian challenge verification and trusted signed Cerberus release verification;
+- bounded PLAY quarantine prevented representative movement/world/container interaction escape and ended in `CERBERUS_TIMEOUT` when the client deliberately suppressed its response;
+- replacing the Guardian server-authentication private key with an untrusted identity caused stock pinned Cerberus to withhold its manifest and the connection to fail closed; restoring the original key restored `CERBERUS_VERIFIED` immediately;
+- Guardian-Velocity performed one authoritative evaluation, `/guardianv inspect` retained the bounded authoritative view, backend switching reused the existing grant, and backend `/guardian inspect` remained assertion-only; and
+- the release-signing smoke caught and closed two packaging/runtime portability defects before release: Loom 26.2 uses `jar` rather than `remapJar`, and JDK ZIPFS requires provider-compatible channel options for embedded trust-anchor reads.
+
+## Phase 7 UX/release carry-forwards discovered during closeout
+
+These are release-polish tasks, not Phase 6 security bridges:
+
+- **Signing/key workflow:** preserve the safety requirement for explicit output paths and separate key domains, but replace or wrap the raw Gradle/OpenSSL choreography with a clearer release-manager workflow where practical.
+- **Configuration evolution:** first-start resource copying intentionally does not merge newly introduced keys into an existing `config.yml`/`policy.yml`. That was acceptable while Guardian was unreleased, but Phase 7 must define and test the public-release upgrade/backfill/migration contract before 1.0.
+- **Server-authentication mismatch UX:** the client log explicitly records an unauthenticated/untrusted Guardian challenge and manifest nondisclosure, while the ordinary player-facing disconnect currently arrives later as `CERBERUS_TIMEOUT`. Improve that presentation if it can be done cleanly without weakening the privacy/fail-closed behavior.
+- **Normal log prefix:** Paper/Velocity already provide plugin logger prefixes, so the message-level `Guardian ` prefix produces cosmetic `[Guardian] Guardian ...` / `[guardian]: Guardian ...` duplication. Clean this up as part of operations UX polish.
 
 ## New Phase 6 operational material Phase 7 must document clearly
 
@@ -85,10 +104,12 @@ Do not undo Phase 6 hardening for convenience:
 
 ## Phase 7 entry gate
 
-Replace this candidate warning with the actual Phase 6 closeout evidence only after:
+All entry conditions are satisfied:
 
-- ~~Java 25 / Gradle 9.7.1 full gate is green~~ — **PASS: 354 tests, 0 failures, 0 errors, 11 documented symlink-privilege skips**;
-- Phase 6 focused live verification is complete;
-- ~~actual test totals are recorded~~ — **PASS**;
-- Phase 6 live verification/provenance are finalized; and
-- no active implementation bridge/security mitigation is being carried implicitly.
+- **PASS:** Java 25 / Gradle 9.7.1 full gate — 355 tests, 0 failures, 0 errors, 11 documented symlink-privilege skips;
+- **PASS:** Phase 6 focused live verification complete;
+- **PASS:** final test totals and artifact hashes recorded;
+- **PASS:** Phase 6 live verification/provenance finalized; and
+- **PASS:** no active implementation bridge/security mitigation is being carried implicitly.
+
+Phase 7 may proceed from this repository.

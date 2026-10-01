@@ -31,6 +31,11 @@ class Phase6SignedReleaseArchitectureTest {
             "src/releaseTool/java/com/badwolfmc/cerberus/release/CerberusReleaseSigner.java"));
         assertTrue(build.contains("cerberusReleasePrivateKey"));
         assertTrue(build.contains("signCerberusRelease"));
+        assertTrue(build.contains("dependsOn tasks.named('jar'), tasks.named('releaseToolClasses')"),
+            "Minecraft 26.2 uses non-remapping Loom, so the signer must consume the normal jar task");
+        assertTrue(build.contains("def unsignedJar = tasks.named('jar').get().archiveFile.get().asFile"));
+        assertFalse(build.contains("tasks.named('remapJar')"),
+            "Minecraft 26.1+ non-obfuscated Loom does not provide remapJar");
         assertTrue(signer.contains("PKCS8EncodedKeySpec"));
         assertTrue(signer.contains("Offline release-build tool"));
         assertTrue(signer.contains("LinkOption.NOFOLLOW_LINKS"));

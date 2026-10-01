@@ -269,3 +269,29 @@ The Phase 6 automated closeout evidence is based on the operator-supplied reposi
 - built JAR inspection found no `proxy-assertion.key`, `guardian-server-auth.key`, PEM/private-key entry, or administrator-local private key material
 
 This satisfies the Phase 6 automated Java/Gradle gate. Phase 6 is **not yet closed**: the intentionally small signed-release/server-authentication/quarantine/Velocity live matrix and final post-live review remain required.
+## Phase 6 final live closeout repository — 2026-10-01
+
+The final Phase 6 closeout evidence is based on the operator-supplied repository after the live release-signing/ZIPFS corrections and final clean gate:
+
+- archive: `Guardian(20261001-111943).zip`
+- SHA-256: `bd7190b66b267bcf4685e17d456f5add3f820829153a178293b1e862f6ba5080`
+- project version: `0.1.0-phase6`
+- environment: Java 25 / Gradle 9.7.1 / Windows 11
+- retained Gradle XML reports: **355 tests, 0 failures, 0 errors, 11 skipped**
+- module totals: Core 117/0/0/4, Paper 91/0/0/4, Protection 20/0/0/0, Protocol 50/0/0/0, Velocity 58/0/0/3, Cerberus 19/0/0/0 (tests/failures/errors/skipped)
+- all 11 skips remain JUnit-assumption skips for Windows symlink-hardening cases where the current account lacks symbolic-link creation privilege
+- final built artifact SHA-256 values:
+  - Guardian-Paper: `832a91355ba5ad51896ec2b3f6439987c9c1747236aa3e1d966e637deab606df`
+  - Guardian-Velocity: `b514d745a5e6f417f8863a4c027890fa8f7f7fac3e46513b1522663dedd67a41`
+  - Cerberus-Fabric (unsigned build artifact): `c8fe1cab3b2e4742efd5ec58d951dc37a351b4c55a72dfa2fc04ec6407ab2099`
+- release-signing smoke: PASS after correcting the 26.2 non-obfuscated Loom signing input from `remapJar` to `jar`
+- signed-Cerberus standalone happy path: PASS with authenticated Guardian challenge, required trusted release identity, real 166-entry manifest, and `CERBERUS_VERIFIED`
+- live trust-anchor portability defect: JDK ZIPFS rejected `LinkOption.NOFOLLOW_LINKS` as a channel-open option; corrected with provider-aware read-only JAR access while preserving no-follow semantics for ordinary filesystem paths, plus a real ZIPFS regression test (raising Cerberus tests from 18 to 19)
+- standalone suppressed-response quarantine: PASS; representative movement/bed/container interaction attempts remained contained until `CERBERUS_TIMEOUT`
+- wrong Guardian server-authentication identity: PASS for privacy/fail-closed behavior; pinned stock Cerberus withheld its manifest until timeout, and restoration of the original key immediately restored the normal verified path
+- Velocity-authoritative signed-Cerberus path: PASS; one proxy evaluation, authoritative bounded `/guardianv inspect`, backend-switch grant reuse, and assertion-only backend `/guardian inspect`
+- final post-live security/privacy/code-quality review: PASS; no active implementation bridge or Phase 6 defect requiring further implementation
+
+The mismatch test also identified a non-blocking Phase 7 UX improvement: the Cerberus client log explains that the Guardian challenge is untrusted and the manifest was not disclosed, while the ordinary player-facing disconnect remains the later generic Guardian timeout. Phase 7 additionally owns signing/key workflow ergonomics, public-release configuration evolution/backfill behavior, and the cosmetic duplicated product name in normal plugin-prefixed logs.
+
+This repository closes Phase 6 and is the authoritative baseline entering Phase 7 unless a later supplied repository explicitly supersedes it.

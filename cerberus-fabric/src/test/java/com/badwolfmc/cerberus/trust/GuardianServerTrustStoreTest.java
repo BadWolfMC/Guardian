@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyPair;
@@ -18,6 +20,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -68,6 +71,20 @@ class GuardianServerTrustStoreTest {
         assertFalse(GuardianServerTrustStore.verify(challenge, player, fixedClock(NOW), List.of()));
     }
 
+
+    @Test
+    void trustAnchorFileCanBeReadFromJarFileSystem() throws Exception {
+        KeyPair pair = keyPair();
+        String encoded = java.util.Base64.getEncoder().encodeToString(pair.getPublic().getEncoded()) + "\n";
+        Path jar = tempDir.resolve("cerberus-test.jar");
+        java.net.URI uri = java.net.URI.create("jar:" + jar.toUri());
+        try (FileSystem zip = FileSystems.newFileSystem(uri, Map.of("create", "true"))) {
+            Path anchors = zip.getPath("/META-INF/guardian/trusted-server-keys.txt");
+            Files.createDirectories(anchors.getParent());
+            Files.writeString(anchors, encoded, StandardCharsets.UTF_8);
+            assertEquals(1, GuardianServerTrustStore.readTrustAnchors(anchors).size());
+        }
+    }
 
     @Test
     void trustAnchorFileIsBoundedStrictUtf8AndRegularFileOnly() throws Exception {

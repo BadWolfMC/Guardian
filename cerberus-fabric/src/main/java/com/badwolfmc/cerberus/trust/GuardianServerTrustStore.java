@@ -67,8 +67,7 @@ public final class GuardianServerTrustStore {
 
         byte[] bytes = new byte[(int) attributes.size()];
         ByteBuffer buffer = ByteBuffer.wrap(bytes);
-        try (SeekableByteChannel channel = Files.newByteChannel(
-            resource, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS))) {
+        try (SeekableByteChannel channel = openReadChannel(resource)) {
             while (buffer.hasRemaining()) {
                 int read = channel.read(buffer);
                 if (read < 0) break;
@@ -93,6 +92,18 @@ public final class GuardianServerTrustStore {
             throw new IOException("embedded Guardian server trust anchors are not valid UTF-8", ex);
         }
         return GuardianChallengeTrustAnchors.parse(text);
+    }
+
+    private static SeekableByteChannel openReadChannel(Path resource) throws IOException {
+        // Fabric resolves resources inside an archive through the JDK ZIP filesystem.
+        // ZIPFS rejects LinkOption.NOFOLLOW_LINKS as a channel-open option. Preserve
+        // no-follow descriptor semantics for ordinary filesystem paths, while using
+        // the provider-supported read-only form for an immutable JAR entry.
+        if ("jar".equalsIgnoreCase(resource.getFileSystem().provider().getScheme())) {
+            return Files.newByteChannel(resource, StandardOpenOption.READ);
+        }
+        return Files.newByteChannel(
+            resource, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
     }
 
     private static boolean sameSnapshot(BasicFileAttributes before, BasicFileAttributes after) {

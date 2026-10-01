@@ -30,7 +30,7 @@ After the normal build is green, create the signed release artifact with:
   -PcerberusReleasePrivateKey=C:\secure\cerberus-release-private.pem
 ```
 
-The key must be an Ed25519 PKCS#8 private key in DER or PEM `PRIVATE KEY` form. The task signs the remapped Cerberus artifact and writes `cerberus-fabric-<version>-signed.jar` under `cerberus-fabric/build/libs/`. The signing utility is a separate `releaseTool` source set; it is not part of the client mod artifact. It reads the private key as a bounded regular non-symlink file and publishes the signed JAR only after the embedded metadata and canonical digest revalidate.
+The key must be an Ed25519 PKCS#8 private key in DER or PEM `PRIVATE KEY` form. The task signs the normal production Cerberus JAR and writes `cerberus-fabric-<version>-signed.jar` under `cerberus-fabric/build/libs/`. The signing utility is a separate `releaseTool` source set; it is not part of the client mod artifact. It reads the private key as a bounded regular non-symlink file and publishes the signed JAR only after the embedded metadata and canonical digest revalidate.
 
 The corresponding shared-policy form is:
 

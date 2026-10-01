@@ -43,13 +43,15 @@ class Phase6GuardianServerAuthenticationArchitectureTest {
     }
 
     @Test
-    void embeddedTrustAnchorReadIsNoFollowAndStable() throws Exception {
+    void embeddedTrustAnchorReadIsProviderAwareNoFollowAndStable() throws Exception {
         String trustStore = Files.readString(Path.of(
             "src/main/java/com/badwolfmc/cerberus/trust/GuardianServerTrustStore.java"));
 
-        assertTrue(trustStore.contains("Files.newByteChannel"),
-            "trust anchors must be read through a no-follow descriptor rather than a following stream");
-        assertTrue(trustStore.contains("LinkOption.NOFOLLOW_LINKS"));
+        assertTrue(trustStore.contains("openReadChannel(resource)"));
+        assertTrue(trustStore.contains("provider().getScheme()"),
+            "embedded archive resources need provider-aware channel options");
+        assertTrue(trustStore.contains("StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS"),
+            "ordinary filesystem resources must retain no-follow descriptor semantics");
         assertTrue(trustStore.contains("sameSnapshot(attributes, after)"),
             "trust-anchor identity/size/mtime must be rechecked after the read");
         assertFalse(trustStore.contains("Files.newInputStream(resource)"));

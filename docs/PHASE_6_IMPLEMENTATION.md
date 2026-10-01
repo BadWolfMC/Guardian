@@ -133,7 +133,7 @@ Phase 6 also adopts optional Ed25519 Guardian server authentication to protect m
 - official Cerberus releases carry one or more public Guardian trust anchors in `META-INF/guardian/trusted-server-keys.txt`;
 - those anchors are injected before the canonical release digest, so release signing commits to them;
 - Cerberus resolves the trust-anchor resource through its own Fabric `ModContainer`, not a shared classloader lookup;
-- trust-anchor reads are bounded, no-follow, and stable regular-file reads;
+- trust-anchor reads are bounded, provider-aware, and stable regular-file reads; ordinary filesystem resources retain no-follow channel semantics while signed JAR/ZIPFS resources use the provider-supported read-only channel form;
 - Guardian signs protocol version, required capability mask, fresh nonce, authenticated player UUID, issued time, and expiry;
 - Cerberus verifies the signature, UUID binding, validity/skew, and pinned key before collecting/disclosing the manifest; and
 - multiple public keys permit staged key rotation without embedding any reusable client secret.
@@ -152,9 +152,9 @@ Phase 6 deliberately extracted focused security components where new invariants 
 
 Guardian server code still contains no NMS/CraftBukkit implementation dependency, implementation reflection, server Mixin, ProtocolLib/packet-event workaround, or private networking access. Cerberus's Minecraft networking types are the normal Fabric/Minecraft custom-payload API surface.
 
-## Implementation-candidate status
+## Final closeout status
 
-The Phase 6 source inventory currently contains **354 `@Test` cases**:
+The final Phase 6 source/executed inventory contains **355 `@Test` cases**:
 
 ```text
 guardian-core        117
@@ -162,7 +162,9 @@ guardian-paper        91
 guardian-protection   20
 guardian-protocol     50
 guardian-velocity     58
-cerberus-fabric       18
+cerberus-fabric       19
 ```
 
-The operator subsequently executed the complete gate with Oracle JDK 25.0.3 / Gradle 9.7.1: **354 tests, 0 failures, 0 errors, 11 skipped**. The 11 skips are documented Windows symlink-privilege assumption skips (Core 4, Paper 4, Velocity 3); all other tests executed. Built Paper, Velocity, and Cerberus Phase 6 JARs were also inspected with no private-key entry found. Phase 6 remains open only for the focused live verification and final post-live review in `PHASE_6_VERIFICATION.md`.
+The operator-executed Java 25 / Gradle 9.7.1 gate is green at **355 tests, 0 failures, 0 errors, 11 skipped**. The 11 skips are documented Windows symlink-privilege assumption skips (Core 4, Paper 4, Velocity 3); all other tests executed. The additional Cerberus regression covers trust-anchor loading from the JDK ZIP filesystem after live signing exposed that ZIPFS rejects `LinkOption.NOFOLLOW_LINKS` as a channel-open option. The final implementation keeps no-follow descriptor semantics for ordinary filesystem resources and uses provider-compatible read-only access for immutable signed-JAR entries while retaining pre/post stable-file checks.
+
+Focused live verification then passed the signed standalone happy path, bounded PLAY quarantine timeout, deliberate wrong Guardian server-authentication identity with manifest nondisclosure/fail-closed recovery, and the Velocity-authoritative/backend-assertion path. Built Paper, Velocity, and Cerberus Phase 6 JARs were inspected with no private-key entry found. Phase 6 is closed; `PHASE_6_VERIFICATION.md` records the detailed evidence and `PHASE_7_HANDOFF.md` is the active next-phase handoff.

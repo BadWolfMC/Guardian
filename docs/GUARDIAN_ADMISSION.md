@@ -84,7 +84,7 @@ cerberus-release-trust:
 
 When `required: true`, at least one trusted Ed25519 public key is required. Each list item is the base64 encoding of an X.509 SubjectPublicKeyInfo DER public key. Up to eight keys may be configured at once so an administrator can overlap old/new public keys during a simple release-key rotation. Only the public key belongs in Guardian policy. The release private key must remain outside the repository, Minecraft client, Guardian-Paper, and Guardian-Velocity.
 
-An official release is produced from the normal remapped Cerberus JAR with the offline release task:
+An official release is produced from the normal production Cerberus JAR with the offline release task:
 
 ```powershell
 .\gradlew.bat :cerberus-fabric:signCerberusRelease `
@@ -110,7 +110,7 @@ Guardian server authentication uses a server-held Ed25519 private key named `gua
 The corresponding public key is embedded in the signed Cerberus release as `META-INF/guardian/trusted-server-keys.txt`. Up to eight public keys may be embedded so key rotation can overlap old and new identities. The trust-anchor file is injected **before** the Cerberus canonical release digest is calculated, so an official release signature covers the exact server-authentication trust anchors shipped to clients. At runtime Cerberus resolves this resource through its own Fabric `ModContainer.findPath(...)` rather than a shared classloader lookup, preventing another mod with a colliding resource name from substituting the trust anchors Cerberus enforces. The server-auth private key is never included in the client artifact. The conventional `guardian-server-auth.key` filename is also ignored by Git alongside `proxy-assertion.key`; neither private infrastructure key belongs in source control, release artifacts, or support bundles.
 
 
-The embedded trust-anchor resource is opened through a bounded no-follow descriptor and revalidated for stable regular-file identity, size, and modification time after the read. This matters primarily for development/directory origins; production release anchors are additionally committed by the signed Cerberus canonical JAR digest.
+The embedded trust-anchor resource is read through a bounded provider-aware channel and revalidated for stable regular-file identity, size, and modification time after the read. Ordinary filesystem resources use no-follow channel semantics. Signed JAR resources are exposed through the JDK ZIP filesystem, whose channel provider rejects `LinkOption.NOFOLLOW_LINKS`; those immutable archive entries therefore use the provider-supported read-only form while retaining the surrounding regular-file and pre/post stability checks. Production release anchors are additionally committed by the signed Cerberus canonical JAR digest.
 
 When pinned trust anchors are present, Cerberus advertises the authenticated-challenge capability. Guardian signs a short-lived challenge over the protocol version, required capability mask, fresh nonce, authenticated player UUID, issue time, and expiration. Cerberus verifies the signature against its pinned public keys and verifies that the signed UUID equals its own authenticated Minecraft session UUID **before manifest collection**. This UUID binding prevents an ordinary malicious server from obtaining a legitimate BadWolfMC challenge for its own account and relaying that signature to a different victim in order to harvest the victim's mod manifest.
 

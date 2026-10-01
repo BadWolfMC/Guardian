@@ -44,7 +44,7 @@ dependencies {
 tasks.register('signCerberusRelease', JavaExec) {
     group = 'distribution'
     description = 'Creates an official Cerberus JAR with Ed25519 release identity metadata.'
-    dependsOn tasks.named('remapJar'), tasks.named('releaseToolClasses')
+    dependsOn tasks.named('jar'), tasks.named('releaseToolClasses')
     classpath = sourceSets.releaseTool.runtimeClasspath
     mainClass = 'com.badwolfmc.cerberus.release.CerberusReleaseSigner'
     doFirst {
@@ -52,7 +52,7 @@ tasks.register('signCerberusRelease', JavaExec) {
         if (privateKey == null || privateKey.isBlank()) {
             throw new GradleException('signCerberusRelease requires -PcerberusReleasePrivateKey=/path/to/ed25519-private-key.pem')
         }
-        def unsignedJar = tasks.named('remapJar').get().archiveFile.get().asFile
+        def unsignedJar = tasks.named('jar').get().archiveFile.get().asFile
         def signedJar = layout.buildDirectory.file("libs/${base.archivesName.get()}-${project.version}-signed.jar").get().asFile
         args unsignedJar.absolutePath, signedJar.absolutePath, privateKey, project.version.toString()
         def serverTrust = providers.gradleProperty('guardianServerAuthPublicKeys').orNull
