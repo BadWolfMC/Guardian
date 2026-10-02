@@ -27,6 +27,9 @@ processResources {
 }
 
 tasks.named('jar') {
+    from(rootProject.file('LICENSE')) { into 'META-INF'; rename { 'LICENSE-GPL-3.0.txt' } }
+    from(rootProject.file('THIRD_PARTY_NOTICES.md')) { into 'META-INF'; rename { 'THIRD-PARTY-NOTICES.md' } }
+
     dependsOn project(':guardian-protocol').tasks.named('classes')
     from(project(':guardian-protocol').sourceSets.main.output)
 }
@@ -53,7 +56,14 @@ tasks.register('signCerberusRelease', JavaExec) {
             throw new GradleException('signCerberusRelease requires -PcerberusReleasePrivateKey=/path/to/ed25519-private-key.pem')
         }
         def unsignedJar = tasks.named('jar').get().archiveFile.get().asFile
-        def signedJar = layout.buildDirectory.file("libs/${base.archivesName.get()}-${project.version}-signed.jar").get().asFile
+        def signedOutput = providers.gradleProperty('cerberusSignedOutput').orNull
+        if (signedOutput == null || signedOutput.isBlank()) {
+            throw new GradleException('signCerberusRelease requires -PcerberusSignedOutput=/explicit/path/to/cerberus-signed.jar')
+        }
+        def signedJar = file(signedOutput)
+        if (signedJar.absoluteFile == unsignedJar.absoluteFile) {
+            throw new GradleException('cerberusSignedOutput must differ from the unsigned jar path')
+        }
         args unsignedJar.absolutePath, signedJar.absolutePath, privateKey, project.version.toString()
         def serverTrust = providers.gradleProperty('guardianServerAuthPublicKeys').orNull
         if (serverTrust != null && !serverTrust.isBlank()) {
@@ -62,6 +72,23 @@ tasks.register('signCerberusRelease', JavaExec) {
     }
 }
 
+
+tasks.register('generateCerberusReleaseIdentity', JavaExec) {
+    group = 'distribution'
+    description = 'Generates an Ed25519 Cerberus release-signing private key and public verification key.'
+    dependsOn tasks.named('releaseToolClasses')
+    classpath = sourceSets.releaseTool.runtimeClasspath
+    mainClass = 'com.badwolfmc.cerberus.release.CerberusReleaseIdentityGenerator'
+    doFirst {
+        def outputDirectory = providers.gradleProperty('cerberusReleaseIdentityDirectory').orNull
+        if (outputDirectory == null || outputDirectory.isBlank()) {
+            throw new GradleException('generateCerberusReleaseIdentity requires -PcerberusReleaseIdentityDirectory=/secure/output/directory')
+        }
+        def output = file(outputDirectory)
+        args new File(output, 'cerberus-release-signing.key').absolutePath,
+             new File(output, 'cerberus-release-signing.pub').absolutePath
+    }
+}
 
 tasks.register('generateGuardianServerIdentity', JavaExec) {
     group = 'distribution'

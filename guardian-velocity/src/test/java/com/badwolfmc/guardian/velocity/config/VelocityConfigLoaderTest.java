@@ -1,5 +1,6 @@
 package com.badwolfmc.guardian.velocity.config;
 
+import com.badwolfmc.guardian.core.operations.ConfigurationSchemaMigrator;
 import com.badwolfmc.guardian.core.operations.OperationalLogLevel;
 import com.badwolfmc.guardian.core.operations.ProxyAssertionSecretResolver;
 import org.junit.jupiter.api.Test;
@@ -23,11 +24,32 @@ class VelocityConfigLoaderTest {
         Path config = writeConfig(defaultConfig());
         VelocityOperationalSettings settings = new VelocityConfigLoader().load(config);
 
-        assertEquals(1, settings.schemaVersion());
+        assertEquals(2, settings.schemaVersion());
         assertEquals("en_us", settings.locale());
         assertEquals(10, settings.handshakeTimeoutSeconds());
         assertEquals(OperationalLogLevel.NORMAL, settings.loggingLevel());
         assertEquals("file:proxy-assertion.key", settings.proxyAssertionSecret().sourceDescription());
+    }
+
+    @Test
+    void representativePhase6ConfigMigratesAndPreservesProxyOperationalValues() throws Exception {
+        writeKey(new byte[32]);
+        Path config = writeConfig(defaultConfig()
+            .replaceFirst("schema-version: 2", "schema-version: 1")
+            .replace("level: NORMAL", "level: DEBUG")
+            .replace("handshake-timeout-seconds: 10", "handshake-timeout-seconds: 7"));
+
+        var prepared = ConfigurationSchemaMigrator.prepare(
+            config, VelocityConfigLoader.MAX_CONFIG_BYTES, ConfigurationSchemaMigrator.Surface.VELOCITY_CONFIG
+        ).orElseThrow();
+        var published = ConfigurationSchemaMigrator.publish(prepared);
+
+        VelocityOperationalSettings settings = new VelocityConfigLoader().load(config);
+        assertEquals(2, settings.schemaVersion());
+        assertEquals(OperationalLogLevel.DEBUG, settings.loggingLevel());
+        assertEquals(7, settings.handshakeTimeoutSeconds());
+        assertTrue(Files.exists(published.backupPath()));
+        assertTrue(Files.readString(published.backupPath(), StandardCharsets.UTF_8).contains("schema-version: 1"));
     }
 
     @Test

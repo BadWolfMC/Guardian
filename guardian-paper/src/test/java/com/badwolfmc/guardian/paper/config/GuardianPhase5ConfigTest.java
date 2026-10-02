@@ -22,6 +22,7 @@ class GuardianPhase5ConfigTest {
     void standaloneDoesNotRequireProxyKey() throws Exception {
         Path config = writeConfig(defaultConfig());
         GuardianPaperSettings settings = new GuardianConfigLoader().load(config);
+        assertEquals(2, settings.schemaVersion());
         assertEquals(PaperAuthorityMode.STANDALONE, settings.authorityMode());
         assertEquals(OperationalLogLevel.NORMAL, settings.loggingLevel());
         assertNull(settings.proxyAssertionSecret());

@@ -295,3 +295,18 @@ The final Phase 6 closeout evidence is based on the operator-supplied repository
 The mismatch test also identified a non-blocking Phase 7 UX improvement: the Cerberus client log explains that the Guardian challenge is untrusted and the manifest was not disclosed, while the ordinary player-facing disconnect remains the later generic Guardian timeout. Phase 7 additionally owns signing/key workflow ergonomics, public-release configuration evolution/backfill behavior, and the cosmetic duplicated product name in normal plugin-prefixed logs.
 
 This repository closes Phase 6 and is the authoritative baseline entering Phase 7 unless a later supplied repository explicitly supersedes it.
+
+
+## Phase 7 operations/release-hardening candidate — 2026-10-01
+
+The Phase 7 implementation candidate is based on the exact operator-supplied post-ZIPFS Phase 6 repository archive:
+
+- archive: `Guardian(20261001-114756).zip`
+- SHA-256: `1382269cd860e8c4d7c4368e4b187e883b7e38677cef23697235d52264775d28`
+- entering project version: `0.1.0-phase6`
+- retained entering Gradle XML: **355 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**
+- retained post-ZIPFS signed Cerberus JAR finished-file SHA-256: `20ea9b03da3e9f9c03739eb361304a398e34d9677f465169f26b82b29166e860`
+
+The candidate advances the source default to `0.1.0-phase7` and adds the public schema-2 migration contract, release-manager/key-generation ergonomics, explicit signing output, CI/release-candidate/checksum infrastructure, packaged license/NOTICE material, operations/status/message polish, and the Phase 7 deployment/security/operator documentation set. It does not change the Phase 6 Admission/Protection/protocol/threat-model boundaries.
+
+This sandbox exposes OpenJDK 21 only and cannot bootstrap the uncached Gradle 9.7.1 distribution because outbound DNS/network access is unavailable. Therefore the retained 355-test XML is **entering evidence only**, not a Phase 7 execution result. `PHASE_7_VERIFICATION.md` records the Java 25/Gradle 9.7.1 gate, final artifact hashes, representative supported upgrade test, and focused live checks still required before Phase 7 can close.

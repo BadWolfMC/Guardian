@@ -112,9 +112,9 @@ Notifications are sent only to online players holding `guardian.protection.notif
 
 Guardian uses `Player.updateCommands()` to refresh online client command trees whenever the active Protection visibility policy is changed, enabled, or disabled through Guardian's validated runtime activation path. The runtime path remains parse → validate complete immutable candidate → atomic activation; an invalid candidate never replaces the previous snapshot and Guardian does not rewrite the administrator's invalid reload file.
 
-The public `/guardian reload` administrative surface remains roadmap-owned by the later operations phase. Phase 1B provides the domain-aware atomic reload/reconciliation primitive and supported command-tree refresh behavior; it does not reintroduce eZProtector's raw reload implementation.
+Phase 5/7 expose that validated runtime through `/guardian validate` and `/guardian reload`. `validate` performs files-only parsing/validation and activates nothing. `reload` builds a complete candidate snapshot first and swaps it atomically only after all Admission/Protection/localization validation succeeds. A failed reload leaves the prior runtime active. Protection visibility changes trigger supported command-tree refresh for online players rather than requiring a restart.
 
-Permission-provider-specific immediate refresh hooks remain optional future integration. Stale client visibility is never treated as the execution security boundary.
+Permission-provider-specific immediate refresh hooks are not required for correctness. Stale client visibility is never treated as the execution security boundary; execution filtering remains authoritative.
 
 ## Paper 26.2 API placement
 

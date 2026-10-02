@@ -19,67 +19,40 @@ Do not replace the wrapper with a system Gradle installation. The authoritative 
 
 The wrapper currently resolves Gradle 9.7.1.
 
-## Signing an official Cerberus release
+## Release identities and official Cerberus signing
 
-Official Cerberus release provenance is optional and uses an **offline Ed25519 release private key**. Never commit that private key, place it in a Guardian data directory, copy it to a Minecraft client/server, or add it to Gradle properties checked into the repository. Guardian servers need only the corresponding base64 X.509 SubjectPublicKeyInfo public key in `policy.yml`.
+Phase 7 provides `tools/release-manager.ps1` as the supported human-facing wrapper around the offline release tasks. It deliberately keeps private-key and output paths explicit; CI never receives the Cerberus release-signing private key.
 
-After the normal build is green, create the signed release artifact with:
-
-```powershell
-.\gradlew.bat :cerberus-fabric:signCerberusRelease `
-  -PcerberusReleasePrivateKey=C:\secure\cerberus-release-private.pem
-```
-
-The key must be an Ed25519 PKCS#8 private key in DER or PEM `PRIVATE KEY` form. The task signs the normal production Cerberus JAR and writes `cerberus-fabric-<version>-signed.jar` under `cerberus-fabric/build/libs/`. The signing utility is a separate `releaseTool` source set; it is not part of the client mod artifact. It reads the private key as a bounded regular non-symlink file and publishes the signed JAR only after the embedded metadata and canonical digest revalidate.
-
-The corresponding shared-policy form is:
-
-```yaml
-cerberus-release-trust:
-  required: true
-  ed25519-public-keys:
-    - "<base64-X.509-Ed25519-public-key-DER>"
-```
-
-Do not enable `required: true` until the signed Cerberus JAR has been distributed and the correct public key is present on every Admission authority. During key rotation, the policy may contain both old and new public keys temporarily.
-
-The signed release mechanism is provenance/compliance hardening only. It proves that the **reported** canonical release identity has a valid release signature; a hostile modified client can still copy/replay valid official release metadata while executing different code.
-
-## Generating and deploying the Guardian server-authentication identity
-
-Guardian-to-Cerberus server authentication uses a **different Ed25519 key pair** from Cerberus release signing. The Guardian Admission authority keeps the server-auth private key; official Cerberus releases pin only the corresponding public trust anchor. Never reuse the Cerberus release-signing private key for this purpose.
-
-Generate the identity into a secure directory outside the repository:
+Generate a release-signing identity outside the repository:
 
 ```powershell
-.\gradlew.bat :cerberus-fabric:generateGuardianServerIdentity `
-  -PguardianServerIdentityDirectory=C:\secure\guardian-server-identity
+.\tools\release-manager.ps1 `
+  -Action generate-release-key `
+  -OutputDirectory C:\secure\cerberus-release
 ```
 
-The task refuses to overwrite existing files and creates:
-
-- `guardian-server-auth.key` — Ed25519 PKCS#8 PEM private key; keep this on Admission authorities only.
-- `guardian-server-auth.pub` — canonical public trust-anchor file; this is safe to embed in Cerberus.
-
-To ship an official Cerberus release that requires Guardian authentication, pass the public trust-anchor file to the **release-signing** task:
+Generate the **separate** Guardian server-authentication identity similarly:
 
 ```powershell
-.\gradlew.bat :cerberus-fabric:signCerberusRelease `
-  -PcerberusReleasePrivateKey=C:\secure\cerberus-release-private.pem `
-  -PguardianServerAuthPublicKeys=C:\secure\guardian-server-identity\guardian-server-auth.pub
+.\tools\release-manager.ps1 `
+  -Action generate-server-identity `
+  -OutputDirectory C:\secure\guardian-server-identity
 ```
 
-The release tool injects the server-auth public keys before calculating/signing the canonical Cerberus release digest, so the official release signature covers those trust anchors. Do not manually add or replace `META-INF/guardian/trusted-server-keys.txt` after release signing.
+Sign the normal production Loom `jar` output with an explicit destination:
 
-Copy `guardian-server-auth.key` to the Guardian plugin data directory of each **Admission authority** that should represent the same trust identity, then enable the corresponding configuration:
+```powershell
+.\tools\release-manager.ps1 `
+  -Action sign-cerberus `
+  -Version 1.0.0 `
+  -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
+  -GuardianServerPublicKeys C:\secure\guardian-server-identity\guardian-server-auth.pub `
+  -SignedOutput C:\release\cerberus-fabric-1.0.0-signed.jar
+```
 
-- standalone Paper: `admission.standalone.server-authentication.enabled: true`;
-- Guardian-Velocity: `admission.server-authentication.enabled: true`;
-- Velocity-authority Paper backend: no server-auth private key is required because Paper verifies the proxy assertion rather than challenging Cerberus.
+The underlying Gradle tasks remain available for automation, but signing requires an explicit `-PguardianVersion=...`, `-PcerberusReleasePrivateKey=...`, and `-PcerberusSignedOutput=...`. The release-signing private key, Guardian server-authentication private key, and Velocity/Paper `proxy-assertion.key` are three distinct trust domains and must not be reused. See `KEY_MANAGEMENT.md` and `RELEASE_PROCESS.md` for storage, deployment, staged rotation, compromise response, checksums, and the distinction between the signer's canonical digest and the finished-JAR SHA-256.
 
-A staged rotation is: release Cerberus with old+new public keys, deploy/reload Guardian with the new private key, then release Cerberus again with only the new public key. If a private key is compromised, clients that still pin that key will continue to trust it until they update; there is no network revocation service in this design.
-
-This feature protects the manifest-disclosure boundary of **stock Cerberus**. It does not provide remote attestation, and a modified client can choose to ignore its own server-authentication check. The signed challenge is bound to the authenticated player UUID, nonce, capabilities, and a short validity window to block ordinary cross-player relay; a captured challenge for the same player may remain reusable within that narrow window.
+The signed release mechanism is provenance/compliance hardening only. It verifies the **reported** official release identity; a hostile modified client can still lie. Guardian server authentication protects stock Cerberus manifest disclosure and is likewise not remote attestation.
 
 ## VS Code Java project import
 

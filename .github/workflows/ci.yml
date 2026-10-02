@@ -1,0 +1,39 @@
+name: CI
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Verify wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: Build and test
+        run: ./gradlew --no-daemon clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: '**/build/test-results/test/*.xml'
+          if-no-files-found: error
+      - name: Upload unsigned build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: guardian-ci-jars
+          path: |
+            guardian-paper/build/libs/guardian-paper-*.jar
+            guardian-velocity/build/libs/guardian-velocity-*.jar
+            cerberus-fabric/build/libs/cerberus-fabric-*.jar
+          if-no-files-found: error

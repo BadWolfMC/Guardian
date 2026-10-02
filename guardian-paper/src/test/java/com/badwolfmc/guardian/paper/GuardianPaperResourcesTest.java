@@ -37,4 +37,20 @@ class GuardianPaperResourcesTest {
             assertFalse(pluginYml.contains("guardian.artifacts.scan:"));
         }
     }
+
+    @Test
+    void publicReleaseDefaultsUseSchemaTwoWhileLocaleKeepsIndependentSchema() throws Exception {
+        ClassLoader loader = GuardianPaperResourcesTest.class.getClassLoader();
+        assertResourceContains(loader, "config.yml", "schema-version: 2");
+        assertResourceContains(loader, "policy.yml", "schema-version: 2");
+        assertResourceContains(loader, "locales/en_us.properties", "schema-version=1");
+    }
+
+    private static void assertResourceContains(ClassLoader loader, String resource, String expected) throws Exception {
+        try (InputStream input = loader.getResourceAsStream(resource)) {
+            assertNotNull(input, resource + " must be present");
+            String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+            assertTrue(text.contains(expected), resource + " should contain " + expected);
+        }
+    }
 }

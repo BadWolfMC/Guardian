@@ -973,7 +973,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         if (!session.tryMarkSummaryLogged()) return;
         String profile = session.resolvedProfile() == null ? "<unknown>" : session.resolvedProfile().profile().id();
         int mods = session.manifest() == null ? 0 : session.manifest().entries().size();
-        plugin.getLogger().info(DiagnosticText.oneLine("Guardian " + playerName + " " + decision.outcome() + ": "
+        plugin.getLogger().info(DiagnosticText.oneLine(playerName + " " + decision.outcome() + ": "
             + (session.classification() == null ? "UNKNOWN" : session.classification())
             + ", profile=" + profile + ", " + decision.reason()
             + (mods == 0 ? "" : ", mods=" + mods)));

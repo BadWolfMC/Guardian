@@ -38,7 +38,7 @@ To actually permit the mod, review the generated block, copy it into `profiles.<
 The packaged default is intentionally conservative:
 
 ```yaml
-schema-version: 1
+schema-version: 2
 default-profile: default
 identity-overrides: {}
 
@@ -84,14 +84,20 @@ cerberus-release-trust:
 
 When `required: true`, at least one trusted Ed25519 public key is required. Each list item is the base64 encoding of an X.509 SubjectPublicKeyInfo DER public key. Up to eight keys may be configured at once so an administrator can overlap old/new public keys during a simple release-key rotation. Only the public key belongs in Guardian policy. The release private key must remain outside the repository, Minecraft client, Guardian-Paper, and Guardian-Velocity.
 
-An official release is produced from the normal production Cerberus JAR with the offline release task:
+An official release is produced from the normal production Cerberus JAR with the Phase 7 release-manager helper. The helper keeps both the private-key input and finished output path explicit:
 
 ```powershell
-.\gradlew.bat :cerberus-fabric:signCerberusRelease `
-  -PcerberusReleasePrivateKey=C:\secure\cerberus-release-private.pem
+.\tools\release-manager.ps1 `
+  -Action sign-cerberus `
+  -Version 1.0.0 `
+  -ReleasePrivateKey C:\secure\cerberus-release-signing.key `
+  -GuardianServerPublicKeys C:\secure\guardian-server-auth-trust.txt `
+  -SignedOutput C:\release\cerberus-fabric-1.0.0-signed.jar
 ```
 
-The private key file must contain an Ed25519 PKCS#8 private key, either DER or PEM `PRIVATE KEY` form. The task reads the key only in the release-tool process, first copies the unsigned input through a bounded no-follow read into a stable temporary sibling, performs all preflight checks and signing against that snapshot, computes the canonical logical JAR-content digest, signs the release version plus digest with Ed25519, injects `META-INF/guardian/cerberus-release.bin`, rechecks the resulting JAR, and publishes `<normal-name>-signed.jar`. If the source JAR changes identity, size, or modification time while the stable snapshot is being copied, signing fails. The final output is replaced only after all checks succeed. No private-key material is packaged.
+The underlying Gradle task remains available for automation, but it now requires an explicit `-PguardianVersion=...` together with `-PcerberusReleasePrivateKey=...` and `-PcerberusSignedOutput=...`; Guardian never invents a release version or output path for a signed release. See `RELEASE_PROCESS.md` and `KEY_MANAGEMENT.md` for generation, rotation, backup, and compromise procedures for all three key domains.
+
+The private key file must contain an Ed25519 PKCS#8 private key, either DER or PEM `PRIVATE KEY` form. The task reads the key only in the release-tool process, first copies the unsigned input through a bounded no-follow read into a stable temporary sibling, performs all preflight checks and signing against that snapshot, computes the canonical logical JAR-content digest, signs the release version plus digest with Ed25519, injects `META-INF/guardian/cerberus-release.bin`, rechecks the resulting JAR, and publishes only to the explicit signed output path supplied by the release manager. If the source JAR changes identity, size, or modification time while the stable snapshot is being copied, signing fails. The final output is replaced only after all checks succeed. No private-key material is packaged.
 
 The canonical digest intentionally covers logical JAR file content rather than raw ZIP bytes: entry names, uncompressed lengths, and per-entry SHA-256 digests are sorted canonically, while ZIP ordering/compression/timestamps are ignored. The embedded Guardian release-metadata entry itself is excluded to avoid a circular digest/signature dependency. Repacking the same logical contents therefore keeps this release identity; changing a signed file entry changes it. This release digest is distinct from Guardian's ordinary mod-artifact SHA-256 rules, which continue to mean the exact top-level archive bytes reported by Cerberus.
 

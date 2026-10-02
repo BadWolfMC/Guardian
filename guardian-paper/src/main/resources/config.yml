@@ -2,7 +2,7 @@
 # On initial startup, malformed/structurally invalid files are first preserved as
 # timestamped .bak files before Guardian restores this packaged default. Reload never
 # rewrites an invalid candidate; the prior known-good runtime snapshot remains active.
-schema-version: 1
+schema-version: 2
 
 # Optional logical backend name shown by /guardian status and inspect output.
 # Leave blank to fall back to Paper's configured server name.
@@ -13,8 +13,8 @@ logging:
   level: NORMAL
 
 features:
-  # Admission and Protection are independent domains. Phase 1B implements
-  # Paper-authoritative Protection without making either domain depend on the other.
+  # Admission and Protection are independent domains. Paper-authoritative
+  # Protection does not require Admission, and Admission does not require Protection.
   admission:
     enabled: true
   protection:
@@ -36,7 +36,7 @@ admission:
   authority: standalone
 
   standalone:
-    # These retain the Phase 0A live-tested transport values. They are runtime
+    # These are the live-tested standalone transport defaults. They are runtime
     # settings, not protocol constants, and may be retuned without a schema bump.
     handshake-timeout-seconds: 10
     challenge-channel-wait-ticks: 40

@@ -85,4 +85,12 @@ class Phase5OperationsArchitectureTest {
         assertTrue(runtime.contains("active.set(candidate);"));
         assertTrue(runtime.contains("validateFiles()"));
     }
+    @Test
+    void normalAdmissionSummaryReliesOnPlatformLoggerPrefixOnly() throws Exception {
+        String plugin = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
+        assertTrue(plugin.contains("private void logSummary"));
+        assertFalse(plugin.contains("new StringBuilder(\"Guardian \")"));
+    }
+
 }

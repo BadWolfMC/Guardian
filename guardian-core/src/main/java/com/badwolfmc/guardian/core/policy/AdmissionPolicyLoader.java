@@ -40,7 +40,7 @@ import java.util.regex.Pattern;
 
 /** Strict, platform-neutral parser/normalizer/validator for shared Guardian admission policy YAML. */
 public final class AdmissionPolicyLoader {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final int MAX_POLICY_BYTES = 1024 * 1024;
     private static final int MAX_PROFILES = 64;
     private static final int MAX_RULES_PER_PROFILE = 512;

@@ -67,4 +67,12 @@ class Phase5PaperOperationsArchitectureTest {
         assertTrue(adapter.contains("debug(session, \"Trusted Guardian proxy admission received"));
         assertFalse(adapter.contains("getLogger().info(() -> \"Trusted Guardian proxy admission received"));
     }
+    @Test
+    void normalStandaloneSummaryReliesOnPlatformLoggerPrefixOnly() throws Exception {
+        String adapter = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/paper/PaperAdmissionAdapter.java"));
+        assertTrue(adapter.contains("private void logStandaloneSummary"));
+        assertFalse(adapter.contains("DiagnosticText.oneLine(\"Guardian \" + playerName"));
+    }
+
 }

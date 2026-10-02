@@ -26,7 +26,7 @@ class GuardianRuntimeManagerTest {
         GuardianRuntimeManager manager = managerWithDefaults();
         GuardianRuntimeSnapshot snapshot = manager.loadInitial();
 
-        assertEquals(1, snapshot.settings().schemaVersion());
+        assertEquals(2, snapshot.settings().schemaVersion());
         assertTrue(snapshot.settings().admissionEnabled());
         assertFalse(snapshot.settings().protectionEnabled());
         assertEquals(ClientAction.REQUIRE_CERBERUS,
@@ -103,7 +103,7 @@ class GuardianRuntimeManagerTest {
 
     @Test
     void unsupportedSchemaIsNotAutomaticallyRecoverableAtStartup() throws Exception {
-        String unsupported = defaultResource("config.yml").replace("schema-version: 1", "schema-version: 2");
+        String unsupported = defaultResource("config.yml").replace("schema-version: 2", "schema-version: 3");
         writeDefaults(unsupported);
 
         GuardianConfigurationException ex = assertThrows(

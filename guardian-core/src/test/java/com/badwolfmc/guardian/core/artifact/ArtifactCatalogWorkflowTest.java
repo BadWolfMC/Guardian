@@ -48,7 +48,7 @@ class ArtifactCatalogWorkflowTest {
 
         Path policy = temp.resolve("policy.yml");
         Files.writeString(policy, """
-            schema-version: 1
+            schema-version: 2
             default-profile: default
             identity-overrides: {}
             profiles:

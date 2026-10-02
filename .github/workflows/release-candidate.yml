@@ -1,0 +1,69 @@
+name: Release Candidate
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Artifact version (for example 1.0.0-rc.1)'
+        required: true
+        type: string
+permissions:
+  contents: read
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Verify wrapper
+        uses: gradle/actions/wrapper-validation@v6
+      - name: Validate release-candidate version
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$ ]]; then
+            echo "Release version must match ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$" >&2
+            exit 1
+          fi
+      - name: Clean build/test gate
+        run: ./gradlew --no-daemon clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build "-PguardianVersion=$RELEASE_VERSION"
+      - name: Stage release-candidate artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir release-artifacts
+          cp "guardian-paper/build/libs/guardian-paper-$RELEASE_VERSION.jar" release-artifacts/
+          cp "guardian-velocity/build/libs/guardian-velocity-$RELEASE_VERSION.jar" release-artifacts/
+          cp "cerberus-fabric/build/libs/cerberus-fabric-$RELEASE_VERSION.jar" release-artifacts/
+          cp LICENSE THIRD_PARTY_NOTICES.md release-artifacts/
+          (cd release-artifacts && sha256sum *.jar > SHA256SUMS.txt)
+      - name: Reject private-key/resource leakage
+        shell: bash
+        run: |
+          set -euo pipefail
+          for jar in release-artifacts/*.jar; do
+            if unzip -Z1 "$jar" | grep -Eiq '(^|/)(proxy-assertion\.key|guardian-server-auth\.key|cerberus-release-signing\.key|[^/]+\.(pem|key|p8|pk8))$'; then
+              echo "Private-key-like resource name found in $jar" >&2
+              exit 1
+            fi
+            tmp="$(mktemp -d)"
+            unzip -qq "$jar" -d "$tmp"
+            match="$(grep -rIl --binary-files=text -E -- '-----BEGIN ([A-Z0-9]+ )?PRIVATE KEY-----' "$tmp" | grep -Ev '\.class$' || true)"
+            rm -rf "$tmp"
+            if [[ -n "$match" ]]; then
+              echo "PEM private-key material found in a non-class resource in $jar" >&2
+              printf '%s\n' "$match" >&2
+              exit 1
+            fi
+          done
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: guardian-${{ inputs.version }}-release-candidate
+          path: release-artifacts/
+          if-no-files-found: error

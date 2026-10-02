@@ -1,6 +1,6 @@
 # Guardian shared Admission policy schema.
 # This file is portable between standalone Guardian-Paper authority and Guardian-Velocity authority.
-schema-version: 1
+schema-version: 2
 
 default-profile: default
 

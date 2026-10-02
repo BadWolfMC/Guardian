@@ -70,7 +70,7 @@ Guardian/Cerberus MUST:
 20. Use Adventure components and MiniMessage for Guardian-controlled player/staff-facing text, with safe typed internal placeholders.
 21. Use versioned, validated configuration files with explicit recovery semantics: an invalid administrator file is never silently overwritten; recoverable initial-startup syntax/validation failures are preserved to timestamped backups before packaged defaults are restored, while reload failures leave both the edited file and prior active snapshot untouched.
 22. Use new `guardian.*` permission nodes and provide an explicit eZProtector → Guardian permission migration guide rather than retaining legacy permission aliases.
-23. Keep Guardian permissions grouped by stable product domains (`guardian.admission.*`, `guardian.protection.*`, and `guardian.command.*`) rather than exposing Gradle/module names as the administrator-facing permission API.
+23. Keep Guardian permissions grouped by stable product/authority domains (`guardian.admission.*`, `guardian.protection.*`, `guardian.command.*`, and the explicitly network-authoritative `guardian.velocity.command.*`) rather than exposing Gradle/module names as the administrator-facing permission API.
 24. Make client-admission policy explicit per normalized client classification, with deterministic `ALLOW`, `DENY`, or `REQUIRE_CERBERUS` behavior rather than ambiguous implicit defaults.
 25. Provide a flexible Fabric mod-policy model with explicit allowlist/denylist semantics, orthogonal required-mod rules, per-mod constraints, deterministic conflict validation, and no need to whitelist irrelevant runtime/bootstrap entries merely to use allowlist mode.
 
@@ -608,12 +608,13 @@ All rule matching MUST normalize command roots deterministically and case-insens
 
 ### 11.3 Permission namespace and bypass semantics
 
-Guardian's administrator-facing permission API MUST be organized by product domain, not by implementation module:
+Guardian's administrator-facing permission API MUST be organized by product/authority domain, not by implementation module. Paper-local administration and Velocity/network-authoritative administration are intentionally distinct:
 
 ```text
 guardian.admission.*
 guardian.protection.*
 guardian.command.*
+guardian.velocity.command.*
 ```
 
 The initial semantic hierarchy SHOULD include at least:
@@ -635,9 +636,10 @@ guardian.protection.visibility.bypass.<command>
 guardian.protection.notify
 
 guardian.command.<administrative-command>
+guardian.velocity.command.<network-administrative-command>
 ```
 
-The exact administrative command leaves may be finalized with the command implementation, but the three domain roots above are fixed.
+The exact administrative command leaves may be finalized with the command implementation. The Admission/Protection/Paper-command roots remain stable product domains; `guardian.velocity.command.*` is the deliberately separate network-authority administration namespace finalized in Phase 5.
 
 Guardian MUST provide explicit aggregate permissions such as `guardian.protection.bypass`, `guardian.admission.client.bypass`, and `guardian.admission.mod.bypass`. Correct behavior MUST NOT depend on a permissions provider expanding `*` wildcard assignments. Administrators MAY still use provider-supported wildcards such as `guardian.protection.*` for convenience.
 
@@ -1837,7 +1839,7 @@ BadWolfMC does not require punishment commands for the initial Protection migrat
 - Protection command execution interception is deliberately limited to Paper's player-command path; Guardian does not subscribe to non-player server-command execution events.
 - the packaged namespace default is a conservative denylist of selected Bukkit information aliases rather than eZProtector's blanket colon blocker; administrators may opt into allowlist semantics explicitly.
 - per-command visibility bypass leaves use a deterministic bounded encoded command key.
-- the supported Paper reload lifecycle refreshes online command trees with `Player.updateCommands()` whenever Guardian activates a changed visibility policy; the user-facing `/guardian reload` command remains owned by the later operations phase.
+- the supported Paper reload lifecycle refreshes online command trees with `Player.updateCommands()` whenever Guardian activates a changed visibility policy; Phase 5/7 later expose this validated activation path through Paper-local `/guardian validate` and `/guardian reload`.
 - the exact Phase 1B YAML and migration semantics are documented in `docs/GUARDIAN_PROTECTION.md` and `docs/EZPROTECTOR_MIGRATION.md`.
 
 #### Phase 1B completion record — 2026-09-26
@@ -2127,6 +2129,10 @@ Refine/polish (basic command/inspection/logging implementation is owned by Phase
 
 Perform a final adversarial release-candidate audit.
 
+**Phase 7 implementation contract (2026-10-01 candidate):** the public Paper/Velocity host configuration and shared Admission policy baseline advances to schema 2. Guardian supports one reviewed pre-1.0 migration from the final Phase 6/release-candidate schema-1 shape, preserving administrator text/values and exact pre-migration backup bytes; `policy.yml` may backfill only the disabled signed-release trust block. This is not a promise to support arbitrary earlier internal schemas. Phase 7 also standardizes the offline release-manager helper, explicit signed-output paths, Java 25 CI/release-candidate workflows, checksums/license embedding, the three-key-domain operator contract, and changes-sensitive release verification described in `PHASE_7_IMPLEMENTATION.md` / `PHASE_7_VERIFICATION.md`. The security architecture and protocol/policy semantics remain those closed in Phase 6.
+
+Phase 7 is not formally closed until the actual Java 25 / Gradle 9.7.1 gate, final artifact inspection, supported upgrade test, and focused live closeout are recorded. Do not begin Phase 8 merely because the Phase 7 source candidate exists.
+
 ---
 
 ## Phase 8 — Minecraft 26.3 port
@@ -2238,7 +2244,7 @@ The following are hard project invariants unless explicitly revised:
 24. **No player/staff-facing Guardian feedback string is hard-coded in Java source; locale resources are authoritative.**
 25. **No existing malformed/invalid administrator config or locale file is silently regenerated or overwritten; recoverable startup replacement requires a preserved timestamped backup, prominent diagnostics, and full revalidation, while reload never rewrites the candidate.**
 26. **Any eZProtector-derived source must come from the identified BadWolfMC GPLv3 lineage unless licensing is deliberately revisited.**
-27. **Guardian permissions are domain-scoped under `guardian.admission.*`, `guardian.protection.*`, and `guardian.command.*`; runtime correctness does not depend on wildcard expansion by a permissions provider.**
+27. **Guardian permissions are domain/authority-scoped under `guardian.admission.*`, `guardian.protection.*`, `guardian.command.*`, and the deliberately separate network-authority `guardian.velocity.command.*`; runtime correctness does not depend on wildcard expansion by a permissions provider.**
 28. **Admission policy bypasses may bypass configured policy outcomes only; they never bypass protocol, session, manifest-structure, payload-limit, or trusted-proxy integrity checks.**
 29. **A client-class bypass does not silently turn `REQUIRE_CERBERUS` into ordinary `ALLOW`.**
 30. **Known client classifications use explicit deterministic actions; unknown Java brand rules cannot override trusted Bedrock classification or a positive Fabric/Cerberus requirement.**

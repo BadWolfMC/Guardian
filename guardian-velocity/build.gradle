@@ -24,6 +24,10 @@ base {
 }
 
 tasks.named('jar') {
+    from(rootProject.file('LICENSE')) { into 'META-INF'; rename { 'LICENSE-GPL-3.0.txt' } }
+    from(rootProject.file('THIRD_PARTY_NOTICES.md')) { into 'META-INF'; rename { 'THIRD-PARTY-NOTICES.md' } }
+    from(rootProject.file('licenses/Apache-2.0.txt')) { into 'META-INF/licenses'; rename { 'Apache-2.0.txt' } }
+
     from { configurations.runtimeClasspath.findAll { it.name.startsWith('snakeyaml-engine-') }.collect { zipTree(it) } }
     dependsOn project(':guardian-core').tasks.named('classes')
     dependsOn project(':guardian-protocol').tasks.named('classes')

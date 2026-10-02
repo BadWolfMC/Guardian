@@ -20,6 +20,7 @@
 *.zip
 proxy-assertion.key
 guardian-server-auth.key
+cerberus-release-signing.key
 
 # OS noise
 .DS_Store

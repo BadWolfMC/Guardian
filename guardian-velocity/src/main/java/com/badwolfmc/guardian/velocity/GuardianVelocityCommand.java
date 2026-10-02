@@ -123,6 +123,13 @@ final class GuardianVelocityCommand implements SimpleCommand {
         send(source, "command.status.velocity.assertion", tags(
             "source", runtime.settings().proxyAssertionSecret().sourceDescription(),
             "fingerprint", runtime.settings().proxyAssertionSecret().fingerprint()));
+        send(source, "command.status.velocity.security", TagResolver.builder()
+            .resolver(Placeholder.component("server_auth", localized(
+                runtime.settings().serverChallengeSigner() == null ? "command.value.disabled" : "command.value.enabled")))
+            .resolver(Placeholder.component("release_trust", localized(
+                runtime.admissionPolicy().cerberusReleaseTrust().required()
+                    ? "command.value.required" : "command.value.optional")))
+            .build());
         send(source, "command.status.velocity.snapshots", tags("snapshots", Integer.toString(inspections.size())));
     }
 

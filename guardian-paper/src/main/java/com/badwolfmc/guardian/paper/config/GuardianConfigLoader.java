@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Locale;
 
 public final class GuardianConfigLoader {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final int MAX_CONFIG_BYTES = 64 * 1024;
     private static final int MAX_HANDSHAKE_SECONDS = (int) (GuardianProtocol.MAX_HANDSHAKE_MILLIS / 1000L);
     private static final int MAX_LOCALE_ID_LENGTH = 32;

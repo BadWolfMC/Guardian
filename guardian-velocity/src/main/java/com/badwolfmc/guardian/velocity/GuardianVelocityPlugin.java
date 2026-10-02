@@ -11,6 +11,7 @@ import com.badwolfmc.guardian.core.GuardianDecision;
 import com.badwolfmc.guardian.core.ProtocolV1ResponseValidator;
 import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportService;
+import com.badwolfmc.guardian.core.operations.ConfigurationSchemaMigrator;
 import com.badwolfmc.guardian.core.operations.ActiveInspectionSnapshot;
 import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.core.operations.SafeDirectory;
@@ -111,6 +112,7 @@ public final class GuardianVelocityPlugin {
         ensureAdministratorFile("config.yml");
         ensureAdministratorFile("policy.yml");
         ensureAdministratorFile("locales/" + VelocityMessages.FALLBACK_LOCALE + ".properties");
+        migratePublicReleaseSchemas();
 
         try {
             if (new VelocityProxyAssertionKeyProvisioner().ensureGenerated(dataDirectory)) {
@@ -161,6 +163,30 @@ public final class GuardianVelocityPlugin {
             runtime.settings().handshakeTimeoutSeconds(),
             runtime.settings().proxyAssertionSecret().sourceDescription(),
             runtime.settings().proxyAssertionSecret().fingerprint());
+    }
+
+    private void migratePublicReleaseSchemas() {
+        migrateAdministratorSchema(
+            dataDirectory.resolve("config.yml"),
+            com.badwolfmc.guardian.velocity.config.VelocityConfigLoader.MAX_CONFIG_BYTES,
+            ConfigurationSchemaMigrator.Surface.VELOCITY_CONFIG);
+        migrateAdministratorSchema(
+            dataDirectory.resolve("policy.yml"),
+            com.badwolfmc.guardian.core.policy.AdmissionPolicyLoader.MAX_POLICY_BYTES,
+            ConfigurationSchemaMigrator.Surface.ADMISSION_POLICY);
+    }
+
+    private void migrateAdministratorSchema(Path path, int maxBytes, ConfigurationSchemaMigrator.Surface surface) {
+        try {
+            var prepared = ConfigurationSchemaMigrator.prepare(path, maxBytes, surface);
+            if (prepared.isEmpty()) return;
+            var published = ConfigurationSchemaMigrator.publish(prepared.get());
+            logger.warn("Guardian-Velocity upgraded {} from schema {} to {}. Original preserved at {}. Review the migrated file before future edits.",
+                path.getFileName(), published.fromSchema(), published.toSchema(), published.backupPath());
+        } catch (IOException ex) {
+            throw new IllegalStateException("Guardian-Velocity could not safely migrate administrator file '"
+                + path + "': " + ex.getMessage(), ex);
+        }
     }
 
     @Subscribe
@@ -619,7 +645,7 @@ public final class GuardianVelocityPlugin {
         if (!session.tryMarkSummaryLogged()) return;
         String profile = session.resolvedProfile() == null ? "<unknown>" : session.resolvedProfile().profile().id();
         int mods = session.manifest() == null ? 0 : session.manifest().entries().size();
-        StringBuilder summary = new StringBuilder("Guardian ")
+        StringBuilder summary = new StringBuilder()
             .append(player.getUsername()).append(' ').append(decision.outcome()).append(": ")
             .append(session.classification() == null ? "UNKNOWN" : session.classification())
             .append(", brand=").append(session.observedBrand() == null ? "<unknown>" : session.observedBrand())

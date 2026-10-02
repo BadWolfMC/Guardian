@@ -133,3 +133,7 @@ BRIDGE-005 is retired. The only active implementation bridges entering Phase 5 a
 ## Phase 5 closeout bridge review
 
 As of 2026-09-29, **Phase 5 is complete**. The final Java 25 / Gradle 9.7.1 gate is green at 178 tests with zero failures/errors/skips, and the focused live matrix passed. BRIDGE-003 and BRIDGE-004 are retired under their objective conditions above. Phase 5 introduced no replacement bridge, so the active register is empty entering Phase 6.
+
+## Phase 7 implementation-candidate bridge review
+
+The Phase 7 operations/release-hardening candidate introduces **no new implementation bridge**. The schema-1 → schema-2 migration is a deliberate first-public-release compatibility contract rather than temporary scaffolding; the release-manager helper and CI/release workflows are intended permanent operational surfaces. Phase 8 remains a separately gated Minecraft 26.3 port and must not absorb unfinished Phase 7 verification work.

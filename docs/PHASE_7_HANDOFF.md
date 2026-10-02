@@ -1,6 +1,6 @@
 # Phase 7 handoff — operations, UX, and release hardening
 
-**Active handoff.** Phase 6 is closed. The final Java 25 / Gradle 9.7.1 gate is green at 355 tests (0 failures, 0 errors, 11 documented Windows symlink-privilege skips), the focused signed-release/server-authentication/quarantine/Velocity live matrix passed, and the final post-live security/privacy/code-quality review found no Phase 6 blocker.
+**Entering handoff consumed by the Phase 7 candidate.** Phase 6 is closed. See `PHASE_7_IMPLEMENTATION.md` for the resulting source changes and `PHASE_7_VERIFICATION.md` for the still-required closeout evidence. The final Java 25 / Gradle 9.7.1 gate is green at 355 tests (0 failures, 0 errors, 11 documented Windows symlink-privilege skips), the focused signed-release/server-authentication/quarantine/Velocity live matrix passed, and the final post-live security/privacy/code-quality review found no Phase 6 blocker.
 
 ## Expected entering architecture
 

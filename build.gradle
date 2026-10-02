@@ -1,6 +1,6 @@
 allprojects {
     group = 'com.badwolfmc.guardian'
-    version = '0.1.0-phase6'
+    version = rootProject.providers.gradleProperty('guardianVersion').orElse('0.1.0-phase7').get()
 
     repositories {
         mavenCentral()
@@ -23,6 +23,10 @@ subprojects {
         }
         tasks.withType(Test).configureEach {
             useJUnitPlatform()
+        }
+        tasks.withType(org.gradle.api.tasks.bundling.AbstractArchiveTask).configureEach {
+            preserveFileTimestamps = false
+            reproducibleFileOrder = true
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.badwolfmc.guardian.paper;
 
 import com.badwolfmc.guardian.core.operations.SafeDirectory;
+import com.badwolfmc.guardian.core.operations.ConfigurationSchemaMigrator;
 import com.badwolfmc.guardian.core.operations.DiagnosticText;
 import com.badwolfmc.guardian.core.artifact.ArtifactCatalogException;
 import com.badwolfmc.guardian.core.artifact.ArtifactImportService;
@@ -38,6 +39,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
         ensureAdministratorFile("locales/" + GuardianLocaleLoader.FALLBACK_LOCALE + ".properties");
 
         Path data = getDataFolder().toPath();
+        migratePublicReleaseSchemas(data);
         runtimeManager = new GuardianRuntimeManager(data.resolve("config.yml"), data.resolve("locales"));
         GuardianRuntimeSnapshot snapshot = loadInitialWithRecovery(data);
 
@@ -63,6 +65,31 @@ public final class GuardianPaperPlugin extends JavaPlugin {
             + ", admission=" + snapshot.settings().admissionEnabled()
             + ", protection=" + snapshot.settings().protectionEnabled()
             + ", locale=" + snapshot.settings().locale() + ".");
+    }
+
+    private void migratePublicReleaseSchemas(Path data) {
+        migrateAdministratorSchema(
+            data.resolve("config.yml"),
+            com.badwolfmc.guardian.paper.config.GuardianConfigLoader.MAX_CONFIG_BYTES,
+            ConfigurationSchemaMigrator.Surface.PAPER_CONFIG);
+        migrateAdministratorSchema(
+            data.resolve("policy.yml"),
+            com.badwolfmc.guardian.core.policy.AdmissionPolicyLoader.MAX_POLICY_BYTES,
+            ConfigurationSchemaMigrator.Surface.ADMISSION_POLICY);
+    }
+
+    private void migrateAdministratorSchema(Path path, int maxBytes, ConfigurationSchemaMigrator.Surface surface) {
+        try {
+            var prepared = ConfigurationSchemaMigrator.prepare(path, maxBytes, surface);
+            if (prepared.isEmpty()) return;
+            var published = ConfigurationSchemaMigrator.publish(prepared.get());
+            getLogger().warning("Guardian upgraded " + path.getFileName() + " from schema "
+                + published.fromSchema() + " to " + published.toSchema() + ". Original preserved at "
+                + published.backupPath() + ". Review the migrated file before future edits.");
+        } catch (IOException ex) {
+            throw new IllegalStateException("Guardian could not safely migrate administrator file '"
+                + path + "': " + ex.getMessage(), ex);
+        }
     }
 
     @Override

@@ -243,7 +243,7 @@ class AdmissionPolicyLoaderTest {
     private static String basePolicy(String rules) {
         String rulesBlock = rules.isBlank() ? "{}" : "\n" + rules.strip().indent(8).stripTrailing();
         return """
-            schema-version: 1
+            schema-version: 2
             default-profile: default
             identity-overrides: {}
             profiles:

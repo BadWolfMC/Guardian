@@ -1,5 +1,5 @@
 # Guardian-Velocity owns network Admission on a proxy deployment.
-schema-version: 1
+schema-version: 2
 
 deployment:
   # Explicit so a copied/misplaced config fails loudly rather than changing authority accidentally.

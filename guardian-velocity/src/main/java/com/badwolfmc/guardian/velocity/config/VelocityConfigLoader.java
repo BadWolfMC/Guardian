@@ -19,7 +19,7 @@ import java.util.Set;
 
 /** Strict parser for Guardian-Velocity's proxy-local operational settings. */
 public final class VelocityConfigLoader {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final int MAX_CONFIG_BYTES = 64 * 1024;
     private static final int MAX_LOCALE_ID_LENGTH = 32;
     private static final int MAX_HANDSHAKE_SECONDS = (int) (GuardianProtocol.MAX_HANDSHAKE_MILLIS / 1000L);

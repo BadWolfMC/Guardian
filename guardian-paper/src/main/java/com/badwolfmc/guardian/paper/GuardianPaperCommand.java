@@ -130,6 +130,17 @@ final class GuardianPaperCommand implements BasicCommand {
             .resolver(Placeholder.unparsed("source", source))
             .resolver(Placeholder.unparsed("fingerprint", fingerprint))
             .build());
+        boolean standaloneAuthority = snapshot.settings().authorityMode() == PaperAuthorityMode.STANDALONE;
+        boolean releaseRequired = standaloneAuthority && snapshot.admissionPolicy() != null
+            && snapshot.admissionPolicy().cerberusReleaseTrust().required();
+        send(sender, "command.status.paper.security", TagResolver.builder()
+            .resolver(Placeholder.component("server_auth", localized(
+                !standaloneAuthority ? "command.value.not-applicable"
+                    : snapshot.settings().serverChallengeSigner() == null ? "command.value.disabled" : "command.value.enabled")))
+            .resolver(Placeholder.component("release_trust", localized(
+                !standaloneAuthority ? "command.value.not-applicable"
+                    : releaseRequired ? "command.value.required" : "command.value.optional")))
+            .build());
         send(sender, "command.status.paper.snapshots", tags(
             "authoritative", Integer.toString(inspectionService.authoritativeCount()),
             "backend", Integer.toString(inspectionService.backendCount())));
