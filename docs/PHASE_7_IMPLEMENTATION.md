@@ -1,6 +1,6 @@
 # Phase 7 implementation — operations, UX, documentation, and release hardening
 
-**Candidate implementation.** This document records the Phase 7 source changes constructed against the exact operator-supplied repository `Guardian(20261001-114756).zip` (SHA-256 `1382269cd860e8c4d7c4368e4b187e883b7e38677cef23697235d52264775d28`). Phase 7 is not formally closed until the Java 25 / Gradle 9.7.1 verification gate and the small changes-sensitive live matrix in `PHASE_7_VERIFICATION.md` pass.
+**Complete.** This document records the Phase 7 source changes and their final closeout. The implementation began against `Guardian(20261001-114756).zip` (SHA-256 `1382269cd860e8c4d7c4368e4b187e883b7e38677cef23697235d52264775d28`) and closed against `Guardian(20261005-120941).zip` (SHA-256 `caf5b57930b6cad2c0a36e7c6d941e4f0ff099814280ec8bebde2448007b5b24`). The final Java 25 / Gradle 9.7.1 verification gate and changes-sensitive live matrix are recorded in `PHASE_7_VERIFICATION.md`.
 
 ## Readiness review
 
@@ -123,15 +123,15 @@ Phase 7 does not:
 - add NMS/CraftBukkit implementation reflection/server Mixins/packet libraries; or
 - begin the Minecraft 26.3 port.
 
-No new implementation bridge is required by this candidate.
+No new implementation bridge was introduced by Phase 7.
 
 
 ## 2026-10-05 closeout review
 
-Operator verification closed the planned Phase 7 live matrix at 365 green tests and passed clean Paper/Velocity operation, the supported schema-1 upgrade, release-key/server-key/signing/checksum helpers, the Velocity-authoritative signed-Cerberus happy path, and the Guardian server-authentication mismatch UX.
+Operator verification first closed the planned Phase 7 live matrix at 365 green tests and passed clean Paper/Velocity operation, the supported schema-1 upgrade, release-key/server-key/signing/checksum helpers, the Velocity-authoritative signed-Cerberus happy path, and the Guardian server-authentication mismatch UX.
 
-The clean Velocity status check exposed one late release-metadata defect: `GuardianVelocityPlugin.VERSION` was still hard-coded to `0.1.0-phase6`. The closeout patch replaces it with a generated compile-time constant sourced from the Gradle project version. This preserves Velocity annotation processing while making `-PguardianVersion` authoritative across the Paper descriptor, Velocity plugin metadata/status, Cerberus Fabric metadata, and signed Cerberus release identity.
+The clean Velocity status check exposed one late release-metadata defect: the plugin version was still hard-coded to `0.1.0-phase6`. The first corrective approach used generated Java build information, but the Java language server correctly exposed that generated-source lifecycle as brittle after `clean`. The final implementation removes that generated Java dependency entirely: Gradle expands the project version into `guardian-velocity/src/main/resources/velocity-plugin.json`, Velocity loads that metadata, and `/guardianv status` reads the loaded plugin description. This mirrors Paper's existing `plugin.yml` expansion plus runtime `PluginMeta` lookup and keeps `-PguardianVersion` authoritative without hard-coded Java release strings.
 
-Release-manager feedback also resulted in a small ergonomics improvement: the normal signing path now accepts an explicit output directory and automatically creates `cerberus-fabric-<version>-signed.jar`; an advanced exact `SignedOutput` override remains available but must contain the requested version. `RELEASE_PROCESS.md` now begins with a plain-language normal-release walkthrough.
+Release-manager feedback also resulted in a small ergonomics improvement: the normal signing path accepts an explicit output directory and automatically creates `cerberus-fabric-<version>-signed.jar`; an advanced exact `SignedOutput` override remains available but must contain the requested version. `RELEASE_PROCESS.md` begins with a plain-language normal-release walkthrough.
 
-These changes do not alter Admission/Protection authority, protocol semantics, policy semantics, key-domain separation, manifest privacy, or signed-release trust claims.
+The final post-fix gate is green at 366 tests with 0 failures, 0 errors, and 11 documented Windows symlink-privilege skips. Live `/guardianv status` reports `0.1.0-phase7`, the built `velocity-plugin.json` contains `0.1.0-phase7`, and VS Code no longer reports the generated-version annotation/source errors. These changes do not alter Admission/Protection authority, protocol semantics, policy semantics, key-domain separation, manifest privacy, or signed-release trust claims. Phase 7 is formally closed; Phase 7.5 owns production-readiness/GitHub-preparedness work while the live network remains on 26.2.

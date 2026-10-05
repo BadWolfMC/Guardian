@@ -8,7 +8,6 @@ dependencies {
     implementation "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
 
     compileOnly "com.velocitypowered:velocity-api:${velocity_api_version}"
-    annotationProcessor "com.velocitypowered:velocity-api:${velocity_api_version}"
     compileOnly "org.geysermc.geyser:api:${geyser_api_version}"
     compileOnly "org.geysermc.floodgate:api:${floodgate_api_version}"
     compileOnly "net.luckperms:api:${luckperms_api_version}"
@@ -24,32 +23,16 @@ base {
 }
 
 
-def generatedVersionDir = layout.buildDirectory.dir('generated/sources/guardianVersion/java')
-def guardianVelocityVersion = version.toString()
-
-tasks.register('generateGuardianVersionSource') {
-    inputs.property 'version', guardianVelocityVersion
-    outputs.dir generatedVersionDir
-    doLast {
-        if (!(guardianVelocityVersion ==~ /[0-9A-Za-z][0-9A-Za-z._-]{0,63}/)) {
-            throw new GradleException('Guardian version must match ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$')
-        }
-        def packageDir = generatedVersionDir.get().dir('com/badwolfmc/guardian/velocity').asFile
-        packageDir.mkdirs()
-        new File(packageDir, 'GuardianBuildInfo.java').text = """package com.badwolfmc.guardian.velocity;
-
-/** Generated from the Gradle project version. Do not edit. */
-final class GuardianBuildInfo {
-    static final String VERSION = \"${guardianVelocityVersion}\";
-
-    private GuardianBuildInfo() {}
+def guardianVersion = version.toString()
+if (!(guardianVersion ==~ /[0-9A-Za-z][0-9A-Za-z._-]{0,63}/)) {
+    throw new GradleException('Guardian version must match ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$')
 }
-"""
+
+processResources {
+    inputs.property 'version', guardianVersion
+    filesMatching('velocity-plugin.json') {
+        expand version: guardianVersion
     }
-}
-
-tasks.named('compileJava') {
-    dependsOn tasks.named('generateGuardianVersionSource')
 }
 
 tasks.named('jar') {
@@ -65,6 +48,5 @@ tasks.named('jar') {
 }
 
 sourceSets {
-    main.java.srcDir generatedVersionDir
     main.resources.srcDir rootProject.file('shared-resources')
 }

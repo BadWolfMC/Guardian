@@ -91,11 +91,22 @@ class Phase5OperationsArchitectureTest {
             "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
         assertTrue(plugin.contains("private void logSummary"));
         assertFalse(plugin.contains("new StringBuilder(\"Guardian \")"));
-        assertTrue(plugin.contains("static final String VERSION = GuardianBuildInfo.VERSION;"));
+        assertFalse(plugin.contains("GuardianBuildInfo"));
         assertFalse(plugin.contains("0.1.0-phase6"));
+
+        String command = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityCommand.java"));
+        assertTrue(command.contains("container.getDescription().getVersion()"),
+            "Velocity status should report the version from loaded plugin metadata");
+
         String build = Files.readString(Path.of("build.gradle"));
-        assertTrue(build.contains("generateGuardianVersionSource"));
-        assertTrue(build.contains("main.java.srcDir generatedVersionDir"));
+        assertTrue(build.contains("filesMatching('velocity-plugin.json')"));
+        assertFalse(build.contains("generateGuardianVersionSource"));
+        assertFalse(build.contains("generatedVersionDir"));
+
+        String metadata = Files.readString(Path.of("src/main/resources/velocity-plugin.json"));
+        assertTrue(metadata.contains("\"version\": \"${version}\""));
+        assertTrue(metadata.contains("\"main\": \"com.badwolfmc.guardian.velocity.GuardianVelocityPlugin\""));
     }
 
 }

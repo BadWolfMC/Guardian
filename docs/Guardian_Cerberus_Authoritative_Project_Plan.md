@@ -2131,9 +2131,21 @@ Perform a final adversarial release-candidate audit.
 
 **Phase 7 implementation contract (2026-10-01 candidate):** the public Paper/Velocity host configuration and shared Admission policy baseline advances to schema 2. Guardian supports one reviewed pre-1.0 migration from the final Phase 6/release-candidate schema-1 shape, preserving administrator text/values and exact pre-migration backup bytes; `policy.yml` may backfill only the disabled signed-release trust block. This is not a promise to support arbitrary earlier internal schemas. Phase 7 also standardizes the offline release-manager helper, explicit signed-output paths, Java 25 CI/release-candidate workflows, checksums/license embedding, the three-key-domain operator contract, and changes-sensitive release verification described in `PHASE_7_IMPLEMENTATION.md` / `PHASE_7_VERIFICATION.md`. The security architecture and protocol/policy semantics remain those closed in Phase 6.
 
-Phase 7 is not formally closed until the actual Java 25 / Gradle 9.7.1 gate, final artifact inspection, supported upgrade test, and focused live closeout are recorded. Do not begin Phase 8 merely because the Phase 7 source candidate exists.
+Phase 7 is not formally closed until the actual Java 25 / Gradle 9.7.1 gate, final artifact inspection, supported upgrade test, and focused live closeout are recorded. **This closeout condition was satisfied on 2026-10-05; Phase 7 is complete.**
 
-**Phase 7 closeout evidence (2026-10-05):** the operator-executed Java 25 / Gradle 9.7.1 candidate is green at 365 tests with 0 failures, 0 errors, and the same 11 documented Windows symlink-privilege skips. Clean Paper/Velocity operation, schema-1 → schema-2 migration, offline key/signing/checksum helpers, Velocity-authoritative signed Cerberus, and the server-authentication mismatch UX all passed. The clean Velocity status check exposed one late metadata defect—its plugin version remained a hard-coded Phase 6 value—and release-manager feedback requested an automatically versioned signed Cerberus filename plus simpler release documentation. The final closeout patch addresses only those release/metadata ergonomics; after one final rebuild and `/guardianv status` confirmation, Phase 7 may be formally closed without repeating the earlier live matrix.
+**Phase 7 formal closeout (2026-10-05):** COMPLETE. The final Java 25 / Gradle 9.7.1 gate is green at 366 tests with 0 failures, 0 errors, and the same 11 documented Windows symlink-privilege skips. Clean Paper/Velocity operation, schema-1 → schema-2 migration, offline key/signing/checksum helpers, version-bearing signed-JAR naming, Velocity-authoritative signed Cerberus, server-authentication mismatch UX, and final metadata/version parity all passed. Paper derives runtime version from expanded `plugin.yml`/`PluginMeta`; Velocity derives it from expanded `velocity-plugin.json`/loaded plugin metadata; Cerberus derives it from the same Gradle version. No active implementation bridge remains.
+
+---
+
+## Phase 7.5 — Production readiness, GitHub preparedness, and final 26.2 hardening
+
+**Goal:** Use the remaining Minecraft 26.2 production window to make the repository and deployment genuinely release-ready before the platform-port risk of Phase 8.
+
+Phase 7.5 is intentionally not a new feature phase and must not reopen the Phase 6/7 security architecture without a concrete defect. It should concentrate on final source/repository hygiene, GitHub/public-project preparedness, CI/release workflow rehearsal, production deployment/runbook quality, backup/rollback/rotation procedures, operator-facing documentation cleanup/rewrite, representative 26.2 production/live testing, and any small hardening defects found by that work.
+
+Phase 7.5 should also review whether the current pre-1.0 versioning/release labels and GitHub-facing material are ready for the first public release, but public version selection is a release decision rather than a reason to change protocol or configuration semantics.
+
+Do not begin the Minecraft/Paper/Fabric 26.3 port during Phase 7.5. Phase 8 starts only after the production-readiness pass is explicitly closed.
 
 ---
 

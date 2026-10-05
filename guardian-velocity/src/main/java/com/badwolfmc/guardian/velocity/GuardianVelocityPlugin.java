@@ -40,8 +40,6 @@ import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
 import com.velocitypowered.api.event.player.configuration.PlayerConfigurationEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
-import com.velocitypowered.api.plugin.Dependency;
-import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -62,21 +60,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /** Production Velocity host for Guardian's network-authoritative Admission domain. */
-@Plugin(
-    id = "guardian",
-    name = "Guardian",
-    version = GuardianVelocityPlugin.VERSION,
-    description = "Guardian Admission for Velocity",
-    authors = {"BadWolfMC"},
-    dependencies = {
-        @Dependency(id = "geyser", optional = true),
-        @Dependency(id = "floodgate", optional = true),
-        @Dependency(id = "luckperms", optional = true)
-    }
-)
 public final class GuardianVelocityPlugin {
-    static final String VERSION = GuardianBuildInfo.VERSION;
-
     private static final ChannelIdentifier PRESENCE =
         MinecraftChannelIdentifier.from(GuardianProtocol.PRESENCE_CHANNEL);
     private static final ChannelIdentifier CHALLENGE =

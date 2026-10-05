@@ -333,6 +333,29 @@ Retained candidate artifact SHA-256 values before the final metadata/ergonomics 
 
 Operator live/release verification passed clean standalone Paper status/validate/reload, clean Velocity status/validate/reload behavior, a representative final Phase 6 schema-1 → schema-2 upgrade with preserved administrator values and exact backup plus idempotent second startup, release-key generation, Guardian server-authentication key generation, Cerberus signing, checksum generation, the Velocity-authoritative signed-Cerberus 166-entry happy path, and the intentional Guardian server-authentication mismatch/fail-closed timeout UX.
 
-The clean Velocity status check exposed one final release-metadata defect: `GuardianVelocityPlugin.VERSION` remained the hard-coded Phase 6 string even though Gradle produced a Phase 7 JAR filename. The final closeout patch replaces that string with a generated compile-time version constant sourced from Gradle so Velocity annotation metadata and `/guardianv status` follow `guardianVersion`. Release-manager feedback also prompted automatic `cerberus-fabric-<version>-signed.jar` naming when an explicit output directory is used, plus a plain-language release walkthrough.
+The clean Velocity status check exposed one final release-metadata defect: `GuardianVelocityPlugin.VERSION` remained the hard-coded Phase 6 string even though Gradle produced a Phase 7 JAR filename. The first closeout correction replaced that string with generated Java build information; the later final closeout baseline superseded that intermediate approach with Gradle-expanded `velocity-plugin.json` metadata plus runtime loaded-plugin metadata lookup, eliminating the generated-source/IDE lifecycle issue. Release-manager feedback also prompted automatic `cerberus-fabric-<version>-signed.jar` naming when an explicit output directory is used, plus a plain-language release walkthrough.
 
-Those closeout changes require one final Java 25 / Gradle 9.7.1 rebuild and `/guardianv status` confirmation before Phase 7 is marked formally closed. They do not require repetition of the Phase 6 adversarial/live matrix if the final gate is green.
+Those closeout changes required one final Java 25 / Gradle 9.7.1 rebuild and `/guardianv status` confirmation before formal closure; that requirement was satisfied by the final baseline recorded below. They did not require repetition of the Phase 6 adversarial/live matrix.
+
+
+## Phase 7 formal closeout baseline — 2026-10-05
+
+The repository accepted as the final Phase 7 baseline and entering Phase 7.5 is:
+
+- archive: `Guardian(20261005-120941).zip`
+- archive SHA-256: `caf5b57930b6cad2c0a36e7c6d941e4f0ff099814280ec8bebde2448007b5b24`
+- source default: `0.1.0-phase7`
+- environment: Java 25 / Gradle 9.7.1 / Windows 11
+- retained Gradle XML: **366 tests, 0 failures, 0 errors, 11 skipped**
+- module totals: Core 122/0/0/4, Paper 95/0/0/4, Protection 20/0/0/0, Protocol 50/0/0/0, Velocity 60/0/0/3, Cerberus 19/0/0/0 (tests/failures/errors/skipped)
+- final unsigned distributable hashes:
+  - Guardian-Paper `0.1.0-phase7`: `7c11d9b3e052c11e595a29c2a24cc7f04d696143750e18fb6e1a579652d08578`
+  - Guardian-Velocity `0.1.0-phase7`: `6cf3b7dabea8b88b1415d57d0ebcf2158d05e95970d90a1aea15b46429184cf4`
+  - Cerberus-Fabric unsigned `0.1.0-phase7`: `946d1d9277333ee0acb457bf34a7743eb8f48bdf49f0579ed70d6a6779a1b683`
+- latest post-helper signed smoke (operator-generated, not retained in this final ZIP): `cerberus-fabric-0.1.0-phase7-smoke-signed.jar`, finished-file SHA-256 `fda05ddb12560d313941ff7e7dfcda0dd5e4e10b98acc9ef1170f03e3c2f4aaa`, canonical signer SHA-256 `103ebc6bf2a424f49ffc92d7772f9be94278cb6babae3a1d34b4c6982e9971ef`
+
+Final closeout verification confirmed clean Paper/Velocity operation, supported schema migration, release/key/checksum helper behavior, version-bearing signed-JAR naming, signed-Cerberus Velocity Admission, server-authentication mismatch privacy/fail-closed behavior, and metadata/version parity across Paper, Velocity, and Cerberus. Velocity's intermediate hard-coded/generated-Java version approaches were replaced by build-time `velocity-plugin.json` resource expansion plus runtime loaded-metadata lookup; Paper retains its equivalent `plugin.yml`/`PluginMeta` model. No active implementation bridge remains.
+
+The operator's ZIP intentionally contained a root-level `velocity-plugin.json` extracted manually for inspection. That file is not project source and is excluded from this accepted source baseline; the authoritative resource remains `guardian-velocity/src/main/resources/velocity-plugin.json`.
+
+Phase 7 is formally closed. Phase 7.5 owns final production-readiness, GitHub-preparedness, hardening/testing, and documentation cleanup on Minecraft 26.2 before Phase 8 begins the 26.3 port.

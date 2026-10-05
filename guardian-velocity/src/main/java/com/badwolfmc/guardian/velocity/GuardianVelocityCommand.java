@@ -105,7 +105,7 @@ final class GuardianVelocityCommand implements SimpleCommand {
         if (!require(source, STATUS_PERMISSION)) return;
         VelocityRuntimeSnapshot runtime = runtimeManager.current();
         send(source, "command.status.velocity.header", tags(
-            "version", GuardianVelocityPlugin.VERSION,
+            "version", pluginVersion(),
             "protocol", Integer.toString(GuardianProtocol.VERSION)));
         send(source, "command.status.velocity.runtime", tags(
             "locale", runtime.settings().locale(),
@@ -131,6 +131,12 @@ final class GuardianVelocityCommand implements SimpleCommand {
                     ? "command.value.required" : "command.value.optional")))
             .build());
         send(source, "command.status.velocity.snapshots", tags("snapshots", Integer.toString(inspections.size())));
+    }
+
+    private String pluginVersion() {
+        return server.getPluginManager().fromInstance(plugin)
+            .flatMap(container -> container.getDescription().getVersion())
+            .orElse("unknown");
     }
 
     private void validate(CommandSource source, String[] args) {

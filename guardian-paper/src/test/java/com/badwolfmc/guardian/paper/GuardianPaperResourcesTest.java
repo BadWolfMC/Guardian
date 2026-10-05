@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -44,6 +46,20 @@ class GuardianPaperResourcesTest {
         assertResourceContains(loader, "config.yml", "schema-version: 2");
         assertResourceContains(loader, "policy.yml", "schema-version: 2");
         assertResourceContains(loader, "locales/en_us.properties", "schema-version=1");
+    }
+
+    @Test
+    void paperVersionComesFromGradleExpandedPluginMetadata() throws Exception {
+        String build = Files.readString(Path.of("build.gradle"));
+        String command = Files.readString(Path.of(
+            "src/main/java/com/badwolfmc/guardian/paper/GuardianPaperCommand.java"));
+        String pluginYml = Files.readString(Path.of("src/main/resources/plugin.yml"));
+
+        assertTrue(build.contains("filesMatching('plugin.yml')"));
+        assertTrue(build.contains("expand version: guardianVersion"));
+        assertTrue(pluginYml.contains("version: '${version}'"));
+        assertTrue(command.contains("plugin.getPluginMeta().getVersion()"),
+            "Paper status should report the version from loaded plugin metadata");
     }
 
     private static void assertResourceContains(ClassLoader loader, String resource, String expected) throws Exception {

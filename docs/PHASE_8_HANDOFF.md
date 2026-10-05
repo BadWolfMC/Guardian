@@ -1,11 +1,13 @@
 # Phase 8 handoff — Minecraft / Paper / Fabric 26.3 port
 
-**Do not start this handoff until Phase 7 verification is formally closed.**
+**Do not start this handoff until Phase 7.5 production-readiness verification is formally closed.**
 
 
-## Phase 7 final-closeout note
+## Phase 7 / 7.5 prerequisite note
 
-The Phase 7 live/release matrix has passed. Before starting this handoff, verify the final closeout patch by rerunning the Java 25 / Gradle 9.7.1 gate and confirming `/guardianv status` reports the Gradle-supplied version rather than the stale Phase 6 literal. Also retain the final regenerated artifact hashes. No additional Phase 7 adversarial connection matrix is required if those checks are green.
+Phase 7 is formally closed at 366 green tests with metadata/version parity verified across Paper, Velocity, and Cerberus. Phase 7.5 deliberately follows it on Minecraft 26.2 for final production readiness, GitHub preparedness, repository/documentation cleanup, release rehearsal, and focused live hardening.
+
+Do not begin this 26.3 handoff until Phase 7.5 explicitly closes. Phase 8 remains a platform-version port rather than a continuation of release-preparedness work.
 
 ## Entering invariant
 
@@ -30,11 +32,12 @@ Preserve:
 
 Before changing target versions:
 
-1. Phase 7 Java 25 / Gradle 9.7.1 gate is green.
-2. A public/release-candidate artifact set and checksums exist.
-3. Clean install, supported schema upgrade, signing helper, and focused Velocity/standalone checks are closed.
-4. Paper 26.3 is sufficiently stable to target deliberately.
-5. Any 26.2-only workaround is identified explicitly before removal.
+1. Phase 7 is formally closed and the Java 25 / Gradle 9.7.1 gate is green.
+2. Phase 7.5 production-readiness/GitHub-preparedness work is formally closed.
+3. A public/release-candidate artifact set and checksums exist.
+4. Clean install, supported schema upgrade, signing helper, production deployment/rollback rehearsal, and focused Velocity/standalone checks are closed.
+5. Paper 26.3 is sufficiently stable to target deliberately.
+6. Any 26.2-only workaround is identified explicitly before removal.
 
 ## Port scope
 

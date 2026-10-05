@@ -1,0 +1,13 @@
+{
+  "id": "guardian",
+  "main": "com.badwolfmc.guardian.velocity.GuardianVelocityPlugin",
+  "name": "Guardian",
+  "version": "${version}",
+  "description": "Guardian Admission for Velocity",
+  "authors": ["BadWolfMC"],
+  "dependencies": [
+    {"id": "geyser", "optional": true},
+    {"id": "floodgate", "optional": true},
+    {"id": "luckperms", "optional": true}
+  ]
+}

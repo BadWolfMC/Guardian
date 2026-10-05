@@ -10,7 +10,6 @@ import java.nio.file.attribute.PosixFilePermission;
 import java.security.KeyPairGenerator;
 import java.util.Base64;
 import java.util.EnumSet;
-import java.util.Set;
 
 /** Offline helper for generating the Cerberus release-signing Ed25519 identity. */
 public final class CerberusReleaseIdentityGenerator {

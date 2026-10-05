@@ -13,9 +13,9 @@ BadWolfMC's preferred network deployment is **Guardian-Velocity as the Admission
 
 ## Current release-hardening state
 
-Phases 0 through 6 are closed. Phase 7 is in final closeout. The verified Phase 7 candidate is green at **365 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**, and its clean-install, supported schema-upgrade, release-helper, signed-Cerberus, server-authentication-mismatch, and Velocity-authoritative checks have passed.
+Phases 0 through 7 are closed. The final Phase 7 Java 25 / Gradle 9.7.1 gate is green at **366 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**. Clean standalone Paper, clean Velocity, supported schema migration, release-helper/signing, signed-Cerberus, server-authentication-mismatch, metadata/version-parity, and Velocity-authoritative checks all passed. See `docs/PHASE_7_VERIFICATION.md`.
 
-The source default is `0.1.0-phase7`; final release candidates may supply an explicit version using `-PguardianVersion=<version>`. One final rebuild/status confirmation is required after the closeout patch that removes the stale hard-coded Velocity Phase 6 version and makes the release helper generate a version-bearing signed Cerberus filename automatically. See `docs/PHASE_7_VERIFICATION.md`.
+The source default is `0.1.0-phase7`; final release candidates may supply an explicit version using `-PguardianVersion=<version>`. Paper publishes that version through `plugin.yml`; Velocity publishes it through generated resource expansion into `velocity-plugin.json` and reads the loaded plugin metadata at runtime; Cerberus uses the same Gradle version in Fabric metadata and release signing.
 
 The authoritative architecture remains `docs/Guardian_Cerberus_Authoritative_Project_Plan.md`.
 
@@ -27,7 +27,7 @@ The authoritative architecture remains `docs/Guardian_Cerberus_Authoritative_Pro
 - Fabric Loader/Fabric API matching the Cerberus 26.2 build
 - LuckPerms, Geyser, and Floodgate are optional integrations unless your deployment uses the corresponding features
 
-Do **not** begin a 26.3 port on this branch; that is Phase 8.
+Do **not** begin a 26.3 port yet. Phase 7.5 is the active production-readiness/GitHub-preparedness pass on Minecraft 26.2; the 26.3 platform port remains Phase 8.
 
 ## Administrator documentation
 
@@ -43,6 +43,7 @@ Do **not** begin a 26.3 port on this branch; that is Phase 8.
 - Three key domains and rotation: `docs/KEY_MANAGEMENT.md`
 - Security/threat model: `docs/SECURITY_THREAT_MODEL.md`
 - Release manager workflow: `docs/RELEASE_PROCESS.md`
+- Next phase (7.5): `docs/PHASE_7_5_HANDOFF.md`
 
 ## Commands
 
