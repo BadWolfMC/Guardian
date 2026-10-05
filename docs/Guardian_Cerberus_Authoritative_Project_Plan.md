@@ -2133,6 +2133,8 @@ Perform a final adversarial release-candidate audit.
 
 Phase 7 is not formally closed until the actual Java 25 / Gradle 9.7.1 gate, final artifact inspection, supported upgrade test, and focused live closeout are recorded. Do not begin Phase 8 merely because the Phase 7 source candidate exists.
 
+**Phase 7 closeout evidence (2026-10-05):** the operator-executed Java 25 / Gradle 9.7.1 candidate is green at 365 tests with 0 failures, 0 errors, and the same 11 documented Windows symlink-privilege skips. Clean Paper/Velocity operation, schema-1 → schema-2 migration, offline key/signing/checksum helpers, Velocity-authoritative signed Cerberus, and the server-authentication mismatch UX all passed. The clean Velocity status check exposed one late metadata defect—its plugin version remained a hard-coded Phase 6 value—and release-manager feedback requested an automatically versioned signed Cerberus filename plus simpler release documentation. The final closeout patch addresses only those release/metadata ergonomics; after one final rebuild and `/guardianv status` confirmation, Phase 7 may be formally closed without repeating the earlier live matrix.
+
 ---
 
 ## Phase 8 — Minecraft 26.3 port

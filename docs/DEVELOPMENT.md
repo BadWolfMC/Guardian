@@ -21,7 +21,7 @@ The wrapper currently resolves Gradle 9.7.1.
 
 ## Release identities and official Cerberus signing
 
-Phase 7 provides `tools/release-manager.ps1` as the supported human-facing wrapper around the offline release tasks. It deliberately keeps private-key and output paths explicit; CI never receives the Cerberus release-signing private key.
+Phase 7 provides `tools/release-manager.ps1` as the supported human-facing wrapper around the offline release tasks. It deliberately keeps private-key and release destinations explicit; the normal path derives a version-bearing signed JAR filename inside the requested output directory. CI never receives the Cerberus release-signing private key.
 
 Generate a release-signing identity outside the repository:
 
@@ -47,7 +47,7 @@ Sign the normal production Loom `jar` output with an explicit destination:
   -Version 1.0.0 `
   -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
   -GuardianServerPublicKeys C:\secure\guardian-server-identity\guardian-server-auth.pub `
-  -SignedOutput C:\release\cerberus-fabric-1.0.0-signed.jar
+  -OutputDirectory C:\release\1.0.0
 ```
 
 The underlying Gradle tasks remain available for automation, but signing requires an explicit `-PguardianVersion=...`, `-PcerberusReleasePrivateKey=...`, and `-PcerberusSignedOutput=...`. The release-signing private key, Guardian server-authentication private key, and Velocity/Paper `proxy-assertion.key` are three distinct trust domains and must not be reused. See `KEY_MANAGEMENT.md` and `RELEASE_PROCESS.md` for storage, deployment, staged rotation, compromise response, checksums, and the distinction between the signer's canonical digest and the finished-JAR SHA-256.

@@ -2,153 +2,187 @@
 
 ## Status
 
-**Implementation candidate; final Java 25 / Gradle 9.7.1 gate and focused live closeout still required.**
+**Closeout candidate.** The Java 25 / Gradle 9.7.1 gate and all changes-sensitive live checks have passed on the operator's Windows test environment. Final closeout is waiting only for one post-review rebuild/status check after the small Velocity version-plumbing and release-filename ergonomics patch described below.
 
-The entering repository retains the final Phase 6 XML evidence:
+Do not begin Phase 8 until that final post-patch check is recorded.
 
-- guardian-core: 117 tests / 0 failures / 0 errors / 4 skipped
-- guardian-paper: 91 / 0 / 0 / 4
-- guardian-protection: 20 / 0 / 0 / 0
-- guardian-protocol: 50 / 0 / 0 / 0
-- guardian-velocity: 58 / 0 / 0 / 3
-- cerberus-fabric: 19 / 0 / 0 / 0
-- total: **355 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**
+## Java 25 / Gradle 9.7.1 gate — PASS
 
-Those are **entering Phase 6 results only** and must not be represented as execution of the Phase 7 candidate.
+Evidence retained in operator-supplied repository:
 
-Phase 7 adds ten ordinary test methods: five configuration-migration tests, one public-default schema/resource regression, one representative Phase 6 → public schema-2 Paper/policy upgrade/load test, one representative Phase 6 → schema-2 Velocity config upgrade/load test, and two normal-summary prefix regressions (Paper and Velocity). The final executed total must be taken from the new Gradle XML rather than inferred.
+- archive: `Guardian(20261005-110553).zip`
+- archive SHA-256: `41575549b9d1075c1d93906c4276bb44a1b249fc7c922ad62c431a98f72915f1`
+- project source default: `0.1.0-phase7`
+- Gradle wrapper: `9.7.1`
+- Java target/toolchain: `25`
 
-## Sandbox limitation
+Retained XML results:
 
-The implementation environment exposes OpenJDK 21 only and has no cached Gradle 9.7.1 distribution. Outbound DNS/bootstrap access to `services.gradle.org` is unavailable. Therefore no Java 25/Gradle 9.7.1 result is claimed from this sandbox.
+| Module | Tests | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|
+| guardian-core | 122 | 0 | 0 | 4 |
+| guardian-paper | 94 | 0 | 0 | 4 |
+| guardian-protection | 20 | 0 | 0 | 0 |
+| guardian-protocol | 50 | 0 | 0 | 0 |
+| guardian-velocity | 60 | 0 | 0 | 3 |
+| cerberus-fabric | 19 | 0 | 0 | 0 |
+| **Total** | **365** | **0** | **0** | **11** |
 
-Before closeout, run on the supported toolchain:
+The 11 skips remain the documented Windows symbolic-link privilege assumption skips. No product test is failing or unexpectedly skipped.
+
+The closeout patch does not add a new test method; it strengthens an existing Velocity architecture test. A final rerun should therefore remain at 365 tests if no other source changes are made, but the executed XML remains authoritative.
+
+## Built artifact evidence before the final metadata patch
+
+The retained successful build contains:
+
+```text
+guardian-paper-0.1.0-phase7.jar
+guardian-velocity-0.1.0-phase7.jar
+cerberus-fabric-0.1.0-phase7.jar
+cerberus-fabric-phase7-signed.jar
+```
+
+SHA-256 values:
+
+```text
+Guardian-Paper:                  7c11d9b3e052c11e595a29c2a24cc7f04d696143750e18fb6e1a579652d08578
+Guardian-Velocity:               3585ca25c5fffec25e87e3fc95435cb022959ae40925f3e0ab3c08703605d969
+Cerberus-Fabric unsigned:        946d1d9277333ee0acb457bf34a7743eb8f48bdf49f0579ed70d6a6779a1b683
+Cerberus-Fabric signed finished: 2353916140070080393cf51e93a6c82e14392e688e4dab9b3826969995eced36
+```
+
+The signed smoke JAR reports Fabric version `0.1.0-phase7-smoke`, proving that the helper passes the requested release version into Cerberus metadata/signing. The signer printed canonical SHA-256:
+
+```text
+103ebc6bf2a424f49ffc92d7772f9be94278cb6babae3a1d34b4c6982e9971ef
+```
+
+The canonical digest and finished-file digest are intentionally different values.
+
+Artifact entry inspection confirmed the expected GPL/third-party notice material, Apache-2.0 material in the Paper/Velocity shaded-runtime JARs, and no conventionally named private-key resource in any retained JAR.
+
+## Clean standalone Paper — PASS
+
+A clean Paper install loaded `0.1.0-phase7` successfully. `/guardian status` correctly reported standalone authority, optional integrations, proxy assertion not applicable, server authentication disabled, and signed Cerberus release optional. `/guardian validate` succeeded without runtime mutation.
+
+After minor administrator configuration edits, `/guardian reload` succeeded and atomically activated the complete validated Paper-local runtime candidate, including Guardian Protection. This confirms the Phase 7 status/validate/reload UX on a clean Paper installation.
+
+## Clean Velocity — functional PASS; version-reporting defect found and patched
+
+A clean Velocity install successfully exercised:
+
+- `/guardianv status`;
+- `/guardianv validate`;
+- administrator configuration changes followed by `/guardianv reload`; and
+- normal runtime activation.
+
+The test exposed one release-blocking metadata defect: `/guardianv status` reported `0.1.0-phase6` even though the built JAR filename/project version was `0.1.0-phase7`. `GuardianVelocityPlugin.VERSION` was still a hard-coded Phase 6 constant.
+
+The final closeout patch removes that hard-coded version. Guardian-Velocity now generates a compile-time constant from the Gradle project version, preserving Velocity's annotation requirement while making `-PguardianVersion=<version>` authoritative for both JAR naming and embedded Velocity plugin/status metadata. The existing Velocity operations architecture test now asserts that the hard-coded Phase 6 value cannot return.
+
+Required final confirmation after applying the closeout patch:
+
+```text
+/guardianv status
+```
+
+must report the same version supplied by Gradle (for the current branch, `0.1.0-phase7`).
+
+## Supported schema-1 upgrade — PASS
+
+A copied final Phase 6/pre-1.0 installation upgraded successfully to schema 2.
+
+Verified:
+
+- existing administrator config entries were preserved;
+- comments/text layout were retained by the surgical migration;
+- the pre-schema2 backup contained the old configuration;
+- the missing signed-release trust block was safely backfilled where applicable;
+- runtime activation reported schema 2;
+- `/guardian validate` succeeded; and
+- a second startup performed no second migration.
+
+The test also verified Velocity-authority Paper behavior remained correct after migration: server authentication and signed-Cerberus release verification are reported as not applicable on the assertion-only backend.
+
+This closes the intended compatibility contract: final Phase 6/pre-public schema 1 → public schema 2. Arbitrary older internal development schemas remain unsupported.
+
+## Release helper / signing workflow — PASS with final ergonomics improvement
+
+The Windows release-manager wrapper was exercised directly.
+
+PASS:
+
+- `generate-release-key` generated a Cerberus release-signing private/public identity;
+- `generate-server-identity` generated a distinct Guardian server-authentication identity;
+- `sign-cerberus` produced a valid signed JAR with one embedded public Guardian trust anchor;
+- the requested `0.1.0-phase7-smoke` version appeared in signed Cerberus Fabric metadata;
+- the helper printed the finished-file SHA-256 separately from the signer's canonical SHA-256; and
+- `checksums` wrote the expected `SHA256SUMS.txt`.
+
+Operator feedback correctly identified that the exact `SignedOutput` filename used in the smoke omitted the version even though the JAR metadata itself was correct. The final closeout patch improves the normal path:
 
 ```powershell
-java -version
-.\gradlew.bat --version
+.\tools\release-manager.ps1 `
+  -Action sign-cerberus `
+  -Version 1.0.0 `
+  -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
+  -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt `
+  -OutputDirectory D:\GuardianRelease\1.0.0
+```
+
+now creates:
+
+```text
+cerberus-fabric-1.0.0-signed.jar
+```
+
+An advanced exact `-SignedOutput` remains available, but the helper rejects it when the filename omits the requested version. `RELEASE_PROCESS.md` now starts with a plain-language normal-release walkthrough before the key-management/security reference detail.
+
+## Velocity-authoritative signed Cerberus connection — PASS
+
+The normal network path produced one concise authoritative proxy summary:
+
+```text
+mercurialmusic ALLOW: JAVA_FABRIC, brand=fabric, profile=default, CERBERUS_VERIFIED, mods=166
+```
+
+There was no duplicated product label in the message body. The result confirms the Phase 6 authority boundary remains intact through Phase 7: Velocity evaluates Admission and Paper remains assertion-only.
+
+## Guardian server-authentication mismatch UX — PASS
+
+With an intentionally untrusted Guardian server-authentication identity, stock Cerberus withheld its manifest and Guardian failed closed after the bounded handshake timeout.
+
+The player-facing disconnect now explains the important diagnostic without weakening the privacy boundary:
+
+```text
+Cerberus was detected, but did not complete the Guardian handshake. If Cerberus reports an untrusted Guardian server identity, do not bypass that warning; contact staff.
+```
+
+The final decision remained `CERBERUS_TIMEOUT`; Guardian did not invent a client-supplied manifest-disclosure oracle or weaken the authenticated-challenge requirement.
+
+## Dependency-license / NOTICE audit — PASS
+
+Guardian-Paper and Guardian-Velocity shade SnakeYAML Engine 2.10 and embed the Apache-2.0 license plus Guardian GPL/third-party notice material. Cerberus embeds Guardian GPL/notice material without SnakeYAML. Paper, Velocity, Fabric, LuckPerms, Geyser, and Floodgate remain build/provided integrations rather than newly shaded Guardian runtime payloads.
+
+## Gradle deprecation notice
+
+The Cerberus signing smoke emitted Gradle's generic future-Gradle-10 deprecation notice. No Phase 7 runtime/security failure accompanied it, and Gradle 9.7.1 remains the authoritative wrapper target. Before a future Gradle 10 migration, run the relevant Cerberus task with `--warning-mode all` and distinguish Guardian build-script usage from Fabric Loom/plugin deprecations. This is not a Minecraft 26.2 / Phase 7 release blocker unless the detailed warning identifies Guardian-owned deprecated behavior requiring correction.
+
+## Final post-closeout-patch check
+
+After applying the final Phase 7 closeout patch, run:
+
+```powershell
 .\gradlew.bat clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
 ```
 
-Expected toolchain: Java 25 and Gradle 9.7.1.
+Then verify:
 
-## Completed sandbox-level checks
-
-These checks **do not replace** the supported Java 25 / Gradle gate, but were completed against the candidate source:
-
-- all `guardian-protocol`, `guardian-core`, and `guardian-protection` main Java sources plus all Cerberus `releaseTool` sources compiled together in a dependency-isolated smoke using the available JDK;
-- direct schema-migration smoke preserved comments/CRLF/original backup bytes, added the disabled release-trust block, and was idempotent on schema 2;
-- direct Cerberus release-key generation refused overwrite;
-- direct Guardian server-identity generation plus Cerberus signing succeeded against the retained Phase 6 unsigned JAR, embedded one public Guardian trust anchor, and leaked no private-key-like resource name;
-- both GitHub workflow YAML files parsed successfully;
-- production-source scans found no NMS/CraftBukkit implementation, ProtocolLib/PacketEvents, or reflection workaround patterns introduced by Phase 7;
-- locale required-key/duplicate-key checks passed for the candidate English catalog;
-- normal Paper/Velocity Admission summary source no longer prepends its own `Guardian ` product label; and
-- the retained post-ZIPFS Phase 6 signed JAR independently re-hashed to the operator-supplied finished SHA-256.
-
-The sandbox does not provide PowerShell, so `tools/release-manager.ps1` itself still requires the documented Windows execution check even though the Java generators/signer it orchestrates were smoke-tested directly.
-
-## Automated Phase 7 coverage
-
-The added migration tests verify:
-
-- policy schema-1 → schema-2 migration preserves administrator comments and values;
-- the missing signed-release trust block is backfilled disabled;
-- exact CRLF pre-migration bytes are preserved in the backup;
-- schema 2 and newer schema markers are not rewritten by the migrator;
-- malformed YAML is left to normal strict recovery;
-- publication fails closed if an administrator changes the source after migration preparation; and
-- representative final Phase 6 Paper config/policy with administrator-owned values migrates, then successfully loads through the real schema-2 config and Admission policy loaders; and
-- a representative final Phase 6 Velocity config preserves DEBUG/timing administrator values and loads through the real schema-2 Velocity loader after migration.
-
-Existing loader/resource/command/session tests continue to own the underlying validated reload, inspection, authority, policy, filesystem, and protocol behavior.
-
-## Clean-install test
-
-Automated resource coverage verifies that packaged Paper defaults include schema-2 `config.yml` and `policy.yml` while the locale/catalog schemas remain independently versioned. Final platform verification should additionally start clean Paper and Velocity data directories from the newly built artifacts and run the corresponding `status` and `validate` commands.
-
-## Upgrade test
-
-Use a copy of a final Phase 6/pre-1.0 data directory, not a production original. Confirm:
-
-1. schema-1 config/policy are upgraded once;
-2. exact `.pre-schema2-...bak` files are created;
-3. administrator-owned values/comments remain intact;
-4. a missing `cerberus-release-trust` block is added as `required: false` with no keys;
-5. `validate` succeeds after migration; and
-6. a second restart performs no second schema migration.
-
-Older arbitrary internal development schemas are not a supported automatic-compatibility contract.
-
-## Release helper / signing verification
-
-Use throwaway secure directories:
-
-```powershell
-.\tools\release-manager.ps1 -Action generate-release-key -OutputDirectory C:\temp\guardian-release-key
-.\tools\release-manager.ps1 -Action generate-server-identity -OutputDirectory C:\temp\guardian-server-key
-.\tools\release-manager.ps1 -Action sign-cerberus `
-  -Version 0.1.0-phase7-smoke `
-  -ReleasePrivateKey C:\temp\guardian-release-key\cerberus-release-signing.key `
-  -GuardianServerPublicKeys C:\temp\guardian-server-key\guardian-server-auth.pub `
-  -SignedOutput C:\temp\guardian-release\cerberus-fabric-phase7-signed.jar
-.\tools\release-manager.ps1 -Action checksums -ArtifactDirectory C:\temp\guardian-release
+```text
+/guardianv status
 ```
 
-Verify generation refuses overwrite and signing refuses a missing/invalid version or missing/implicit output. Compare the helper's **finished JAR SHA-256** with `Get-FileHash`; do not confuse it with the signer's canonical logical-JAR SHA-256.
+reports `Guardian Velocity version=0.1.0-phase7` (or the explicitly supplied `guardianVersion`). Optionally rerun the signing helper using `-OutputDirectory` and confirm the created filename contains the version automatically.
 
-## Artifact / private-key inspection
-
-After the clean build, inspect every final JAR. Required checks:
-
-- no `proxy-assertion.key`;
-- no `guardian-server-auth.key`;
-- no `cerberus-release-signing.key`;
-- no private-key-like `.pem`, `.key`, `.p8`, or `.pk8` resource;
-- no PEM private-key block in non-class resources;
-- no administrator-local absolute filesystem path/configuration;
-- Paper/Velocity contain GPL, third-party notice, and Apache-2.0 material; and
-- Cerberus contains GPL/notice material plus only intended **public** server trust anchors/release metadata.
-
-The Phase 6 signed JAR retained in the supplied archive independently re-hashes to:
-
-`20ea9b03da3e9f9c03739eb361304a398e34d9677f465169f26b82b29166e860`
-
-That is the finished JAR hash supplied by the operator and remains distinct from Cerberus's canonical signing digest.
-
-## Dependency-license / NOTICE audit
-
-Final Guardian-Paper and Guardian-Velocity distribution logic shades SnakeYAML Engine 2.10 and embeds its Apache-2.0 license. The platform APIs remain provided/compile-only integrations. `THIRD_PARTY_NOTICES.md` records the final license inventory and should be reviewed against the resolved release dependency graph from the successful Gradle build before publication.
-
-## Focused live closeout
-
-Do **not** repeat the Phase 6 adversarial matrix. Only changes-sensitive checks are justified:
-
-1. clean standalone Paper startup, `/guardian status`, `/guardian validate`;
-2. representative schema-1 upgrade using a copied test data directory;
-3. signed Cerberus happy path using the Phase 7 release helper output;
-4. one server-authentication key mismatch to confirm stock Cerberus still withholds its manifest and the player-facing timeout text now directs an untrusted-Guardian report to staff; and
-5. one Velocity-authoritative happy path with `/guardianv status` plus a normal connection, confirming one authoritative summary without duplicated `Guardian` product text and assertion-only backend behavior.
-
-No full mod-policy/quarantine/replay/fuzz matrix is required unless the final Java/Gradle gate or these focused checks expose a regression.
-
-## Final closeout fields
-
-Record after execution:
-
-- Java version:
-- Gradle version:
-- final test totals by module:
-- final Paper JAR SHA-256:
-- final Velocity JAR SHA-256:
-- final unsigned Cerberus JAR SHA-256:
-- final signed Cerberus JAR SHA-256:
-- release candidate version:
-- clean-install result:
-- schema-upgrade result:
-- signed-client result:
-- server-auth mismatch UX result:
-- Velocity/log-prefix result:
-- final adversarial audit result:
-
-Phase 7 closes only when those fields are backed by actual execution evidence.
+If those checks are green, no further Phase 7 live matrix is justified. Record the final regenerated JAR hashes, mark Phase 7 closed, and hand off to Phase 8.

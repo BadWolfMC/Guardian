@@ -63,7 +63,7 @@ Phase 7 adds `tools/release-manager.ps1` as the supported release-manager wrappe
 - sign Cerberus with an explicit private-key path and explicit finished output path; and
 - generate deterministic SHA-256 checksums for staged JARs.
 
-The helper removes the need for external OpenSSL key-generation choreography but does **not** weaken key separation or output-path requirements. The wrapper requires an explicit validated release version and passes it as `guardianVersion`; the underlying signing Gradle task refuses to run without both `cerberusReleasePrivateKey` and `cerberusSignedOutput`, and refuses an output path equal to the unsigned input. Gradle archive tasks also disable preserved file timestamps and enforce reproducible entry ordering so unsigned build artifacts are deterministic for equivalent inputs.
+The helper removes the need for external OpenSSL key-generation choreography but does **not** weaken key separation or destination requirements. The wrapper requires an explicit validated release version and passes it as `guardianVersion`; an explicit output directory now produces `cerberus-fabric-<version>-signed.jar` automatically, while an advanced exact `SignedOutput` override must itself contain the requested version. The underlying signing Gradle task still requires `cerberusReleasePrivateKey` plus `cerberusSignedOutput` and refuses an output path equal to the unsigned input. Gradle archive tasks also disable preserved file timestamps and enforce reproducible entry ordering so unsigned build artifacts are deterministic for equivalent inputs.
 
 The source remains correct for the Phase 6 Loom finding: Minecraft 26.2 non-obfuscated Fabric uses `jar`, not `remapJar`, as the signing input.
 
@@ -124,3 +124,14 @@ Phase 7 does not:
 - begin the Minecraft 26.3 port.
 
 No new implementation bridge is required by this candidate.
+
+
+## 2026-10-05 closeout review
+
+Operator verification closed the planned Phase 7 live matrix at 365 green tests and passed clean Paper/Velocity operation, the supported schema-1 upgrade, release-key/server-key/signing/checksum helpers, the Velocity-authoritative signed-Cerberus happy path, and the Guardian server-authentication mismatch UX.
+
+The clean Velocity status check exposed one late release-metadata defect: `GuardianVelocityPlugin.VERSION` was still hard-coded to `0.1.0-phase6`. The closeout patch replaces it with a generated compile-time constant sourced from the Gradle project version. This preserves Velocity annotation processing while making `-PguardianVersion` authoritative across the Paper descriptor, Velocity plugin metadata/status, Cerberus Fabric metadata, and signed Cerberus release identity.
+
+Release-manager feedback also resulted in a small ergonomics improvement: the normal signing path now accepts an explicit output directory and automatically creates `cerberus-fabric-<version>-signed.jar`; an advanced exact `SignedOutput` override remains available but must contain the requested version. `RELEASE_PROCESS.md` now begins with a plain-language normal-release walkthrough.
+
+These changes do not alter Admission/Protection authority, protocol semantics, policy semantics, key-domain separation, manifest privacy, or signed-release trust claims.

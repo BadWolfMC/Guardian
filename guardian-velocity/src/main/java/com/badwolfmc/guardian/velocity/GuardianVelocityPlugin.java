@@ -75,7 +75,7 @@ import java.util.concurrent.TimeUnit;
     }
 )
 public final class GuardianVelocityPlugin {
-    static final String VERSION = "0.1.0-phase6";
+    static final String VERSION = GuardianBuildInfo.VERSION;
 
     private static final ChannelIdentifier PRESENCE =
         MinecraftChannelIdentifier.from(GuardianProtocol.PRESENCE_CHANNEL);

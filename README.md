@@ -13,9 +13,9 @@ BadWolfMC's preferred network deployment is **Guardian-Velocity as the Admission
 
 ## Current release-hardening state
 
-Phases 0 through 6 are closed. Phase 7 is the active pre-1.0 release-hardening phase. The entering Phase 6 baseline is `0.1.0-phase6`, with 355 tests green under Java 25 / Gradle 9.7.1 and the focused signed-Cerberus, server-authentication, quarantine, and Velocity-authoritative live matrix complete.
+Phases 0 through 6 are closed. Phase 7 is in final closeout. The verified Phase 7 candidate is green at **365 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**, and its clean-install, supported schema-upgrade, release-helper, signed-Cerberus, server-authentication-mismatch, and Velocity-authoritative checks have passed.
 
-Phase 7 advances the source default to `0.1.0-phase7` while final release candidates may supply an explicit version using `-PguardianVersion=<version>`.
+The source default is `0.1.0-phase7`; final release candidates may supply an explicit version using `-PguardianVersion=<version>`. One final rebuild/status confirmation is required after the closeout patch that removes the stale hard-coded Velocity Phase 6 version and makes the release helper generate a version-bearing signed Cerberus filename automatically. See `docs/PHASE_7_VERIFICATION.md`.
 
 The authoritative architecture remains `docs/Guardian_Cerberus_Authoritative_Project_Plan.md`.
 
@@ -84,12 +84,12 @@ The normal CI workflow runs the same gate. Release candidates use the manual rel
 
 Cerberus release signing is intentionally offline. CI builds **unsigned** Cerberus artifacts and never receives the release-signing private key.
 
-On Windows, `tools/release-manager.ps1` wraps the approved generation/signing/checksum tasks while retaining explicit input/output paths:
+On Windows, `tools/release-manager.ps1` wraps the approved generation/signing/checksum tasks. The normal signing path takes an explicit output directory and creates a version-bearing signed JAR name automatically:
 
 ```powershell
 .\tools\release-manager.ps1 -Action generate-release-key -OutputDirectory D:\GuardianKeys\cerberus-release
 .\tools\release-manager.ps1 -Action generate-server-identity -OutputDirectory D:\GuardianKeys\server-auth-next
-.\tools\release-manager.ps1 -Action sign-cerberus -Version 1.0.0 -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt -SignedOutput D:\GuardianRelease\cerberus-fabric-1.0.0-signed.jar
+.\tools\release-manager.ps1 -Action sign-cerberus -Version 1.0.0 -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt -OutputDirectory D:\GuardianRelease\1.0.0
 .\tools\release-manager.ps1 -Action checksums -ArtifactDirectory D:\GuardianRelease
 ```
 

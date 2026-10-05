@@ -91,6 +91,11 @@ class Phase5OperationsArchitectureTest {
             "src/main/java/com/badwolfmc/guardian/velocity/GuardianVelocityPlugin.java"));
         assertTrue(plugin.contains("private void logSummary"));
         assertFalse(plugin.contains("new StringBuilder(\"Guardian \")"));
+        assertTrue(plugin.contains("static final String VERSION = GuardianBuildInfo.VERSION;"));
+        assertFalse(plugin.contains("0.1.0-phase6"));
+        String build = Files.readString(Path.of("build.gradle"));
+        assertTrue(build.contains("generateGuardianVersionSource"));
+        assertTrue(build.contains("main.java.srcDir generatedVersionDir"));
     }
 
 }

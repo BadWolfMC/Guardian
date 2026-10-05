@@ -61,4 +61,4 @@ Signed release identity is exact-artifact/compliance hardening. A hostile replac
 
 ## Generation and release helper
 
-Use `tools/release-manager.ps1`; it preserves explicit output paths and refuses implicit signing output. See `RELEASE_PROCESS.md` for exact commands.
+Use `tools/release-manager.ps1`; it requires an explicit release destination and automatically uses a version-bearing signed Cerberus filename when given an output directory. See `RELEASE_PROCESS.md` for the plain-language release walkthrough and exact commands.

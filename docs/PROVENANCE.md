@@ -310,3 +310,29 @@ The Phase 7 implementation candidate is based on the exact operator-supplied pos
 The candidate advances the source default to `0.1.0-phase7` and adds the public schema-2 migration contract, release-manager/key-generation ergonomics, explicit signing output, CI/release-candidate/checksum infrastructure, packaged license/NOTICE material, operations/status/message polish, and the Phase 7 deployment/security/operator documentation set. It does not change the Phase 6 Admission/Protection/protocol/threat-model boundaries.
 
 This sandbox exposes OpenJDK 21 only and cannot bootstrap the uncached Gradle 9.7.1 distribution because outbound DNS/network access is unavailable. Therefore the retained 355-test XML is **entering evidence only**, not a Phase 7 execution result. `PHASE_7_VERIFICATION.md` records the Java 25/Gradle 9.7.1 gate, final artifact hashes, representative supported upgrade test, and focused live checks still required before Phase 7 can close.
+
+## Phase 7 operator verification / closeout candidate — 2026-10-05
+
+Operator verification continued against:
+
+- archive: `Guardian(20261005-110553).zip`
+- archive SHA-256: `41575549b9d1075c1d93906c4276bb44a1b249fc7c922ad62c431a98f72915f1`
+- source default: `0.1.0-phase7`
+- Gradle wrapper: `9.7.1`
+- Java target/toolchain: `25`
+- retained Gradle XML: **365 tests, 0 failures, 0 errors, 11 skipped**
+- module totals: Core 122/0/0/4, Paper 94/0/0/4, Protection 20/0/0/0, Protocol 50/0/0/0, Velocity 60/0/0/3, Cerberus 19/0/0/0 (tests/failures/errors/skipped)
+
+Retained candidate artifact SHA-256 values before the final metadata/ergonomics patch:
+
+- Guardian-Paper `0.1.0-phase7`: `7c11d9b3e052c11e595a29c2a24cc7f04d696143750e18fb6e1a579652d08578`
+- Guardian-Velocity `0.1.0-phase7` JAR file: `3585ca25c5fffec25e87e3fc95435cb022959ae40925f3e0ab3c08703605d969`
+- Cerberus-Fabric unsigned `0.1.0-phase7`: `946d1d9277333ee0acb457bf34a7743eb8f48bdf49f0579ed70d6a6779a1b683`
+- Cerberus-Fabric signed smoke finished JAR: `2353916140070080393cf51e93a6c82e14392e688e4dab9b3826969995eced36`
+- Cerberus signed smoke canonical SHA-256: `103ebc6bf2a424f49ffc92d7772f9be94278cb6babae3a1d34b4c6982e9971ef`
+
+Operator live/release verification passed clean standalone Paper status/validate/reload, clean Velocity status/validate/reload behavior, a representative final Phase 6 schema-1 → schema-2 upgrade with preserved administrator values and exact backup plus idempotent second startup, release-key generation, Guardian server-authentication key generation, Cerberus signing, checksum generation, the Velocity-authoritative signed-Cerberus 166-entry happy path, and the intentional Guardian server-authentication mismatch/fail-closed timeout UX.
+
+The clean Velocity status check exposed one final release-metadata defect: `GuardianVelocityPlugin.VERSION` remained the hard-coded Phase 6 string even though Gradle produced a Phase 7 JAR filename. The final closeout patch replaces that string with a generated compile-time version constant sourced from Gradle so Velocity annotation metadata and `/guardianv status` follow `guardianVersion`. Release-manager feedback also prompted automatic `cerberus-fabric-<version>-signed.jar` naming when an explicit output directory is used, plus a plain-language release walkthrough.
+
+Those closeout changes require one final Java 25 / Gradle 9.7.1 rebuild and `/guardianv status` confirmation before Phase 7 is marked formally closed. They do not require repetition of the Phase 6 adversarial/live matrix if the final gate is green.

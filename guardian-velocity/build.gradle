@@ -23,6 +23,35 @@ base {
     archivesName = 'guardian-velocity'
 }
 
+
+def generatedVersionDir = layout.buildDirectory.dir('generated/sources/guardianVersion/java')
+def guardianVelocityVersion = version.toString()
+
+tasks.register('generateGuardianVersionSource') {
+    inputs.property 'version', guardianVelocityVersion
+    outputs.dir generatedVersionDir
+    doLast {
+        if (!(guardianVelocityVersion ==~ /[0-9A-Za-z][0-9A-Za-z._-]{0,63}/)) {
+            throw new GradleException('Guardian version must match ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$')
+        }
+        def packageDir = generatedVersionDir.get().dir('com/badwolfmc/guardian/velocity').asFile
+        packageDir.mkdirs()
+        new File(packageDir, 'GuardianBuildInfo.java').text = """package com.badwolfmc.guardian.velocity;
+
+/** Generated from the Gradle project version. Do not edit. */
+final class GuardianBuildInfo {
+    static final String VERSION = \"${guardianVelocityVersion}\";
+
+    private GuardianBuildInfo() {}
+}
+"""
+    }
+}
+
+tasks.named('compileJava') {
+    dependsOn tasks.named('generateGuardianVersionSource')
+}
+
 tasks.named('jar') {
     from(rootProject.file('LICENSE')) { into 'META-INF'; rename { 'LICENSE-GPL-3.0.txt' } }
     from(rootProject.file('THIRD_PARTY_NOTICES.md')) { into 'META-INF'; rename { 'THIRD-PARTY-NOTICES.md' } }
@@ -36,5 +65,6 @@ tasks.named('jar') {
 }
 
 sourceSets {
+    main.java.srcDir generatedVersionDir
     main.resources.srcDir rootProject.file('shared-resources')
 }

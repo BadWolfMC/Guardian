@@ -92,10 +92,10 @@ An official release is produced from the normal production Cerberus JAR with the
   -Version 1.0.0 `
   -ReleasePrivateKey C:\secure\cerberus-release-signing.key `
   -GuardianServerPublicKeys C:\secure\guardian-server-auth-trust.txt `
-  -SignedOutput C:\release\cerberus-fabric-1.0.0-signed.jar
+  -OutputDirectory C:\release\1.0.0
 ```
 
-The underlying Gradle task remains available for automation, but it now requires an explicit `-PguardianVersion=...` together with `-PcerberusReleasePrivateKey=...` and `-PcerberusSignedOutput=...`; Guardian never invents a release version or output path for a signed release. See `RELEASE_PROCESS.md` and `KEY_MANAGEMENT.md` for generation, rotation, backup, and compromise procedures for all three key domains.
+The underlying Gradle task remains available for automation, but it now requires an explicit `-PguardianVersion=...` together with `-PcerberusReleasePrivateKey=...` and `-PcerberusSignedOutput=...`; Guardian never invents a release version or destination; the helper derives the final `cerberus-fabric-<version>-signed.jar` name only when an explicit output directory is supplied. See `RELEASE_PROCESS.md` and `KEY_MANAGEMENT.md` for generation, rotation, backup, and compromise procedures for all three key domains.
 
 The private key file must contain an Ed25519 PKCS#8 private key, either DER or PEM `PRIVATE KEY` form. The task reads the key only in the release-tool process, first copies the unsigned input through a bounded no-follow read into a stable temporary sibling, performs all preflight checks and signing against that snapshot, computes the canonical logical JAR-content digest, signs the release version plus digest with Ed25519, injects `META-INF/guardian/cerberus-release.bin`, rechecks the resulting JAR, and publishes only to the explicit signed output path supplied by the release manager. If the source JAR changes identity, size, or modification time while the stable snapshot is being copied, signing fails. The final output is replaced only after all checks succeed. No private-key material is packaged.
 

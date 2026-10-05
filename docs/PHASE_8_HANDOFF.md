@@ -2,6 +2,11 @@
 
 **Do not start this handoff until Phase 7 verification is formally closed.**
 
+
+## Phase 7 final-closeout note
+
+The Phase 7 live/release matrix has passed. Before starting this handoff, verify the final closeout patch by rerunning the Java 25 / Gradle 9.7.1 gate and confirming `/guardianv status` reports the Gradle-supplied version rather than the stale Phase 6 literal. Also retain the final regenerated artifact hashes. No additional Phase 7 adversarial connection matrix is required if those checks are green.
+
 ## Entering invariant
 
 Phase 8 inherits the public 1.0 architecture; it is a platform-version port, not an opportunity to redesign Guardian/Cerberus security semantics.
