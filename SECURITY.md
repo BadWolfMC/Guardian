@@ -4,7 +4,7 @@ Guardian/Cerberus handles connection admission, client-reported environment data
 
 ## Supported versions
 
-Security fixes are made against the current maintained release line. Pre-release/RC builds may change before the first stable release and should not be treated as a long-term compatibility promise.
+Security fixes are made against the current maintained release line. Older releases are supported only when explicitly identified in release notes or a security advisory.
 
 ## Reporting a vulnerability
 

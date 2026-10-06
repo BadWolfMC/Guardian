@@ -40,7 +40,7 @@ profiles:
       # an explicit ALLOW rule or is required/baseline. DENYLIST permits unlisted mods.
       mode: ALLOWLIST
 
-      # Development/non-archive top-level origins require an explicit policy choice.
+      # Directory/non-archive top-level origins require an explicit policy choice.
       origins:
         directory: DENY
         mixed-or-unknown: DENY

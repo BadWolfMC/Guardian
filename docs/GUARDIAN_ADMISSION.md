@@ -338,7 +338,7 @@ Direct `sha256` and `catalog: true` may be combined. Several accepted hashes for
 
 SHA-256 means the exact top-level archive bytes reported by a cooperating Cerberus client matched an approved identity. It is not hostile-client remote attestation; a deliberately replaced/hostile client remains outside the assurance provided by cooperating-client artifact reporting.
 
-## Development and ambiguous origins
+## Directory and ambiguous origins
 
 Top-level `DIRECTORY` and `MIXED_OR_UNKNOWN` origins have explicit profile actions:
 

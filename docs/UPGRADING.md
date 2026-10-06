@@ -10,9 +10,9 @@ Guardian's public-release host/policy schema begins at **2**:
 
 Locale files and `artifacts.yml` have independent schemas and remain at their existing schema versions.
 
-## Supported pre-1.0 upgrade
+## Legacy schema-1 migration
 
-Guardian contains exactly one automatic compatibility migration: **final internal pre-1.0 schema 1 -> public schema 2**.
+Guardian contains exactly one automatic compatibility migration: **legacy schema 1 -> public schema 2**. This primarily exists for installations that ran an internal pre-1.0 build before upgrading to the public release line.
 
 On startup, before normal activation:
 
@@ -39,7 +39,7 @@ so upgrading does not silently begin requiring signed Cerberus releases.
 
 ## Unsupported historical/future schemas
 
-Guardian does **not** carry compatibility code for arbitrary development snapshots. Schemas other than the single reviewed `1 -> 2` path continue through normal strict validation/recovery behavior. A newer schema is never silently downgraded.
+Guardian does **not** carry compatibility code for arbitrary historical internal schemas. Schemas other than the single reviewed `1 -> 2` path continue through normal strict validation/recovery behavior. A newer schema is never silently downgraded.
 
 Before a future public schema bump, add a deliberate migration from the immediately supported public predecessor, tests using representative administrator-owned values/comments, release notes, and backup/rollback documentation.
 
@@ -56,9 +56,9 @@ Before a future public schema bump, add a deliberate migration from the immediat
 
 If startup cannot migrate safely, Guardian fails closed rather than guessing at administrator intent.
 
-## Rollback before public release closeout
+## Rollback across schema 1 -> 2
 
-The schema-2 host/policy files are not intended to be consumed by the older internal schema-1 binaries. If a release-candidate rollback is required:
+The schema-2 host/policy files are not intended to be consumed by the older internal schema-1 binaries. If rollback to a schema-1 build is required:
 
 1. stop Guardian/Paper/Velocity cleanly;
 2. restore the previous plugin JAR(s);

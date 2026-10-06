@@ -181,7 +181,7 @@ public final class AdmissionPolicyEvaluator {
             && policy.directoryAction() == OriginPolicyAction.DENY) {
             violations.add(new PolicyViolation(
                 PolicyViolationCode.DIRECTORY_ORIGIN_DENIED,
-                "", entry.modId(), "top-level DIRECTORY development origin is denied"
+                "", entry.modId(), "top-level DIRECTORY origin is denied"
             ));
         }
         if (entry.originKind() == OriginKind.MIXED_OR_UNKNOWN

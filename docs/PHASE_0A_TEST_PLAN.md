@@ -1,5 +1,7 @@
 # Phase 0A — Test Series 5: timing/config regression
 
+> **Historical verification record:** this document describes the Phase 0A prototype and its then-current test switches/configuration names. It is retained for provenance and is not an operator procedure for Guardian/Cerberus `1.0.0`. Use the current install, Admission, production-runbook, and release-process documentation for supported configuration and testing.
+
 Phase 0A's hybrid transport and structured outcomes are already proven. Test Series 5 is a focused regression for the timing hardening and default configuration packaging.
 
 ## Build

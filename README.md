@@ -113,7 +113,7 @@ Linux/macOS:
 ./gradlew clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
 ```
 
-The source default is `1.0.0` for release preparedness. An explicit candidate or other build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
+The source default is `1.0.0`. An explicit SemVer build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
 
 ## Release signing
 
@@ -121,7 +121,7 @@ Official Cerberus releases are signed with an offline Ed25519 release identity. 
 
 The supported release flow is:
 
-1. run the manual **Release Candidate** GitHub Actions workflow for a SemVer/RC version;
+1. run the manual **Release Candidate** GitHub Actions workflow for the exact SemVer version being released;
 2. download the resulting `guardian-<version>-release-input` artifact from the GitHub web UI;
 3. on the offline/release machine, finalize the exact CI-built artifacts with `tools/release-manager.ps1`;
 4. upload the contents of `release-final/` to a **draft GitHub Release**; and
@@ -132,7 +132,7 @@ Example local finalization:
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0-rc.1 `
+  -Version 1.0.0 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `

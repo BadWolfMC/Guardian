@@ -70,10 +70,10 @@ public final class CerberusClient implements ClientModInitializer {
 
                 if (!canSendPresence) {
                     LOGGER.warn("Connected server did not advertise the Guardian CONFIGURATION presence channel; "
-                        + "attempting presence anyway (known Paper/Fabric interoperability behavior).");
+                        + "attempting presence anyway as the supported compatibility fallback.");
                 }
 
-                int protocol = selectedProtocol();
+                int protocol = GuardianProtocol.VERSION;
                 ClientConfigurationNetworking.send(
                     new PresencePayload(ProtocolCodec.encodePresence(new Presence(protocol, protocol, capabilities(), cerberusVersion())))
                 );
@@ -101,10 +101,10 @@ public final class CerberusClient implements ClientModInitializer {
 
                 if (!canSendPresence) {
                     LOGGER.warn("Connected server did not advertise the Guardian PLAY presence channel; "
-                        + "attempting presence anyway for fallback interoperability testing.");
+                        + "attempting presence anyway as the supported compatibility fallback.");
                 }
 
-                int protocol = selectedProtocol();
+                int protocol = GuardianProtocol.VERSION;
                 sender.sendPacket(new PresencePayload(ProtocolCodec.encodePresence(new Presence(protocol, protocol, capabilities(), cerberusVersion()))));
                 LOGGER.info("Attempted Guardian PLAY presence with protocol {} (serverAdvertised={}).",
                     protocol, canSendPresence);
@@ -131,23 +131,8 @@ public final class CerberusClient implements ClientModInitializer {
             // therefore before Velocity exposes plugin messages to plugins. Re-announcing here makes
             // the distinct CERBERUS_REQUIRED vs CERBERUS_TIMEOUT states robust without changing the
             // standalone Paper PLAY fallback.
-            int responseProtocol = selectedProtocol();
+            int responseProtocol = GuardianProtocol.VERSION;
             sender.sendPacket(new PresencePayload(ProtocolCodec.encodePresence(new Presence(responseProtocol, responseProtocol, capabilities(), cerberusVersion()))));
-
-            if (Boolean.getBoolean("guardian.cerberus.dev.suppressResponse")) {
-                LOGGER.info(
-                    "Received Guardian {} challenge; re-announced presence then deliberately suppressed "
-                        + "the response for timeout testing.",
-                    phase
-                );
-                return;
-            }
-
-            if (Boolean.getBoolean("guardian.cerberus.dev.malformedResponse")) {
-                sender.sendPacket(new ResponsePayload(new byte[] {0x00}));
-                LOGGER.info("Sent deliberately malformed Guardian {} response.", phase);
-                return;
-            }
 
             long capabilities = capabilities();
             if (challenge.protocolVersion() != GuardianProtocol.VERSION || (capabilities & challenge.requiredCapabilities()) != challenge.requiredCapabilities()) {
@@ -155,10 +140,6 @@ public final class CerberusClient implements ClientModInitializer {
                 return;
             }
             Manifest manifest = FabricManifestCollector.collect(capabilities);
-            if (Boolean.getBoolean("guardian.cerberus.dev.logManifest")) {
-                LOGGER.info("Cerberus sanitized canonical manifest: minecraft={}, loader={}, cerberus={}, entries={}",
-                    manifest.minecraftVersion(), manifest.fabricLoaderVersion(), manifest.cerberusVersion(), manifest.entries());
-            }
             Response response = new Response(responseProtocol, capabilities, challenge.nonce(), manifest, releaseIdentity());
             sender.sendPacket(new ResponsePayload(ProtocolCodec.encodeResponse(response)));
             LOGGER.info("Responded to Guardian {} challenge with protocol {} and {} canonical manifest entries.",
@@ -177,10 +158,6 @@ public final class CerberusClient implements ClientModInitializer {
 
     private static CerberusReleaseIdentity releaseIdentity() {
         return CerberusReleaseIdentityProvider.current();
-    }
-
-    private static int selectedProtocol() {
-        return Integer.getInteger("guardian.cerberus.dev.protocol", GuardianProtocol.VERSION);
     }
 
     private static String cerberusVersion() {

@@ -55,7 +55,7 @@ Every active bridge must identify the source locations, the reason it exists, th
 
 ### BRIDGE-002 — Cerberus Phase 0 manifest and JVM diagnostic switches
 
-**Resolution:** Cerberus now enumerates Loader-known mods, preserves containment relationships, reports bounded environment/release metadata and privacy-safe origin kinds, and speaks protocol v1. Feasibility-era `cerberus.phase0a.*` switches and Fabric metadata were removed; retained diagnostics use the explicit `guardian.cerberus.dev.*` namespace.
+**Resolution:** Cerberus now enumerates Loader-known mods, preserves containment relationships, reports bounded environment/release metadata and privacy-safe origin kinds, and speaks protocol v1. Feasibility-era `cerberus.phase0a.*` switches and Fabric metadata were removed in Phase 2. The remaining `guardian.cerberus.dev.*` live-test switches used during later verification were removed during final `1.0.0` release preparation, so the public client has no runtime diagnostic fault-injection switches.
 
 **Resolved in:** Phase 2 implementation candidate, 2026-09-26.
 
@@ -102,7 +102,7 @@ BRIDGE-001 through BRIDGE-005 remain intentionally active under their existing l
 
 ## Phase 2 closeout bridge review
 
-As of 2026-09-26, the Phase 2 implementation and live protocol-v1 verification are complete. BRIDGE-001 and BRIDGE-002 are retired by the real Loader-backed canonical manifest, production protocol-v1 negotiation/validation, and renamed `guardian.cerberus.dev.*` diagnostics. The closeout hardening pass introduces no new implementation bridge.
+As of 2026-09-26, the Phase 2 implementation and live protocol-v1 verification are complete. BRIDGE-001 and BRIDGE-002 were retired by the real Loader-backed canonical manifest and production protocol-v1 negotiation/validation. The Phase 2 verification diagnostics were later removed from public Cerberus source during final `1.0.0` release preparation. The closeout hardening pass introduces no new implementation bridge.
 
 At the Phase 2 closeout point, BRIDGE-003, BRIDGE-004, and BRIDGE-005 remained later-phase work. The retained Velocity adapter's Phase 0B-labelled diagnostics and OptiFine denial were correctly treated as bridge behavior rather than Phase 2 protocol failures. The subsequent Phase 3 portability revision below now deliberately assigns BRIDGE-004's **independent policy-behavior** portion to Phase 3 while leaving the genuinely Velocity-specific production work in Phase 5.
 

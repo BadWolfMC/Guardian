@@ -6,7 +6,7 @@ import com.badwolfmc.guardian.velocity.config.VelocityOperationalSettings;
 
 import java.util.Objects;
 
-/** Fully validated immutable runtime candidate activated atomically by Guardian-Velocity. */
+/** Fully validated immutable runtime snapshot activated atomically by Guardian-Velocity. */
 record VelocityRuntimeSnapshot(
     VelocityOperationalSettings settings,
     AdmissionPolicySnapshot admissionPolicy,

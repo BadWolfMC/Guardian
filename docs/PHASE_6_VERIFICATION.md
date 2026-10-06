@@ -1,5 +1,7 @@
 # Phase 6 verification
 
+> **Historical verification note:** the `guardian.cerberus.dev.*` fault-injection switches used for the live quarantine/malformed-response cases below were removed from public Cerberus source during final `1.0.0` release preparation.
+
 ## Current candidate status
 
 **PASS — PHASE 6 CLOSED.** The complete Java 25 / Gradle 9.7.1 gate, focused real Paper/Velocity/Fabric live matrix, release-signing smoke, and final post-live security/privacy/code-quality review are complete.

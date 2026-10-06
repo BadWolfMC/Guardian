@@ -57,7 +57,7 @@ Added public-maintenance material is deliberately minimal:
 
 Both CI workflows use read-only repository permissions, disable persisted checkout credentials after source checkout, and pin third-party Actions to immutable release commit SHAs, with the corresponding release version retained as a comment for operator readability. Dependabot remains responsible for proposing controlled updates instead of allowing mutable major-version tags to move underneath a release build.
 
-Local release staging directories are ignored by Git, and PNG assets are treated as binary repository content. Production source comments/generated catalog guidance no longer refer to implementation phases, while the deliberately gated `guardian.cerberus.dev.*` test switches remain available without being advertised in normal Cerberus startup logging.
+Local release staging directories are ignored by Git, and PNG assets are treated as binary repository content. Production source comments/generated catalog guidance no longer refer to implementation phases. The Phase 7.5 verification build still retained gated `guardian.cerberus.dev.*` live-test switches; the final `1.0.0` release-preparation pass removes those switches from public Cerberus source entirely.
 
 ## Production defaults and Cerberus presentation
 

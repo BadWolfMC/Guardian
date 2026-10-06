@@ -1,13 +1,13 @@
 # Phase 8 handoff — Minecraft / Paper / Fabric 26.3 port
 
-**Do not start this handoff until Phase 7.5 production-readiness verification is formally closed.**
+**Phase 7.5 production-readiness verification formally closed on 2026-10-06. This handoff is unblocked by that prerequisite, but do not begin implementation until the stable `1.0.0` Minecraft/Paper 26.2 release has been published/retained and Paper 26.3 is sufficiently stable to target deliberately.**
 
 
 ## Phase 7 / 7.5 prerequisite note
 
-Phase 7 is formally closed at 366 green tests with metadata/version parity verified across Paper, Velocity, and Cerberus. Phase 7.5 deliberately follows it on Minecraft 26.2 for final production readiness, GitHub preparedness, repository/documentation cleanup, release rehearsal, and focused live hardening.
+Phase 7 is formally closed at 366 green tests with metadata/version parity verified across Paper, Velocity, and Cerberus. Phase 7.5 then completed final production readiness, GitHub preparedness, repository/documentation cleanup, release rehearsal, focused live hardening, and rollback verification on Minecraft 26.2. Its final gate is 376 tests with 0 failures/errors and 11 documented Windows symlink-privilege skips; the final rehearsal used `1.0.0-rc.2`, commit `ddcad249c4837fdcf68c1c3a00d8fda0ecbb2da5`, GitHub Actions run `37418021934` / attempt `1`.
 
-Do not begin this 26.3 handoff until Phase 7.5 explicitly closes. Phase 8 remains a platform-version port rather than a continuation of release-preparedness work.
+Phase 8 remains a platform-version port rather than a continuation of release-preparedness work. Phase 7.5 is no longer a blocker. By operator decision, the stable `1.0.0` Minecraft/Paper 26.2 release must be published and retained before Phase 8 implementation starts; Paper 26.3 platform readiness remains the separate external start gate.
 
 
 ## Phase 7.5 release-process inheritance
@@ -39,12 +39,13 @@ Preserve:
 
 Before changing target versions:
 
-1. Phase 7 is formally closed and the Java 25 / Gradle 9.7.1 gate is green.
-2. Phase 7.5 production-readiness/GitHub-preparedness work is formally closed.
-3. A public/release-candidate artifact set and checksums exist.
-4. Clean install, supported schema upgrade, signing helper, production deployment/rollback rehearsal, and focused Velocity/standalone checks are closed.
-5. Paper 26.3 is sufficiently stable to target deliberately.
-6. Any 26.2-only workaround is identified explicitly before removal.
+1. **SATISFIED:** Phase 7 is formally closed and the Java 25 / Gradle 9.7.1 gate is green.
+2. **SATISFIED:** Phase 7.5 production-readiness/GitHub-preparedness work is formally closed.
+3. **SATISFIED:** the `1.0.0-rc.2` release-candidate/finalized artifact set and checksums exist.
+4. **SATISFIED for the 26.2 baseline:** clean-install/schema/signing/deployment/rollback and focused authority/live checks are closed in the preceding phase records.
+5. **REQUIRED BEFORE PHASE 8 IMPLEMENTATION:** publish and retain the final `1.0.0` Minecraft/Paper 26.2 release artifacts/provenance.
+6. **REQUIRED AT PHASE 8 KICKOFF:** Paper 26.3 is sufficiently stable to target deliberately.
+7. **REQUIRED DURING PORT REVIEW:** identify any 26.2-only workaround explicitly before removal.
 
 ## Port scope
 
@@ -67,3 +68,5 @@ Phase 8 should:
 Prefer deleting obsolete 26.2 workarounds to carrying compatibility branches. Do not keep dual 26.2/26.3 code merely because it is convenient unless a separately documented product requirement justifies multi-version support.
 
 Do not change public configuration schema, policy semantics, key formats, or protocol version merely because the platform version changed. Any such change needs its own concrete requirement and migration/security review.
+
+Do not reintroduce `guardian.cerberus.dev.*` fault-injection switches into the public Cerberus runtime. If Phase 8 needs live fault injection for port verification, keep it in test-only fixtures or a deliberately non-release test build/branch and remove it before release packaging.

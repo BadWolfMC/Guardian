@@ -2,6 +2,10 @@
 
 > Implementation has begun. Current implementation and closeout requirements are recorded in `PHASE_7_5_IMPLEMENTATION.md` and `PHASE_7_5_VERIFICATION.md`; this handoff remains as the entering-scope record.
 
+> **Historical closeout note (2026-10-06):** Phase 7.5 is formally closed. The final gate is 376 tests with 0 failures/errors and 11 documented Windows symlink-privilege skips; the fresh `1.0.0-rc.2` release-producing rehearsal is bound to commit `ddcad249c4837fdcf68c1c3a00d8fda0ecbb2da5` and GitHub Actions run `37418021934` / attempt `1`. The focused live/rollback and real-Git hygiene matrices passed. Phase 8 is unblocked by this prerequisite, subject to its own Paper 26.3 readiness gate.
+
+> **Post-closeout release-preparation note:** the source default is stable `1.0.0`. A final public-release hygiene pass removes verification-only Cerberus runtime switches and release-facing pre-public wording; therefore the `1.0.0-rc.2` artifacts remain rehearsal evidence and must not be republished as the final `1.0.0` assets.
+
 ## Entering state
 
 Phase 7 is formally complete at source default `0.1.0-phase7`. The final Java 25 / Gradle 9.7.1 gate is green at **366 tests, 0 failures, 0 errors, and 11 documented Windows symlink-privilege skips**.

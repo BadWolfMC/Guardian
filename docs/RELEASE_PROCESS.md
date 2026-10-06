@@ -11,9 +11,9 @@ The Cerberus release-signing private key remains offline and **never enters GitH
 Use SemVer for public releases and release candidates, for example:
 
 ```text
-1.0.0-rc.1
 1.0.0
-1.0.1
+1.0.1-rc.1
+1.1.0
 ```
 
 Internal historical `0.1.0-phase*` versions are development provenance only and are not a compatibility promise.
@@ -67,7 +67,7 @@ Use the release-signing private key, its matching public verification key, and t
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0-rc.1 `
+  -Version 1.0.0 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
@@ -125,9 +125,9 @@ You can rerun the final verification without signing again:
 ```powershell
 .\tools\release-manager.ps1 `
   -Action verify-release `
-  -Version 1.0.0-rc.1 `
+  -Version 1.0.0 `
   -ArtifactDirectory .\release-final `
-  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0-rc.1.jar `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0.jar `
   -ReleasePublicKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.pub `
   -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt
 ```
@@ -146,7 +146,7 @@ Do not commit release JARs into the repository. `release-input/`, `release-final
 
 ### 7. Smoke-test the draft artifacts
 
-Test the actual draft assets, not a locally rebuilt replacement. For an RC/final release, use the small risk-based production matrix in `PRODUCTION_RUNBOOK.md`.
+Test the actual draft assets, not a locally rebuilt replacement. For every release, use the small risk-based production matrix in `PRODUCTION_RUNBOOK.md`.
 
 At minimum verify:
 
@@ -169,9 +169,9 @@ For unusual/manual recovery work, `sign-cerberus` remains available. It **requir
 ```powershell
 .\tools\release-manager.ps1 `
   -Action sign-cerberus `
-  -Version 1.0.0-rc.1 `
-  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.0-rc.1-unsigned.jar `
-  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0-rc.1.jar `
+  -Version 1.0.0 `
+  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.0-unsigned.jar `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0.jar `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
   -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt `
   -OutputDirectory .\release-final

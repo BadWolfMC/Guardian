@@ -413,3 +413,52 @@ The source archive supplied for the post-rehearsal hardening pass is:
 - intentionally omits retained `build/` and `.gradle/` state while retaining the rehearsal `release-input/` and `release-final/` directories for audit
 
 The post-rehearsal hardening adds centralized/aligned SemVer validation, publication/checking of the Cerberus release public key, a disposable-key Windows PowerShell CI release smoke, less noisy diagnostic test-report upload behavior, documentation closeout cleanup, and readability-only formatting of selected compressed helper/protocol classes. These source/tooling changes intentionally require a fresh RC/finalization rehearsal before any candidate is publishable; the earlier rehearsal remains provenance evidence, not the final release candidate.
+
+## Phase 7.5 final closeout — 2026-10-06
+
+The formal Phase 7.5 closeout is based on the operator-supplied final audit archive:
+
+- archive: `Guardian(20261006-092842).zip`
+- SHA-256: `eb62745b680bbe9bce75027421ce232903a95fc1a7076ac72c7da53efb7992f1`
+- retained Java 25 Gradle XML: **376 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**
+- module totals: Core 122/0/0/4, Paper 97/0/0/4, Protection 20/0/0/0, Protocol 50/0/0/0, Velocity 60/0/0/3, Cerberus 27/0/0/0 (tests/failures/errors/skipped)
+
+Normal GitHub CI completed the Java 25 gate and the dependent Windows PowerShell release-tooling smoke. The Windows job's post-job Gradle cache save emitted non-gating locked-file warnings after the release smoke itself had succeeded; this is retained as runner/cache-cleanup noise rather than treated as a Guardian release failure.
+
+The fresh final-hardening Release Candidate/offline-finalization rehearsal used:
+
+- repository: `BadWolfMC/Guardian`
+- source commit: `ddcad249c4837fdcf68c1c3a00d8fda0ecbb2da5`
+- workflow run ID / attempt: `37418021934` / `1`
+- rehearsal version: `1.0.0-rc.2`
+- `RELEASE_INPUT.json` SHA-256: `dade8110079feedd60002934b26dab3c0c5a18902f112febaf814fba7a54e47d`
+- `SHA256SUMS-CI.txt` SHA-256: `da4ad3514b9f9f6ffce8bf55643bc943db30bae374c739d6cfc185dd2e628896`
+- CI unsigned Cerberus SHA-256: `da717d484df47532c12025ee8f49782671cd23fc0fcbe642618c65ba57fb0152`
+- CI release-tool SHA-256: `1c30f9337d095ee56b0cb43e01d7882bd73850fe43a85bca449ebe957eaa0867`
+- final signed Cerberus SHA-256: `81341cc1ef23755ccadadc26901f0ad44187ef668d30f24ea8ab77e6ae2ad185`
+- final Guardian-Paper SHA-256: `72ce503a173ed43e52d42fa89770bfad2bfdf98b07264417d9436192a7ff0dcd`
+- final Guardian-Velocity SHA-256: `f29a883bee9b553191b9847ab0b4aa6061f7607f3a4177dbe887e174707a8e3c`
+- release public-key SHA-256: `0afc70cd9cf8ad4f5b61ab109b8d93acd4f164cb04cf5bb358783949d4b0ca3b`
+- server-auth trust-file SHA-256: `c8c27b4f879927f3607644f8a1feab5d1b28af4e17ebeec290a24f12aa8c6d42`
+- final `RELEASE_PROVENANCE.txt` SHA-256: `2e015217335b59c1619e1667c2118150532c7d8d95a5a67fbb1a191e34f6dba5`
+- final `SHA256SUMS.txt` SHA-256: `84456fb63f1dfb3400a02937d09a1dca8c9de06573cc85a279743af8f15a474c`
+
+The rc.2 input and final checksum files both reverified completely. Final Paper/Velocity are byte-identical to CI; signed Cerberus is the exact checked unsigned CI artifact plus only the intended signed release-identity and Guardian server-auth public-trust resources. The public release-key file is included in the final eight-asset set and is itself checksummed. No private-key-like resource, private PEM material, or administrator-local filesystem path was found in the final distributables.
+
+Focused live verification passed for Velocity/Paper status and files-only validation, Vanilla, OptiFine, signed Fabric/Cerberus policy deny -> atomic policy reload -> allow, authoritative inspection, backend switching without transferring manifest authority to Paper, Guardian Protection execution/namespace/visibility behavior, Paper reload, and rc.1 -> rc.2 rollback/recovery. Real-checkout Git hygiene was clean and `gradlew` remained tracked with mode `100755`.
+
+Phase 7.5 is therefore formally closed on Minecraft/Paper/Fabric 26.2. Phase 8 is unblocked by this prerequisite, while remaining a separate 26.3 platform-port effort subject to its own Paper-26.3 stability/readiness gate.
+
+
+## Final 1.0.0 public-release preparation — 2026-10-06
+
+The post-Phase-7.5 release-preparation pass is based on the operator-supplied repository archive:
+
+- archive: `Guardian(20261006-102018).zip`
+- SHA-256: `e99661653f9c50d135cbc5dfc2f6511bca4571d8404a6fffd0b71443e4785205`
+- source default entering/final: `1.0.0`
+- retained operator Java 25 gate before this pass: **376 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**
+
+This pass is release cleanup rather than a new architecture phase. It removes the verification-only `guardian.cerberus.dev.*` fault-injection/protocol/manifest switches from the public Cerberus client, removes the remaining production-source test-only Velocity session constructor, replaces release-facing pre-public/development wording with stable-product wording, and updates stable `1.0.0` examples in the release/operator documentation. The supported standalone CONFIGURATION + PLAY fallback, protocol v1, schema 2, Admission/Protection authority boundaries, signed Cerberus provenance, Guardian server authentication, and three-key-domain model are unchanged.
+
+Because runtime source changes in this pass, the retained 376-test build and `1.0.0-rc.2` artifacts remain historical verification/rehearsal evidence only. The actual `1.0.0` public release must be built/tested from the final post-cleanup commit through the normal GitHub release-input -> offline finalization -> verification -> draft-release smoke path.

@@ -90,6 +90,7 @@ class Phase75ReleaseWorkflowArchitectureTest {
         String manager = Files.readString(Path.of("../tools/release-manager.ps1"));
         String release = Files.readString(Path.of("../.github/workflows/release-candidate.yml"));
 
+        assertTrue(rootBuild.contains("def guardianVersion = rootProject.providers.gradleProperty('guardianVersion').orElse('1.0.0').get()"));
         assertTrue(rootBuild.contains("def semVerPattern"));
         assertTrue(rootBuild.contains("optional prerelease/build metadata"));
         assertTrue(rootBuild.contains("\\+([0-9A-Za-z-]+"), "root Gradle validation must accept SemVer build metadata");
@@ -123,12 +124,12 @@ class Phase75ReleaseWorkflowArchitectureTest {
     }
 
     @Test
-    void productionStartupKeepsDiagnosticsGatedWithoutAdvertisingThem() throws Exception {
+    void publicCerberusSourceContainsNoDevelopmentRuntimeSwitches() throws Exception {
         String client = Files.readString(Path.of("src/main/java/com/badwolfmc/cerberus/CerberusClient.java"));
-        assertTrue(client.contains("guardian.cerberus.dev.suppressResponse"));
-        assertTrue(client.contains("guardian.cerberus.dev.malformedResponse"));
-        assertTrue(client.contains("guardian.cerberus.dev.logManifest"));
-        assertFalse(client.contains("Diagnostic switches use guardian.cerberus.dev.*"));
+        assertFalse(client.contains("guardian.cerberus.dev."));
+        assertFalse(client.contains("Boolean.getBoolean("));
+        assertFalse(client.contains("Integer.getInteger("));
+        assertTrue(client.contains("GuardianProtocol.VERSION"));
     }
 
     @Test

@@ -1,5 +1,7 @@
 # Phase 2 — Cerberus and Guardian protocol v1
 
+> **Historical implementation note:** the `guardian.cerberus.dev.*` verification switches mentioned below were later removed from public Cerberus source during final `1.0.0` release preparation.
+
 ## Status
 
 Phase 2 implementation and live transport verification are complete as of 2026-09-26. This closeout hardening revision adds adversarial boundary coverage and two representation-tightening changes discovered during final review: Fabric mod IDs now use Fabric's actual 2–64 character identifier constraint, and in-memory protocol versions are constrained to the unsigned-16-bit range used on the wire.
@@ -57,7 +59,7 @@ Observed categories include:
 
 This confirms Phase 3 must distinguish administrator-policy-addressable client mods from baseline/bootstrap/runtime and bundle-internal entries. Allowlist mode must not require administrators to enumerate Java, Minecraft, every Fabric API module, and every bundled implementation library merely to admit an otherwise approved client. Conversely, nested entries cannot simply be deleted, because that would create an invisible policy blind spot.
 
-The opt-in `-Dguardian.cerberus.dev.logManifest=true` output contained only IDs, versions, parent IDs, and coarse origin kinds; no filesystem paths were transmitted or logged by the protocol model.
+During Phase 2 verification, the opt-in `-Dguardian.cerberus.dev.logManifest=true` output contained only IDs, versions, parent IDs, and coarse origin kinds; no filesystem paths were transmitted or logged by the protocol model. That verification switch is not present in the public `1.0.0` client source.
 
 A dedicated local Loom/directory-origin live client was not required for closeout because the public Loader origin model is handled deterministically in source and the roadmap already reserves broader adversarial development-origin testing for Phase 6. No production policy for `DIRECTORY`/`MIXED_OR_UNKNOWN` is invented in Phase 2.
 

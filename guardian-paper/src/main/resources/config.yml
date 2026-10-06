@@ -1,7 +1,7 @@
 # Guardian production configuration schema.
 # On initial startup, malformed/structurally invalid files are first preserved as
 # timestamped .bak files before Guardian restores this packaged default. Reload never
-# rewrites an invalid candidate; the prior known-good runtime snapshot remains active.
+# rewrites invalid files; the prior known-good runtime snapshot remains active.
 schema-version: 2
 
 # Optional logical backend name shown by /guardian status and inspect output.
@@ -35,7 +35,7 @@ admission:
   authority: standalone
 
   standalone:
-    # These are the live-tested standalone transport defaults. They are runtime
+    # These are the default standalone transport timings. They are runtime
     # settings, not protocol constants, and may be retuned without a schema bump.
     handshake-timeout-seconds: 10
     challenge-channel-wait-ticks: 40

@@ -1,5 +1,7 @@
 # Phase 2 verification — Cerberus and Guardian protocol v1
 
+> **Historical verification note:** the `guardian.cerberus.dev.*` fault-injection/manifest switches referenced below existed only to manufacture Phase 2/6 live-test cases. They were removed from the public Cerberus source during final `1.0.0` release preparation.
+
 ## Current gate status — 2026-09-26
 
 **Live protocol/transport matrix: PASS.**
@@ -88,7 +90,7 @@ A dedicated development-directory/Loom-origin live run is also not required for 
 ## 6. Bridge review
 
 - BRIDGE-001 — retired by protocol-v1 response validation and real canonical manifests.
-- BRIDGE-002 — retired by Loader-backed manifests and `guardian.cerberus.dev.*` diagnostic tooling.
+- BRIDGE-002 — retired by Loader-backed manifests and the verification diagnostics available at that historical checkpoint; those runtime diagnostics were removed before the public `1.0.0` release.
 - BRIDGE-003 — unchanged; Phase 5 owns production proxy-secret provisioning.
 - BRIDGE-004 — active. Historical Phase 2 scope did not change it; the later Phase 3 portability revision assigns shared-policy consumption to Phase 3 and leaves final Velocity production configuration/operations plus Phase 0B-labelled diagnostic cleanup to Phase 5.
 - BRIDGE-005 — unchanged; Phase 4 owns final Geyser/Floodgate production behavior.

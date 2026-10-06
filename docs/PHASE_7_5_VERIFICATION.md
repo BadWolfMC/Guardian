@@ -2,7 +2,7 @@
 
 ## Status
 
-**RELEASE CHAIN REHEARSED; the Java 25 gate, real GitHub Actions release-input, and local PowerShell finalization have passed on the pre-final-hardening candidate. The final hardening follow-up in this revision requires one fresh CI/RC/finalization run, and the focused live/rollback gates still remain before formal closeout.**
+**CLOSED — 2026-10-06. Phase 7.5 production-readiness/public-release hardening is formally complete. The fresh Java 25 gate, normal GitHub CI including the real Windows PowerShell release-tooling smoke, `1.0.0-rc.2` Release Candidate/offline-finalization rehearsal, final artifact/security/privacy/license audit, real-Git hygiene checks, focused live matrix, and rollback/recovery rehearsal all passed.**
 
 Phase 7 remains the entering runtime/security baseline. Phase 7.5 changes are intentionally concentrated in release provenance, packaged defaults, repository/public documentation, release tooling, and operations/runbook material.
 
@@ -20,7 +20,7 @@ The Phase 7.5 implementation worktree has passed the following non-authoritative
 - the two new packaged-public-default checks execute successfully against the actual `config.yml` and `en_us.properties` resources.
 - the current signer/verifier was exercised directly with disposable Ed25519 identities against an unsigned retained Cerberus artifact; signing, canonical-digest verification, release-signature verification, and embedded Guardian server-authentication trust-anchor verification all passed.
 
-The original implementation environment provided Java 21 only and could not truthfully record the authoritative Java 25 / Gradle 9.7.1 or PowerShell result. Those operator/Actions gates were subsequently exercised as recorded below. The current final-hardening follow-up still requires a fresh run because it changes release tooling/output and adds two JUnit architecture checks plus a Windows PowerShell CI smoke job.
+The original implementation environment provided Java 21 only and could not truthfully record the authoritative Java 25 / Gradle 9.7.1 or PowerShell result. Those operator/Actions gates were subsequently exercised as recorded below, including the final-hardening rerun and Windows PowerShell CI smoke.
 
 ## Required automated gate
 
@@ -55,7 +55,7 @@ A real GitHub **Release Candidate** rehearsal then completed for `1.0.0-rc.1`:
 
 The downloaded `release-input/` checksums matched, local `finalize-release` succeeded using the exact CI-built unsigned client and CI-built release tool, final Paper/Velocity remained byte-identical to CI, and independent inspection found the signed Cerberus logical contents differed from the unsigned input only by the intended Guardian release-identity and server-authentication trust-anchor resources. The release public-key fingerprint recorded by that rehearsal was `0afc70cd9cf8ad4f5b61ab109b8d93acd4f164cb04cf5bb358783949d4b0ca3b`; that SHA-256 is a fingerprint, **not** the value configured in `policy.yml`.
 
-### Final hardening follow-up — fresh evidence required
+### Final hardening follow-up — historical pre-closeout requirement
 
 The post-rehearsal review made a small final set of release/tooling/code-quality changes:
 
@@ -66,7 +66,76 @@ The post-rehearsal review made a small final set of release/tooling/code-quality
 - the Phase 0A sanity report is explicitly historical; and
 - `ProtocolCodec`, `ManifestCanonicalizer`, and `CerberusReleaseIdentityGenerator` receive readability-only formatting/structure cleanup without protocol or cryptographic semantic changes.
 
-These changes supersede the `1.0.0-rc.1` rehearsal as the eventual publishable candidate. The next full Gradle gate is expected to contain **376 JUnit tests** before any additional test additions, plus the separate Windows PowerShell release-workflow smoke job. A fresh RC/finalization rehearsal must then confirm the new eight-file public release set including `cerberus-release-signing.pub`.
+These changes superseded the `1.0.0-rc.1` rehearsal as the eventual publishable candidate. At that checkpoint, the required next evidence was a **376-test** Gradle gate, the separate Windows PowerShell release-workflow smoke job, and a fresh RC/finalization rehearsal confirming the new eight-file public release set including `cerberus-release-signing.pub`. That evidence is recorded in the closeout section below.
+
+## Final hardening closeout evidence — `1.0.0-rc.2`
+
+The final closeout audit is based on the operator-supplied source/rehearsal archive:
+
+- archive: `Guardian(20261006-092842).zip`;
+- archive SHA-256: `eb62745b680bbe9bce75027421ce232903a95fc1a7076ac72c7da53efb7992f1`;
+- source default remains `1.0.0`; and
+- retained Java 25 Gradle XML reports: **376 tests, 0 failures, 0 errors, 11 skipped**.
+
+Final module totals are:
+
+| Module | Tests | Failures | Errors | Skipped |
+|---|---:|---:|---:|---:|
+| Guardian Core | 122 | 0 | 0 | 4 |
+| Guardian Paper | 97 | 0 | 0 | 4 |
+| Guardian Protection | 20 | 0 | 0 | 0 |
+| Guardian Protocol | 50 | 0 | 0 | 0 |
+| Guardian Velocity | 60 | 0 | 0 | 3 |
+| Cerberus Fabric | 27 | 0 | 0 | 0 |
+| **Total** | **376** | **0** | **0** | **11** |
+
+All 11 skips remain the documented Windows symbolic-link privilege assumption skips; no functional/product test is unexpectedly skipped.
+
+Normal GitHub CI completed the Java 25 build/test gate and the dependent `windows-latest` job exercising the real `test-release-workflow.ps1` -> `finalize-release` -> `verify-release` path with disposable keys. Post-job `actions/setup-java` Gradle cache cleanup emitted a non-gating Windows warning while trying to archive open Gradle `.lock` files after the job had succeeded. That cache-save warning is accepted runner/tooling noise and does not weaken the build or release-tooling gate.
+
+The fresh GitHub **Release Candidate** rehearsal is authoritative for the release-producing provenance chain:
+
+- repository: `BadWolfMC/Guardian`;
+- source commit: `ddcad249c4837fdcf68c1c3a00d8fda0ecbb2da5`;
+- workflow run ID / attempt: `37418021934` / `1`;
+- rehearsal version: `1.0.0-rc.2`;
+- `RELEASE_INPUT.json` SHA-256: `dade8110079feedd60002934b26dab3c0c5a18902f112febaf814fba7a54e47d`;
+- `SHA256SUMS-CI.txt` SHA-256: `da4ad3514b9f9f6ffce8bf55643bc943db30bae374c739d6cfc185dd2e628896`;
+- CI unsigned Cerberus SHA-256: `da717d484df47532c12025ee8f49782671cd23fc0fcbe642618c65ba57fb0152`;
+- CI release-tool SHA-256: `1c30f9337d095ee56b0cb43e01d7882bd73850fe43a85bca449ebe957eaa0867`;
+- final signed Cerberus SHA-256: `81341cc1ef23755ccadadc26901f0ad44187ef668d30f24ea8ab77e6ae2ad185`;
+- final Guardian-Paper SHA-256: `72ce503a173ed43e52d42fa89770bfad2bfdf98b07264417d9436192a7ff0dcd`;
+- final Guardian-Velocity SHA-256: `f29a883bee9b553191b9847ab0b4aa6061f7607f3a4177dbe887e174707a8e3c`;
+- final public release-key file SHA-256: `0afc70cd9cf8ad4f5b61ab109b8d93acd4f164cb04cf5bb358783949d4b0ca3b`;
+- final `RELEASE_PROVENANCE.txt` SHA-256: `2e015217335b59c1619e1667c2118150532c7d8d95a5a67fbb1a191e34f6dba5`; and
+- final `SHA256SUMS.txt` SHA-256: `84456fb63f1dfb3400a02937d09a1dca8c9de06573cc85a279743af8f15a474c`.
+
+The final release directory contains exactly the intended eight public assets. `SHA256SUMS-CI.txt` and `SHA256SUMS.txt` reverify completely. Final Paper and Velocity are byte-identical to the checked CI inputs. The signed Cerberus logical archive differs from the unsigned CI input only by the intended `META-INF/guardian/cerberus-release.bin`, `META-INF/guardian/trusted-server-keys.txt`, and their directory entry; no existing logical entry changed. The published `cerberus-release-signing.pub` contains the policy-usable base64 public key `MCowBQYDK2VwAyEAL1zDo4KrC9B+CBtPJ3F5q0mo5lhlXvKJk0loCIWH7hs=`; its SHA-256 fingerprint is not a `policy.yml` key value.
+
+### Focused live / rollback matrix
+
+The rc.2 deployment/recovery checks passed on the intended Velocity -> Paper topology:
+
+- Guardian-Velocity `status`/`validate`: PASS; Velocity authority, LuckPerms/Geyser/Floodgate availability, proxy assertion configuration, Guardian server authentication, and signed-Cerberus requirement all reported correctly.
+- Guardian-Paper behind Velocity `status`/`validate`: PASS; Velocity authority, independent Protection enablement, Floodgate availability, and assertion verifier state reported correctly while server-auth/signed-Cerberus responsibilities remained not-applicable on the assertion-only backend.
+- Vanilla Java: PASS (`JAVA_VANILLA` / `VANILLA_POLICY`).
+- OptiFine Java: PASS (`JAVA_OPTIFINE` / `OPTIFINE_POLICY`).
+- Signed Fabric/Cerberus: PASS. A newly installed unapproved `yet_another_config_lib_v3` version was first denied as `MANIFEST_DENIED`; after the administrator updated policy and atomically reloaded Guardian-Velocity, the same client was admitted as `CERBERUS_VERIFIED`. `/guardianv inspect` reported the active authoritative snapshot for Cerberus `1.0.0-rc.2`, protocol `1..1`, 28 policy-addressable / 144 Loader-known mods, and non-Bedrock evidence. A subsequent Alpha -> Beta switch reused the proxy-session admission rather than triggering backend manifest authority.
+- Guardian Protection execution/namespace policy: PASS. A non-bypass/non-OP account was denied `/pl` as `EXECUTION_DENIED` and `/velocity:callback` as `NAMESPACE_DENIED`; command-tree visibility contained only configured commands. Guardian bypass permissions also behaved as intended for Guardian-owned filtering.
+- Atomic reload: PASS on both authorities. Velocity policy reload was exercised during the Fabric test; Paper `validate`/`reload` succeeded repeatedly and reconfigured Protection without restart.
+- Rollback/recovery: PASS. Alpha was rolled back from `1.0.0-rc.2` to `1.0.0-rc.1`, validated/status-checked successfully with the existing configuration/key material, then restored to `1.0.0-rc.2` and validated/status-checked successfully.
+
+No repeated Bedrock matrix was required because Phase 7.5 did not alter the Geyser/Floodgate classification implementation or configuration semantics.
+
+### Real-Git hygiene closeout
+
+The operator's real checkout produced clean `git status --short` and `git diff --check` output. `release-input/` and `release-final/` resolve to the repository ignore rules; `release-artifacts/` is likewise explicitly ignored in `.gitignore`. A tracked-file scan found no `.gradle/`, `build/`, release-staging, private-key, ZIP, or patch artifact. `gradlew` is tracked as executable mode `100755`.
+
+### Final audit / closeout decision
+
+The final source/artifact/security/privacy/license/repository-hygiene audit found no first-public-release blocker and no reason to reopen the frozen Phase 7.5 architecture. Admission/Protection independence, Velocity authority with standalone-Paper fallback, assertion-only backends, command ownership, Geyser/Floodgate precedence, active-session-only inspection, exact-artifact semantics, Ed25519 trust boundaries, three-key-domain separation, and the prohibition on server implementation/NMS/packet workarounds remain intact. No 26.3 implementation work is included in this closeout.
+
+**Phase 7.5 is formally CLOSED. Phase 8 is unblocked by the Phase 7.5 prerequisite, subject to Phase 8's separate platform-readiness requirement that Paper 26.3 be sufficiently stable to target deliberately.**
 
 ## Release-input rehearsal
 
@@ -158,4 +227,11 @@ Phase 7.5 closes only when:
 - the production backup/rollback/key procedure is rehearsed; and
 - no first-public-release blocker remains.
 
-Until then, do not begin the 26.3 Phase 8 port.
+All Phase 7.5 closeout conditions above are now satisfied by the final evidence recorded in this document. Phase 8 remains a separate platform-port phase and may begin only under its own readiness preconditions.
+
+
+## Post-closeout `1.0.0` stable-release preparation
+
+After formal Phase 7.5 closeout, one final public-release hygiene pass removes the runtime `guardian.cerberus.dev.*` fault-injection/manifest/protocol switches that existed solely to manufacture earlier live-test failure cases, removes the remaining production-source test-only Velocity session convenience constructor, and cleans stable-product wording in current operator defaults/docs. The source default remains `1.0.0`; protocol v1, schema 2, policy semantics, trust/key boundaries, and platform authority are unchanged.
+
+This is intentionally **after** the `1.0.0-rc.2` rehearsal, so the rc.2 artifacts are not promoted to the final release. Before publishing `1.0.0`, run the full Java 25 gate and Windows release-tooling smoke on the final commit, run the Release Candidate workflow with exact version `1.0.0`, finalize/verify that downloaded release-input offline, and smoke-test the resulting draft assets. Record the final commit/run IDs and hashes in release provenance rather than reusing rc.2 values.

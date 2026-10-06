@@ -22,7 +22,7 @@ class VelocityAdmissionSessionTest {
 
     @Test
     void duplicatePresenceMustAgreeOnProtocol() {
-        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId());
+        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId(), null);
 
         assertTrue(session.recordPresence(new Presence(1, 1, GuardianProtocol.KNOWN_CAPABILITIES, "test")));
         assertTrue(session.recordPresence(new Presence(1, 1, GuardianProtocol.KNOWN_CAPABILITIES, "test")));
@@ -31,7 +31,7 @@ class VelocityAdmissionSessionTest {
 
     @Test
     void onlyOneResponseCanBeClaimedPerChallenge() {
-        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId());
+        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId(), null);
 
         assertTrue(session.tryMarkResponseReceived());
         assertFalse(session.tryMarkResponseReceived());
@@ -39,7 +39,7 @@ class VelocityAdmissionSessionTest {
 
     @Test
     void firstDecisionWinsAndCompletesAwaitedFuture() {
-        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId());
+        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId(), null);
         GuardianDecision allowed = GuardianDecision.allow(DecisionReason.CERBERUS_VERIFIED, "ok");
         GuardianDecision denied = GuardianDecision.deny(DecisionReason.MANIFEST_INVALID, "late");
 
@@ -53,7 +53,7 @@ class VelocityAdmissionSessionTest {
 
     @Test
     void timeoutDecisionCannotBeReplacedByLateSuccessfulCompletion() {
-        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId());
+        VelocityAdmissionSession session = new VelocityAdmissionSession(sessionId(), null);
         GuardianDecision timeout = GuardianDecision.deny(DecisionReason.CERBERUS_TIMEOUT, "timeout");
         GuardianDecision lateAllow = GuardianDecision.allow(DecisionReason.CERBERUS_VERIFIED, "late allow");
 
@@ -67,7 +67,7 @@ class VelocityAdmissionSessionTest {
     @Test
     void proxySessionIdIsDefensivelyCopied() {
         byte[] original = sessionId();
-        VelocityAdmissionSession session = new VelocityAdmissionSession(original);
+        VelocityAdmissionSession session = new VelocityAdmissionSession(original, null);
         original[0] = 99;
 
         byte[] returned = session.proxySessionId();

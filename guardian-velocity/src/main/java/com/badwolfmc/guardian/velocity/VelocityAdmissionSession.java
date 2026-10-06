@@ -41,11 +41,6 @@ final class VelocityAdmissionSession {
         this.runtimeSnapshot = runtimeSnapshot;
     }
 
-    /** Test-only convenience for protocol/session invariants that do not need a runtime snapshot. */
-    VelocityAdmissionSession(byte[] proxySessionId) {
-        this(proxySessionId, null);
-    }
-
     VelocityRuntimeSnapshot runtimeSnapshot() {
         return Objects.requireNonNull(runtimeSnapshot, "runtimeSnapshot");
     }

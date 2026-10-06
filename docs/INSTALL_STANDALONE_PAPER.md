@@ -19,7 +19,7 @@ The default Fabric action is `REQUIRE_CERBERUS`. The default policy is intention
 
 Use the two-step artifact workflow when exact hashes are desired:
 
-1. place candidate Fabric JARs in `plugins/Guardian/artifact-import/`;
+1. place administrator-approved Fabric JARs in `plugins/Guardian/artifact-import/`;
 2. run `/guardian artifacts scan`;
 3. review `artifacts.yml` and `artifact-import-rules.yml`;
 4. deliberately copy/merge the desired rule into `policy.yml`;

@@ -44,7 +44,7 @@ For an official release, finalize the complete downloaded CI release-input bundl
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0-rc.1 `
+  -Version 1.0.0 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
