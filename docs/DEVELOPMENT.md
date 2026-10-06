@@ -21,7 +21,7 @@ The wrapper currently resolves Gradle 9.7.1.
 
 ## Release identities and official Cerberus signing
 
-Phase 7 provides `tools/release-manager.ps1` as the supported human-facing wrapper around the offline release tasks. It deliberately keeps private-key and release destinations explicit; the normal path derives a version-bearing signed JAR filename inside the requested output directory. CI never receives the Cerberus release-signing private key.
+`tools/release-manager.ps1` is the supported human-facing wrapper around the offline release tasks. It deliberately keeps private-key and release destinations explicit; the normal path derives a version-bearing signed JAR filename inside the requested output directory. CI never receives the Cerberus release-signing private key.
 
 Generate a release-signing identity outside the repository:
 
@@ -39,18 +39,20 @@ Generate the **separate** Guardian server-authentication identity similarly:
   -OutputDirectory C:\secure\guardian-server-identity
 ```
 
-Sign the normal production Loom `jar` output with an explicit destination:
+Sign the exact CI-built unsigned Cerberus JAR with an explicit destination:
 
 ```powershell
 .\tools\release-manager.ps1 `
   -Action sign-cerberus `
   -Version 1.0.0 `
+  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.0-unsigned.jar `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0.jar `
   -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
   -GuardianServerPublicKeys C:\secure\guardian-server-identity\guardian-server-auth.pub `
   -OutputDirectory C:\release\1.0.0
 ```
 
-The underlying Gradle tasks remain available for automation, but signing requires an explicit `-PguardianVersion=...`, `-PcerberusReleasePrivateKey=...`, and `-PcerberusSignedOutput=...`. The release-signing private key, Guardian server-authentication private key, and Velocity/Paper `proxy-assertion.key` are three distinct trust domains and must not be reused. See `KEY_MANAGEMENT.md` and `RELEASE_PROCESS.md` for storage, deployment, staged rotation, compromise response, checksums, and the distinction between the signer's canonical digest and the finished-JAR SHA-256.
+The supported helper uses the CI-built release-tool JAR for normal offline signing. The underlying Gradle tasks remain available for development/automation, but direct Gradle signing requires an explicit `-PguardianVersion=...`, `-PcerberusUnsignedJar=...`, `-PcerberusReleasePrivateKey=...`, and `-PcerberusSignedOutput=...`. The release-signing private key, Guardian server-authentication private key, and Velocity/Paper `proxy-assertion.key` are three distinct trust domains and must not be reused. See `KEY_MANAGEMENT.md` and `RELEASE_PROCESS.md` for storage, deployment, staged rotation, compromise response, checksums, and the distinction between the signer's canonical digest and the finished-JAR SHA-256.
 
 The signed release mechanism is provenance/compliance hardening only. It verifies the **reported** official release identity; a hostile modified client can still lie. Guardian server authentication protects stock Cerberus manifest disclosure and is likewise not remote attestation.
 
@@ -103,15 +105,13 @@ The next build will regenerate the caches it needs. Do **not** delete `gradle/wr
 
 `guardian-core` is the platform-neutral Admission domain. `guardian-protection` is the independent platform-neutral Protection domain. Neither module may import Paper, Velocity, Fabric, Geyser/Floodgate, or the other domain merely for convenience. Guardian-Paper is the host/adaptor that composes them. Architecture tests enforce these boundaries.
 
-Phase 1B adds Paper-only Protection adapters in `guardian-paper`. Command execution interception must remain player-only; do not add `ServerCommandEvent`, console/command-block interception, NMS, CraftBukkit implementation access, reflection into server internals, or packet-library hooks. Root visibility and downstream suggestion suppression must continue to call the same platform-neutral visibility decision.
+Paper-only Protection adapters live in `guardian-paper`. Command execution interception must remain player-only; do not add `ServerCommandEvent`, console/command-block interception, NMS, CraftBukkit implementation access, reflection into server internals, or packet-library hooks. Root visibility and downstream suggestion suppression must continue to call the same platform-neutral visibility decision.
 
 ## Implementation bridge discipline
 
-`docs/IMPLEMENTATION_BRIDGES.md` is the required register for temporary implementation scaffolding that crosses phase boundaries. Update it whenever prototype code, temporary provisioning, simplified policy logic, hard-coded operational values, or early integrations are retained intentionally. Each entry must name an owning phase and a concrete retirement condition.
+`docs/IMPLEMENTATION_BRIDGES.md` is the historical/current register for deliberately temporary implementation scaffolding. The public-release baseline has no active bridges. Any future temporary provisioning, simplified policy logic, hard-coded operational behavior, or early integration that is intentionally retained must be recorded there with an owner and concrete retirement condition rather than becoming silent technical debt.
 
-At every phase closeout, review the active bridge register before declaring the phase complete. A bridge may be removed only when its retirement condition is satisfied or when the authoritative project plan explicitly promotes that behavior to the final contract.
-
-## Phase 3 shared Admission policy development
+## Shared Admission policy development
 
 Administrator Admission policy lives in `shared-resources/policy.yml` and is copied to the platform data directory as `policy.yml`. Do not move client/mod/profile policy back into Paper `config.yml` or add a Velocity-specific policy schema.
 
@@ -119,6 +119,6 @@ The parse/normalize/validate/snapshot/evaluate path belongs in `guardian-core` a
 
 `artifacts.yml` is exact-artifact identity data only. Adding a catalog entry must not change admission by itself. `HASH_REQUIRED` policy must explicitly use `catalog: true` and/or direct `sha256` declarations. Catalog scans do not mutate an already active immutable policy snapshot; reload/validation is a separate operation.
 
-Supported Phase 3 version predicates are deliberately bounded: `*`, exact strings, one trailing prefix wildcard, or whitespace-separated dotted-numeric comparison terms such as `>=1.2 <2.0`. Do not add a general-purpose expression language or silently impose semver ordering on arbitrary Fabric version strings.
+Supported version predicates are deliberately bounded: `*`, exact strings, one trailing prefix wildcard, or whitespace-separated dotted-numeric comparison terms such as `>=1.2 <2.0`. Do not add a general-purpose expression language or silently impose semver ordering on arbitrary Fabric version strings.
 
 The cross-adapter invariant is strict: equivalent profile/classification/manifest inputs against the same shared snapshot must reach the same policy result from standalone Paper and Velocity. Paper in `velocity` authority mode is not a second admission-policy authority.

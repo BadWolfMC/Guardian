@@ -1,12 +1,12 @@
-# Guardian Protection — Phase 1B operator and configuration guide
+# Guardian Protection — operator and configuration guide
 
 Guardian Protection is Guardian's Paper-authoritative command-protection domain. It is independent from Guardian Admission and does not require Guardian-Velocity, Cerberus, Geyser, Floodgate, or a successful client admission exchange.
 
-Phase 1B is intentionally **player-command only**. Guardian Protection intercepts third-party command execution through Paper's supported `PlayerCommandPreprocessEvent` path. It does not subscribe to `ServerCommandEvent` and therefore does not block commands issued by the console, command blocks, remote console, or ordinary plugin dispatch. Guardian also does not redispatch blocked commands through another sender.
+Guardian Protection is intentionally **player-command only**. Guardian Protection intercepts third-party command execution through Paper's supported `PlayerCommandPreprocessEvent` path. It does not subscribe to `ServerCommandEvent` and therefore does not block commands issued by the console, command blocks, remote console, or ordinary plugin dispatch. Guardian also does not redispatch blocked commands through another sender.
 
 ## Security boundary versus disclosure controls
 
-The three initial policy surfaces have different jobs:
+The three policy surfaces have different jobs:
 
 - `protection.execution` is the command-execution security boundary. A configured player command root is cancelled before execution unless the applicable bypass is granted.
 - `protection.visibility` is a disclosure/UX control. It removes command roots from the command list sent to the player and suppresses downstream argument suggestions for the same hidden root. Hiding a command is **not** execution security.
@@ -24,7 +24,7 @@ features:
     enabled: true
 ```
 
-The Phase 1B policy lives under `protection`:
+The policy lives under `protection`:
 
 ```yaml
 protection:
@@ -55,7 +55,7 @@ protection:
 
 ### Execution
 
-`execution.blocked-roots` is deliberately a denylist in Phase 1B. If enabled, listed player command roots are denied. This surface does not have an allowlist mode because Guardian-owned commands should use native permissions and Phase 1B only needs configured third-party/root blocking.
+`execution.blocked-roots` is deliberately a denylist. If enabled, listed player command roots are denied. This surface does not have an allowlist mode because Guardian-owned commands should use native permissions and this surface only needs configured third-party/root blocking.
 
 ### Visibility
 
@@ -92,6 +92,8 @@ Guardian does not recognize `ezprotector.*` permissions.
 
 Bypass resolution is centralized in `guardian-protection`. Notification permission is intentionally separate: notification authority does not exempt a player from rules, and a bypass does not grant staff notifications.
 
+`guardian.protection.visibility.bypass` is the real aggregate visibility permission queried by Guardian. Do **not** append `.*` for Guardian correctness. A permissions provider may support wildcard assignment as an administrative convenience, but Guardian does not depend on wildcard expansion. `guardian.protection.visibility.bypass.<command-key>` is the narrower per-command form.
+
 ### Per-command visibility keys
 
 Dynamic permission suffixes are canonical and bounded. Ordinary ASCII command identifiers stay readable. Characters unsuitable for the permission key are UTF-8 byte escaped as `_xx`; for example:
@@ -112,13 +114,13 @@ Notifications are sent only to online players holding `guardian.protection.notif
 
 Guardian uses `Player.updateCommands()` to refresh online client command trees whenever the active Protection visibility policy is changed, enabled, or disabled through Guardian's validated runtime activation path. The runtime path remains parse → validate complete immutable candidate → atomic activation; an invalid candidate never replaces the previous snapshot and Guardian does not rewrite the administrator's invalid reload file.
 
-Phase 5/7 expose that validated runtime through `/guardian validate` and `/guardian reload`. `validate` performs files-only parsing/validation and activates nothing. `reload` builds a complete candidate snapshot first and swaps it atomically only after all Admission/Protection/localization validation succeeds. A failed reload leaves the prior runtime active. Protection visibility changes trigger supported command-tree refresh for online players rather than requiring a restart.
+That validated runtime is exposed through `/guardian validate` and `/guardian reload`. `validate` performs files-only parsing/validation and activates nothing. `reload` builds a complete candidate snapshot first and swaps it atomically only after all Admission/Protection/localization validation succeeds. A failed reload leaves the prior runtime active. Protection visibility changes trigger supported command-tree refresh for online players rather than requiring a restart.
 
 Permission-provider-specific immediate refresh hooks are not required for correctness. Stale client visibility is never treated as the execution security boundary; execution filtering remains authoritative.
 
 ## Paper 26.2 API placement
 
-Phase 1B uses supported Paper APIs only:
+Guardian Protection uses supported Paper APIs only:
 
 - `PlayerCommandPreprocessEvent` for player-run third-party command execution interception;
 - `PlayerCommandSendEvent` for removing advertised root commands;

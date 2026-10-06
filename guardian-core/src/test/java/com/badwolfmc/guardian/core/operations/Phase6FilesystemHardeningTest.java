@@ -82,8 +82,9 @@ class Phase6FilesystemHardeningTest {
     @Test
     void conventionalPrivateInfrastructureKeysAreIgnoredByGit() throws Exception {
         String gitignore = Files.readString(Path.of("../.gitignore"), StandardCharsets.UTF_8);
-        assertTrue(gitignore.lines().anyMatch("proxy-assertion.key"::equals));
-        assertTrue(gitignore.lines().anyMatch("guardian-server-auth.key"::equals));
+        // The repository may use explicit filenames or a stronger broad private-key rule.
+        assertTrue(gitignore.lines().anyMatch(line -> line.equals("*.key") || line.equals("proxy-assertion.key")));
+        assertTrue(gitignore.lines().anyMatch(line -> line.equals("*.key") || line.equals("guardian-server-auth.key")));
     }
 
     @Test

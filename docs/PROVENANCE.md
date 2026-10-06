@@ -4,7 +4,7 @@ This file records the source/provenance boundary used for the Phase 1A implement
 
 ## Guardian / BrandBlocker lineage
 
-Guardian is a hard fork and substantial rewrite of BrandBlocker by Menacho, with subsequent BadWolfMC development. The Phase 1A review used the supplied legacy reference archive:
+Guardian is a hard fork and substantial rewrite of BrandBlocker by Menacho (`https://github.com/Menacho15/BrandBlocker`), with subsequent BadWolfMC development. The Phase 1A review used the supplied legacy reference archive:
 
 - archive: `BrandBlocker(4).zip`
 - SHA-256: `624184728aa379f6f9c895679e41df6dc260051fc8615c9c146ce09d579b8907`
@@ -16,7 +16,7 @@ BrandBlocker is behavioral/provenance reference material. Guardian does not pres
 
 ## Guardian Protection / eZProtector lineage
 
-The Phase 1A/1B handoff review uses two BadWolfMC eZProtector reference archives:
+The original GPLv3 eZProtector lineage is by DoNotSpamPls (`https://github.com/DoNotSpamPls/eZProtector`). The Phase 1A/1B handoff review uses two BadWolfMC eZProtector reference archives:
 
 - current Paper reference: `ezProtector(3).zip`
   - SHA-256: `4e8d2f04ef33384cc1abe5dc2adf68c6726c43cd02b0644c34807f105643f3df`
@@ -359,3 +359,30 @@ Final closeout verification confirmed clean Paper/Velocity operation, supported 
 The operator's ZIP intentionally contained a root-level `velocity-plugin.json` extracted manually for inspection. That file is not project source and is excluded from this accepted source baseline; the authoritative resource remains `guardian-velocity/src/main/resources/velocity-plugin.json`.
 
 Phase 7 is formally closed. Phase 7.5 owns final production-readiness, GitHub-preparedness, hardening/testing, and documentation cleanup on Minecraft 26.2 before Phase 8 begins the 26.3 port.
+
+
+## Phase 7.5 production-readiness implementation candidate — 2026-10-05
+
+The Phase 7.5 implementation pass is based on the exact operator-supplied repository archive:
+
+- archive: `Guardian(20261005-205156).zip`
+- SHA-256: `222ea62b46eb640930e445dfed0abfe600a8af8e17577c857fa4fef7475f6af5`
+- entering source default: `0.1.0-phase7`
+- entering authoritative Phase 7 evidence: **366 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**
+- supplied Cerberus icon: `cerberus-voxels-128.png`, SHA-256 `0dbbe543c8261be37278ba58e12ba2eec075fffe280b5ea909a347c8f67db352`
+
+Phase 7.5 does not change the completed Guardian security/protocol architecture. The implementation hardens the release provenance chain so offline signing consumes the exact CI-built unsigned Cerberus artifact; adds final signature/version/trust-anchor/release-set verification; enables both packaged Guardian domains by default; adds the Cerberus mod icon; introduces minimal public GitHub maintenance material; rewrites the repository landing/release flow; and adds the production deployment/rollback/key-recovery runbook.
+
+The release-signing private key remains outside GitHub Actions and outside the repository. Release-input/output staging directories remain ignored local/build artifacts rather than tracked source. This initial Phase 7.5 candidate retained the Phase 7 source default; the later operator follow-up below deliberately advances the source default to `1.0.0` as release-readiness cleanup without publishing a release.
+
+
+## Phase 7.5 operator follow-up candidate — 2026-10-05
+
+This follow-up is based on the operator-supplied post-checkpoint repository archive:
+
+- archive: `Guardian(20261006-001005).zip`
+- SHA-256: `a5b54705c6a8c0ae012b25b90f7f44331def053efd6b7476ac10120c55e96df4`
+- entering source default: `0.1.0-phase7`
+- operator Java 25 gate result before this follow-up: two stale expectation failures (`Phase6FilesystemHardeningTest.conventionalPrivateInfrastructureKeysAreIgnoredByGit` and `GuardianRuntimeManagerTest.loadsVersionedImmutableProductionSnapshot`) and no reported production-code failure
+
+The follow-up preserves the operator's README edits, corrects those stale expectations, fixes ambiguous PowerShell `$name:` interpolation in release-manager error strings, expands the public README permission inventory from the actual permission constants/evaluator surfaces, clarifies that `guardian.protection.visibility.bypass` is the aggregate visibility permission without a required trailing wildcard, and advances the repository source default to `1.0.0` across all modules as a release-readiness cleanup. Historical Phase 7 artifact/version records above remain unchanged.

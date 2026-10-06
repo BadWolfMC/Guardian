@@ -1,10 +1,14 @@
 # Phase 7.5 handoff — production readiness, GitHub preparedness, and final 26.2 hardening
 
+> Implementation has begun. Current implementation and closeout requirements are recorded in `PHASE_7_5_IMPLEMENTATION.md` and `PHASE_7_5_VERIFICATION.md`; this handoff remains as the entering-scope record.
+
 ## Entering state
 
 Phase 7 is formally complete at source default `0.1.0-phase7`. The final Java 25 / Gradle 9.7.1 gate is green at **366 tests, 0 failures, 0 errors, and 11 documented Windows symlink-privilege skips**.
 
 The accepted baseline is `Guardian(20261005-120941).zip`, SHA-256 `caf5b57930b6cad2c0a36e7c6d941e4f0ff099814280ec8bebde2448007b5b24`, excluding the root-level `velocity-plugin.json` that was manually extracted only for operator inspection.
+
+The exact operator archive used to implement this Phase 7.5 pass is `Guardian(20261005-205156).zip`, SHA-256 `222ea62b46eb640930e445dfed0abfe600a8af8e17577c857fa4fef7475f6af5`. Its relationship to the formal Phase 7 baseline and the supplied Cerberus icon is recorded in `PROVENANCE.md`; implementation patches are generated against this exact operator archive.
 
 Phase 7 verified clean standalone Paper and Velocity operation, schema-1 → schema-2 migration, release/key/checksum helpers, version-bearing signed Cerberus output, signed-Cerberus Velocity Admission, server-authentication mismatch UX/privacy, and metadata/version parity across Paper, Velocity, and Cerberus. No active implementation bridge remains.
 

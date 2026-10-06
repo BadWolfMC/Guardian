@@ -207,7 +207,7 @@ public final class ArtifactCatalogStore {
         out.append("# Guardian-managed exact-artifact catalog.\n");
         out.append("# Generated deterministically by Guardian artifact scanning.\n");
         out.append("# Values may be edited, but comments/formatting are not preserved when Guardian rewrites this file.\n");
-        out.append("# Policy decisions belong in Phase 3 policy files; this file records artifact identity only.\n");
+        out.append("# Admission policy decisions belong in policy.yml; this file records artifact identity only.\n");
         out.append("schema-version: ").append(SCHEMA_VERSION).append("\n");
         out.append("artifacts:\n");
 

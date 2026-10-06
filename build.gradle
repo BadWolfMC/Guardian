@@ -1,6 +1,6 @@
 allprojects {
     group = 'com.badwolfmc.guardian'
-    version = rootProject.providers.gradleProperty('guardianVersion').orElse('0.1.0-phase7').get()
+    version = rootProject.providers.gradleProperty('guardianVersion').orElse('1.0.0').get()
 
     repositories {
         mavenCentral()

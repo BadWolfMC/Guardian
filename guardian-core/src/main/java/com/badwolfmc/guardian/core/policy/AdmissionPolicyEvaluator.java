@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Platform-neutral deterministic Phase 3 admission policy evaluator. */
+/** Platform-neutral deterministic Guardian Admission policy evaluator. */
 public final class AdmissionPolicyEvaluator {
     public ClientPolicyResult evaluateClient(
         ResolvedAdmissionProfile resolved,

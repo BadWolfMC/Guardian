@@ -47,6 +47,9 @@ public final class CerberusReleaseSigner {
         String releaseVersion = args[3];
         Path serverTrustPath = args.length == 5 ? Path.of(args[4]).toAbsolutePath().normalize() : null;
         if (input.equals(output)) throw new IllegalArgumentException("signed output must differ from unsigned input");
+        if (Files.exists(output, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IllegalArgumentException("refusing to overwrite existing signed output: " + output);
+        }
 
         String canonicalServerTrust = serverTrustPath == null ? null : readCanonicalServerTrust(serverTrustPath);
         PrivateKey privateKey = readPrivateKey(privateKeyPath);
@@ -259,10 +262,9 @@ public final class CerberusReleaseSigner {
 
     private static void publishAtomically(Path temporary, Path output) throws IOException {
         try {
-            Files.move(temporary, output,
-                StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(temporary, output, StandardCopyOption.ATOMIC_MOVE);
         } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
-            Files.move(temporary, output, StandardCopyOption.REPLACE_EXISTING);
+            Files.move(temporary, output);
         }
     }
 

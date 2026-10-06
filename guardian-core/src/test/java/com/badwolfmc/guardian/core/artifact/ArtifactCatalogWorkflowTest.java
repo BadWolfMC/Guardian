@@ -259,7 +259,7 @@ class ArtifactCatalogWorkflowTest {
     void generatedCatalogExplicitlyOwnsFormattingAndSeparatesPolicy() {
         String rendered = ArtifactCatalogStore.render(ArtifactCatalog.empty());
         assertTrue(rendered.contains("comments/formatting are not preserved"));
-        assertTrue(rendered.contains("Policy decisions belong in Phase 3 policy files"));
+        assertTrue(rendered.contains("Admission policy decisions belong in policy.yml"));
     }
 
     private static ApprovedArtifact artifact(String id, String version, int seed) {

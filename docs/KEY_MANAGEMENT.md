@@ -18,8 +18,8 @@ Guardian-Velocity generates this secret automatically on first startup. Copy it 
 - **Back up?** Yes, in the same protected infrastructure secret store as other proxy/backend credentials.
 - **Never:** put it in Cerberus, source control, a public release, logs, or screenshots.
 - **Status:** Guardian displays only a short fingerprint for comparison.
-- **Rotation:** coordinated cutover. All trusted backends must receive the new secret in the same maintenance window as Velocity; old/new dual acceptance is not a protocol feature.
-- **Compromise:** isolate direct backend access, generate a new proxy secret, replace it on Velocity and every backend, restart/reload as documented, and verify matching fingerprints before reopening.
+- **Rotation:** coordinated cutover. Stop/close the topology, preserve the old key, let Guardian-Velocity generate one fresh replacement, then copy that exact file to every trusted backend before reopening. Old/new dual acceptance is not a protocol feature.
+- **Compromise:** isolate direct backend access, generate a new proxy secret, replace it on Velocity and every backend, restart the affected processes, and verify matching fingerprints before reopening.
 
 ## 2. `guardian-server-auth.key`
 
@@ -59,6 +59,16 @@ This Ed25519 key signs canonical Cerberus release identity metadata.
 
 Signed release identity is exact-artifact/compliance hardening. A hostile replaced client can still lie; this is **not remote attestation**.
 
-## Generation and release helper
+## Generation, backup, and recovery practice
 
-Use `tools/release-manager.ps1`; it requires an explicit release destination and automatically uses a version-bearing signed Cerberus filename when given an output directory. See `RELEASE_PROCESS.md` for the plain-language release walkthrough and exact commands.
+Use `tools/release-manager.ps1` for generation and signing. The normal public-release path is `finalize-release`, which consumes the exact CI release-input artifact and verifies the finished signed Cerberus JAR before it is staged for publication. See `RELEASE_PROCESS.md`.
+
+For all three domains, keep a written record of where the active material lives, where its protected backup lives, who can recover it, and the date/fingerprint of the last rotation test. A backup that has never been restored in a rehearsal is not yet a proven recovery plan.
+
+Recommended rehearsal cadence before a public release or significant production change:
+
+- **proxy assertion:** on a maintenance copy/test topology, prove a coordinated replacement across Velocity + every backend and compare fingerprints;
+- **Guardian server authentication:** generate a next identity, build an old+new trust-anchor Cerberus, prove both keys during the staged window, then return to the active identity;
+- **Cerberus release signing:** sign a disposable RC input with the offline key and verify it using only the stored public key. Never move the private key into CI merely to make this test easier.
+
+If any rehearsal requires weakening explicit paths, disabling verification, or reusing another key domain, stop and fix the operational procedure instead.

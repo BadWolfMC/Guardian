@@ -31,9 +31,15 @@ class Phase6SignedReleaseArchitectureTest {
             "src/releaseTool/java/com/badwolfmc/cerberus/release/CerberusReleaseSigner.java"));
         assertTrue(build.contains("cerberusReleasePrivateKey"));
         assertTrue(build.contains("signCerberusRelease"));
-        assertTrue(build.contains("dependsOn tasks.named('jar'), tasks.named('releaseToolClasses')"),
-            "Minecraft 26.2 uses non-remapping Loom, so the signer must consume the normal jar task");
-        assertTrue(build.contains("def unsignedJar = tasks.named('jar').get().archiveFile.get().asFile"));
+        assertTrue(build.contains("dependsOn tasks.named('releaseToolClasses')"));
+        assertTrue(build.contains("cerberusUnsignedJar"),
+            "offline signing must consume an explicit CI-built unsigned artifact");
+        assertFalse(build.contains("dependsOn tasks.named('jar'), tasks.named('releaseToolClasses')"),
+            "offline signing must not silently rebuild the unsigned Cerberus JAR");
+        assertFalse(build.contains("def unsignedJar = tasks.named('jar').get().archiveFile.get().asFile"));
+        assertTrue(build.contains("metadata.version != project.version.toString()"),
+            "the signer task must reject a CI artifact whose Fabric version does not match the requested release");
+        assertTrue(build.contains("verifyCerberusRelease"));
         assertFalse(build.contains("tasks.named('remapJar')"),
             "Minecraft 26.1+ non-obfuscated Loom does not provide remapJar");
         assertTrue(signer.contains("PKCS8EncodedKeySpec"));
@@ -48,6 +54,7 @@ class Phase6SignedReleaseArchitectureTest {
             "preflight release metadata checks must apply to the stable snapshot that will be signed");
         assertTrue(signer.contains("containsEntry(temporary, GuardianChallengeTrustAnchors.ENTRY_NAME)"));
         assertTrue(signer.contains("StandardCopyOption.ATOMIC_MOVE"));
+        assertTrue(signer.contains("refusing to overwrite existing signed output"));
         assertTrue(signer.contains("missing END PRIVATE KEY"),
             "malformed PEM signing keys must fail explicitly instead of falling through to opaque key parsing");
         assertTrue(signer.contains("PEM body is not valid Base64"));

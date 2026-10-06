@@ -37,7 +37,7 @@ public final class CerberusClient implements ClientModInitializer {
         registerPayloadTypes();
         registerConfigurationTransport();
         registerPlayTransport();
-        LOGGER.info("Cerberus initialized with Guardian protocol v1 manifest reporting. Diagnostic switches use guardian.cerberus.dev.*.");
+        LOGGER.info("Cerberus initialized for Guardian protocol v1 manifest reporting.");
     }
 
     private static void registerPayloadTypes() {

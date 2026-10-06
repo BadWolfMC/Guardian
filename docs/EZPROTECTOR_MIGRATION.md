@@ -11,7 +11,7 @@ Do not run eZProtector's overlapping command-protection features and Guardian Pr
 | `custom-commands.blocked` + `custom-commands.commands` | `protection.execution.enabled` + `blocked-roots` | Root-scoped player execution denial. Arguments are not part of matching. |
 | `custom-commands.error-message` | locale key `protection.command-denied` | Guardian keeps player-facing strings in locale resources. |
 | `custom-commands.notify-admins` | `protection.notifications.enabled` + `guardian.protection.notify` | One consistent notification permission replaces feature-specific notify nodes. |
-| `custom-commands.punish-player` | No Phase 1B migration | Punishment commands are deliberately out of initial scope. |
+| `custom-commands.punish-player` | Not migrated | Punishment commands are deliberately out of initial scope. |
 | `tab-completion.blocked` | `protection.visibility.enabled` | Visibility/disclosure control only. |
 | `tab-completion.whitelist: false` | `protection.visibility.mode: DENYLIST` | Listed roots are hidden. |
 | `tab-completion.whitelist: true` | `protection.visibility.mode: ALLOWLIST` | Only listed roots are exposed. |
@@ -21,7 +21,7 @@ Do not run eZProtector's overlapping command-protection features and Guardian Pr
 | `hidden-syntaxes.whitelisted` | `protection.namespaces.mode: ALLOWLIST` + `roots` | Closest match to eZProtector's broad “block all namespaced roots except these” behavior. Audit carefully before enabling. |
 | `hidden-syntaxes.error-message` | locale key `protection.namespace-denied` | Locale-backed Adventure/MiniMessage. |
 | `hidden-syntaxes.notify-admins` | `protection.notifications.enabled` + `guardian.protection.notify` | Notification does not grant bypass. |
-| `hidden-syntaxes.punish-player` | No Phase 1B migration | Deliberately excluded. |
+| `hidden-syntaxes.punish-player` | Not migrated | Deliberately excluded. |
 | `custom-plugins` fake `/plugins` response | No fake-response migration | If disclosure/execution should be denied, hide/block the applicable roots instead. |
 | `custom-version` fake version response | No fake-response migration | If disclosure/execution should be denied, hide/block the applicable roots instead. |
 | `mods.*`, 5zig, BetterPvP, BetterSprinting, Fabric/Forge/LiteLoader/Rift, Schematica, VoxelMap, WDL | No Protection migration | Historical client/mod countermeasures are retired. Guardian Admission/Cerberus owns modern client policy where applicable. |

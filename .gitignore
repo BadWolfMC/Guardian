@@ -16,11 +16,19 @@
 !.vscode/extensions.json
 
 # Project ephemera
+
+# Local release staging. Release binaries belong in GitHub Actions artifacts or
+# GitHub Releases, never in source control.
+release-input/
+release-final/
+release-artifacts/
 *.patch
 *.zip
-proxy-assertion.key
-guardian-server-auth.key
-cerberus-release-signing.key
+# Private key/secret material. Public trust anchors use .pub/.txt and remain trackable.
+*.key
+*.pem
+*.p8
+*.pk8
 
 # OS noise
 .DS_Store

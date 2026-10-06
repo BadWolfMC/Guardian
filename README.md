@@ -1,53 +1,38 @@
 # Guardian / Cerberus
 
-Guardian is BadWolfMC's GPLv3 client-admission and Paper server-protection project for Minecraft 26.2. Cerberus is its cooperative Fabric client component.
+Guardian is a client-admission and Paper server-protection project for Minecraft servers. Cerberus is the cooperative Fabric client used when a Guardian Admission policy requires an approved Fabric environment.
 
 Guardian has two independent domains:
 
-- **Admission** — client classification, optional Cerberus manifest evaluation, shared profiles/policy, Bedrock classification, and trusted Velocity-to-Paper admission.
-- **Protection** — Paper-local command execution, visibility, namespace, bypass, and staff-notification policy.
+- **Admission** classifies connections, evaluates shared client/mod policy, supports Geyser/Floodgate Bedrock classification, and can use Guardian-Velocity as the network authority.
+- **Protection** is Paper-local command execution, visibility, namespace, bypass, and staff-notification policy.
 
-BadWolfMC's preferred network deployment is **Guardian-Velocity as the Admission authority** with Guardian-Paper on each backend. Guardian-Paper also remains fully supported as a standalone Admission authority. Guardian Protection never requires Velocity or Cerberus.
+For a Velocity network, Guardian-Velocity can act as the Admission authority with Guardian-Paper on each backend. Guardian-Paper also works as a standalone Admission authority, and Guardian Protection never requires Velocity or Cerberus.
 
-> Guardian/Cerberus is a client-policy compliance system, not hostile-client remote attestation. A sufficiently modified client can lie about its environment. See `docs/SECURITY_THREAT_MODEL.md`.
-
-## Current release-hardening state
-
-Phases 0 through 7 are closed. The final Phase 7 Java 25 / Gradle 9.7.1 gate is green at **366 tests, 0 failures, 0 errors, 11 documented Windows symlink-privilege skips**. Clean standalone Paper, clean Velocity, supported schema migration, release-helper/signing, signed-Cerberus, server-authentication-mismatch, metadata/version-parity, and Velocity-authoritative checks all passed. See `docs/PHASE_7_VERIFICATION.md`.
-
-The source default is `0.1.0-phase7`; final release candidates may supply an explicit version using `-PguardianVersion=<version>`. Paper publishes that version through `plugin.yml`; Velocity publishes it through generated resource expansion into `velocity-plugin.json` and reads the loaded plugin metadata at runtime; Cerberus uses the same Gradle version in Fabric metadata and release signing.
-
-The authoritative architecture remains `docs/Guardian_Cerberus_Authoritative_Project_Plan.md`.
+> Guardian/Cerberus is a client-policy compliance system, not hostile-client remote attestation. See [`docs/SECURITY_THREAT_MODEL.md`](docs/SECURITY_THREAT_MODEL.md) for known limitations.
 
 ## Requirements
 
 - Java 25
 - Paper 26.2 for Guardian-Paper
-- Velocity 3.4.x for Guardian-Velocity deployments
-- Fabric Loader/Fabric API matching the Cerberus 26.2 build
-- LuckPerms, Geyser, and Floodgate are optional integrations unless your deployment uses the corresponding features
+- Velocity 4.x for Guardian-Velocity deployments
+- Fabric Loader 0.19.5+ and Fabric API for Cerberus on Minecraft 26.2
+- Optional integrations: LuckPerms, Geyser, and Floodgate
 
-Do **not** begin a 26.3 port yet. Phase 7.5 is the active production-readiness/GitHub-preparedness pass on Minecraft 26.2; the 26.3 platform port remains Phase 8.
+## Install
 
-## Administrator documentation
+Choose the deployment guide that matches your network:
 
-- Standalone Paper: `docs/INSTALL_STANDALONE_PAPER.md`
-- Velocity network: `docs/INSTALL_VELOCITY_NETWORK.md`
-- Geyser/Floodgate: `docs/GEYSER_FLOODGATE.md`
-- LuckPerms profiles and `/lp` vs `/lpv`: `docs/LUCKPERMS_PROFILES.md`
-- Admission policy: `docs/GUARDIAN_ADMISSION.md`
-- Protection: `docs/GUARDIAN_PROTECTION.md`
-- eZProtector migration: `docs/EZPROTECTOR_MIGRATION.md`
-- Locale/messages: `docs/LOCALE_CUSTOMIZATION.md`
-- Configuration upgrades: `docs/UPGRADING.md`
-- Three key domains and rotation: `docs/KEY_MANAGEMENT.md`
-- Security/threat model: `docs/SECURITY_THREAT_MODEL.md`
-- Release manager workflow: `docs/RELEASE_PROCESS.md`
-- Next phase (7.5): `docs/PHASE_7_5_HANDOFF.md`
+- [Standalone Paper](docs/INSTALL_STANDALONE_PAPER.md)
+- [Velocity + Paper network](docs/INSTALL_VELOCITY_NETWORK.md)
+
+For normal administration, also see [Admission policy](docs/GUARDIAN_ADMISSION.md), [Protection](docs/GUARDIAN_PROTECTION.md), and [upgrades](docs/UPGRADING.md). The detailed [security/threat model](docs/SECURITY_THREAT_MODEL.md) and [key-management guide](docs/KEY_MANAGEMENT.md) are references rather than prerequisites for a basic install.
+
+Packaged defaults enable both Admission and Protection. On a Velocity deployment, set the Paper backends to `admission.authority: velocity` and provision the generated `proxy-assertion.key` as documented in the network install guide.
 
 ## Commands
 
-Paper owns `/guardian`; Velocity owns `/guardianv`. They intentionally do not proxy to one another.
+Paper owns `/guardian`; Velocity owns `/guardianv`. The roots intentionally do not proxy to each other.
 
 ```text
 /guardian status
@@ -63,41 +48,123 @@ Paper owns `/guardian`; Velocity owns `/guardianv`. They intentionally do not pr
 /guardianv artifacts scan
 ```
 
-On a Velocity-authoritative network, `/guardianv inspect` is the authoritative Admission view and may show the active Fabric manifest. Backend `/guardian inspect` remains assertion-only. Active inspection is memory-only and disappears when the exact connection ends.
+On a Velocity-authoritative network, `/guardianv inspect` is the authoritative Admission view. Backend `/guardian inspect` remains assertion-only and does not receive the full Fabric manifest. Active inspection data is memory-only and disappears when the exact connection ends.
 
-## Configuration schema and upgrades
+## Permissions
 
-The public-release configuration schema is **2** for Paper `config.yml`, Velocity `config.yml`, and shared `policy.yml`. Guardian contains one deliberately narrow automatic upgrade from the final Phase 6 / pre-1.0 release-candidate schema 1 form to schema 2. It preserves administrator text/comments, creates an exact pre-migration backup, changes the schema marker, and adds the safe disabled `cerberus-release-trust` block when missing from `policy.yml`.
+Paper administration:
 
-Guardian does not claim compatibility with arbitrary unreleased historical schemas and will not auto-downgrade a newer schema. See `docs/UPGRADING.md`.
+```text
+guardian.command.status
+guardian.command.validate
+guardian.command.reload
+guardian.command.inspect
+guardian.command.artifacts.scan
+```
 
-## Build and verification
+Velocity administration:
 
-Use the repository wrapper with Java 25 / Gradle 9.7.1:
+```text
+guardian.velocity.command.status
+guardian.velocity.command.validate
+guardian.velocity.command.reload
+guardian.velocity.command.inspect
+guardian.velocity.command.artifacts.scan
+```
+
+Admission policy/profile permissions:
+
+```text
+guardian.admission.profile.<profile-id>
+guardian.admission.client.bypass
+guardian.admission.client.bypass.<client-key>
+guardian.admission.mod.bypass
+guardian.admission.mod.bypass.<mod-id>
+```
+
+Assign Admission profile/bypass permissions on the authority that evaluates Admission: Paper-side LuckPerms for standalone Paper, or proxy-side LuckPerms when Guardian-Velocity is authoritative.
+
+Protection bypass/notification permissions:
+
+```text
+guardian.protection.bypass
+guardian.protection.command.bypass
+guardian.protection.namespace.bypass
+guardian.protection.visibility.bypass
+guardian.protection.visibility.bypass.<normalized-command-key>
+guardian.protection.notify
+```
+
+`guardian.protection.visibility.bypass` is itself the aggregate visibility bypass; no trailing `.*` is required. The per-command form is used only when `protection.visibility.per-command-bypass` is enabled. See [`docs/GUARDIAN_ADMISSION.md`](docs/GUARDIAN_ADMISSION.md) and [`docs/GUARDIAN_PROTECTION.md`](docs/GUARDIAN_PROTECTION.md) for exact semantics.
+
+## Build
+
+Use the repository Gradle wrapper with Java 25. The wrapper is pinned to Gradle 9.7.1.
+
+Windows:
 
 ```powershell
 .\gradlew.bat clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
 ```
 
-The normal CI workflow runs the same gate. Release candidates use the manual release-candidate workflow and an explicit `guardianVersion`.
+Linux/macOS:
+
+```bash
+./gradlew clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
+```
+
+The source default is `1.0.0` for release preparedness. An explicit candidate or other build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
 
 ## Release signing
 
-Cerberus release signing is intentionally offline. CI builds **unsigned** Cerberus artifacts and never receives the release-signing private key.
+Official Cerberus releases are signed with an offline Ed25519 release identity. The private signing key must never be stored in GitHub Actions, the repository, a Minecraft server, or Cerberus itself.
 
-On Windows, `tools/release-manager.ps1` wraps the approved generation/signing/checksum tasks. The normal signing path takes an explicit output directory and creates a version-bearing signed JAR name automatically:
+The supported release flow is:
+
+1. run the manual **Release Candidate** GitHub Actions workflow for a SemVer/RC version;
+2. download the resulting `guardian-<version>-release-input` artifact from the GitHub web UI;
+3. on the offline/release machine, finalize the exact CI-built artifacts with `tools/release-manager.ps1`;
+4. upload the contents of `release-final/` to a **draft GitHub Release**; and
+5. publish the draft only after final verification/smoke testing.
+
+Example local finalization:
 
 ```powershell
-.\tools\release-manager.ps1 -Action generate-release-key -OutputDirectory D:\GuardianKeys\cerberus-release
-.\tools\release-manager.ps1 -Action generate-server-identity -OutputDirectory D:\GuardianKeys\server-auth-next
-.\tools\release-manager.ps1 -Action sign-cerberus -Version 1.0.0 -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt -OutputDirectory D:\GuardianRelease\1.0.0
-.\tools\release-manager.ps1 -Action checksums -ArtifactDirectory D:\GuardianRelease
+.\tools\release-manager.ps1 `
+  -Action finalize-release `
+  -Version 1.0.0-rc.1 `
+  -InputDirectory .\release-input `
+  -OutputDirectory .\release-final `
+  -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
+  -ReleasePublicKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.pub `
+  -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt
 ```
 
-The SHA-256 of the finished signed JAR is release/provenance metadata. It is intentionally distinct from the canonical SHA-256 printed by the Cerberus signing tool.
+The final directory contains the CI-built Paper/Velocity JARs, the signed Cerberus JAR, license/notices, release provenance, and final SHA-256 checksums. The unsigned Cerberus input is deliberately not a public release asset. See [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) for the full operator procedure.
+
+## Documentation
+
+- [Standalone install](docs/INSTALL_STANDALONE_PAPER.md)
+- [Velocity network install](docs/INSTALL_VELOCITY_NETWORK.md)
+- [Production deployment / rollback runbook](docs/PRODUCTION_RUNBOOK.md)
+- [Admission policy](docs/GUARDIAN_ADMISSION.md)
+- [Protection](docs/GUARDIAN_PROTECTION.md)
+- [Geyser/Floodgate](docs/GEYSER_FLOODGATE.md)
+- [LuckPerms profiles](docs/LUCKPERMS_PROFILES.md)
+- [Configuration upgrades](docs/UPGRADING.md)
+- [Key management and rotation](docs/KEY_MANAGEMENT.md)
+- [Release process](docs/RELEASE_PROCESS.md)
+- [Security/threat model](docs/SECURITY_THREAT_MODEL.md)
+- [Development](docs/DEVELOPMENT.md)
+
+Historical phase documents remain in `docs/` for implementation provenance; administrators do not need them for normal deployment.
+
+## Security and support
+
+Please use the repository issue tracker for ordinary bugs and support questions. Do not publish sensitive vulnerability details in a public issue; follow [`SECURITY.md`](SECURITY.md) instead.
 
 ## License and provenance
 
-Guardian/Cerberus is GPLv3. Guardian began as a hard fork and substantial rewrite of BrandBlocker and Guardian Protection incorporates selected behavior from the known GPLv3 BadWolfMC eZProtector lineage. Exact provenance is recorded in `docs/PROVENANCE.md`.
+Guardian/Cerberus is licensed under GPL-3.0-only; see [`LICENSE`](LICENSE). Bundled third-party notices are in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-Bundled third-party notices are in `THIRD_PARTY_NOTICES.md`; final Paper/Velocity JARs embed the GPL material, notices, and the Apache-2.0 license for bundled SnakeYAML Engine.
+Guardian began as a hard fork and substantial rewrite of [BrandBlocker by Menacho](https://github.com/Menacho15/BrandBlocker). Guardian Protection also incorporates selected behavior/source lineage from BadWolfMC's GPLv3 fork of [eZProtector by DoNotSpamPls](https://github.com/DoNotSpamPls/eZProtector). The precise provenance boundary is recorded in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).

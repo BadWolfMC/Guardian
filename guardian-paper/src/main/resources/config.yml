@@ -13,12 +13,12 @@ logging:
   level: NORMAL
 
 features:
-  # Admission and Protection are independent domains. Paper-authoritative
-  # Protection does not require Admission, and Admission does not require Protection.
+  # Admission and Protection are independent. Disable either only when your
+  # deployment intentionally uses that domain elsewhere or does not want it.
   admission:
     enabled: true
   protection:
-    enabled: false
+    enabled: true
 
 locale:
   # Locale resources are loaded from plugins/Guardian/locales/<id>.properties.
@@ -27,12 +27,11 @@ locale:
 
 messages:
   # Shown as plain, safely inserted text where a locale template includes <help_url>.
-  help-url: "https://www.badwolfmc.com/"
+  help-url: "https://github.com/BadWolfMC/Guardian"
 
 admission:
-  # standalone: Guardian-Paper is authoritative.
-  # velocity: Guardian-Velocity is authoritative and Paper verifies only the
-  # trusted proxy admission assertion.
+  # Use standalone on a single Paper server. Use velocity only when this backend
+  # sits behind Guardian-Velocity and has the matching proxy assertion key.
   authority: standalone
 
   standalone:

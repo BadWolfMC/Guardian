@@ -28,7 +28,7 @@ class GuardianPhase7UpgradeTest {
             .replaceFirst("schema-version: 2", "schema-version: 1")
             .replace("server-name: \"\"", "server-name: \"alpha-custom\"")
             .replace("level: NORMAL", "level: DEBUG")
-            .replace("https://www.badwolfmc.com/", "https://example.invalid/guardian-help");
+            .replace("https://github.com/BadWolfMC/Guardian", "https://example.invalid/guardian-help");
         String phase6Policy = resource("policy.yml")
             .replaceFirst("schema-version: 2", "schema-version: 1")
             .replace("default-profile: default", "default-profile: veteran")

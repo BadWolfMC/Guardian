@@ -44,10 +44,27 @@ dependencies {
     releaseToolImplementation project(':guardian-protocol')
 }
 
+tasks.register('releaseToolJar', Jar) {
+    group = 'distribution'
+    description = 'Packages the offline Cerberus release signer/verifier used with CI release inputs.'
+    archiveBaseName = 'cerberus-release-tools'
+    archiveVersion = cerberusVersion
+    dependsOn tasks.named('releaseToolClasses'), project(':guardian-protocol').tasks.named('classes')
+    from(sourceSets.releaseTool.output)
+    from(project(':guardian-protocol').sourceSets.main.output)
+    from(rootProject.file('LICENSE')) { into 'META-INF'; rename { 'LICENSE-GPL-3.0.txt' } }
+    from(rootProject.file('THIRD_PARTY_NOTICES.md')) { into 'META-INF'; rename { 'THIRD-PARTY-NOTICES.md' } }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('releaseToolClasses')
+}
+
 tasks.register('signCerberusRelease', JavaExec) {
     group = 'distribution'
-    description = 'Creates an official Cerberus JAR with Ed25519 release identity metadata.'
-    dependsOn tasks.named('jar'), tasks.named('releaseToolClasses')
+    description = 'Signs an explicit CI-built unsigned Cerberus JAR with Ed25519 release identity metadata.'
+    dependsOn tasks.named('releaseToolClasses')
     classpath = sourceSets.releaseTool.runtimeClasspath
     mainClass = 'com.badwolfmc.cerberus.release.CerberusReleaseSigner'
     doFirst {
@@ -55,7 +72,14 @@ tasks.register('signCerberusRelease', JavaExec) {
         if (privateKey == null || privateKey.isBlank()) {
             throw new GradleException('signCerberusRelease requires -PcerberusReleasePrivateKey=/path/to/ed25519-private-key.pem')
         }
-        def unsignedJar = tasks.named('jar').get().archiveFile.get().asFile
+        def unsignedInput = providers.gradleProperty('cerberusUnsignedJar').orNull
+        if (unsignedInput == null || unsignedInput.isBlank()) {
+            throw new GradleException('signCerberusRelease requires -PcerberusUnsignedJar=/explicit/path/to/ci-built-unsigned.jar')
+        }
+        def unsignedJar = file(unsignedInput)
+        if (!unsignedJar.isFile()) {
+            throw new GradleException("cerberusUnsignedJar does not exist or is not a file: ${unsignedJar}")
+        }
         def signedOutput = providers.gradleProperty('cerberusSignedOutput').orNull
         if (signedOutput == null || signedOutput.isBlank()) {
             throw new GradleException('signCerberusRelease requires -PcerberusSignedOutput=/explicit/path/to/cerberus-signed.jar')
@@ -64,10 +88,67 @@ tasks.register('signCerberusRelease', JavaExec) {
         if (signedJar.absoluteFile == unsignedJar.absoluteFile) {
             throw new GradleException('cerberusSignedOutput must differ from the unsigned jar path')
         }
+        if (signedJar.exists()) {
+            throw new GradleException("refusing to overwrite existing signed Cerberus output: ${signedJar}")
+        }
+
+        def zip = new java.util.zip.ZipFile(unsignedJar)
+        try {
+            def metadataEntry = zip.getEntry('fabric.mod.json')
+            if (metadataEntry == null) {
+                throw new GradleException('unsigned Cerberus input is missing fabric.mod.json')
+            }
+            if (metadataEntry.size > 64 * 1024L) {
+                throw new GradleException('unsigned Cerberus fabric.mod.json exceeds release-validation size limit')
+            }
+            def metadataText = zip.getInputStream(metadataEntry).withCloseable { stream ->
+                new String(stream.readNBytes(64 * 1024 + 1), java.nio.charset.StandardCharsets.UTF_8)
+            }
+            if (metadataText.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 64 * 1024) {
+                throw new GradleException('unsigned Cerberus fabric.mod.json exceeds release-validation size limit')
+            }
+            def metadata = new groovy.json.JsonSlurper().parseText(metadataText)
+            if (metadata.id != 'cerberus') {
+                throw new GradleException("unsigned Cerberus input has unexpected Fabric mod id '${metadata.id}'")
+            }
+            if (metadata.version != project.version.toString()) {
+                throw new GradleException("unsigned Cerberus Fabric version '${metadata.version}' does not match requested release version '${project.version}'")
+            }
+        } finally {
+            zip.close()
+        }
+
         args unsignedJar.absolutePath, signedJar.absolutePath, privateKey, project.version.toString()
         def serverTrust = providers.gradleProperty('guardianServerAuthPublicKeys').orNull
         if (serverTrust != null && !serverTrust.isBlank()) {
             args serverTrust
+        }
+    }
+}
+
+tasks.register('verifyCerberusRelease', JavaExec) {
+    group = 'verification'
+    description = 'Verifies a finished signed Cerberus JAR, release version, signature, and optional server trust anchors.'
+    dependsOn tasks.named('releaseToolClasses')
+    classpath = sourceSets.releaseTool.runtimeClasspath
+    mainClass = 'com.badwolfmc.cerberus.release.CerberusReleaseVerifier'
+    doFirst {
+        def signedInput = providers.gradleProperty('cerberusSignedInput').orNull
+        if (signedInput == null || signedInput.isBlank()) {
+            throw new GradleException('verifyCerberusRelease requires -PcerberusSignedInput=/explicit/path/to/cerberus-signed.jar')
+        }
+        def publicKey = providers.gradleProperty('cerberusReleasePublicKey').orNull
+        if (publicKey == null || publicKey.isBlank()) {
+            throw new GradleException('verifyCerberusRelease requires -PcerberusReleasePublicKey=/path/to/ed25519-public-key.txt')
+        }
+        def signedJar = file(signedInput)
+        if (!signedJar.isFile()) {
+            throw new GradleException("cerberusSignedInput does not exist or is not a file: ${signedJar}")
+        }
+        args signedJar.absolutePath, project.version.toString(), file(publicKey).absolutePath
+        def serverTrust = providers.gradleProperty('guardianServerAuthPublicKeys').orNull
+        if (serverTrust != null && !serverTrust.isBlank()) {
+            args file(serverTrust).absolutePath
         }
     }
 }

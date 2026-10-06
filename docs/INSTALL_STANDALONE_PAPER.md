@@ -52,13 +52,15 @@ This is exact-artifact/compliance hardening, not remote attestation.
 
 - LuckPerms: profile and bypass resolution; see `LUCKPERMS_PROFILES.md`.
 - Geyser/Floodgate: Bedrock classification before Java/Cerberus handling; see `GEYSER_FLOODGATE.md`.
-- Protection: enable independently under `features.protection.enabled`; see `GUARDIAN_PROTECTION.md`.
+- Protection: enabled by default and independently configurable under `features.protection.enabled`; see `GUARDIAN_PROTECTION.md`.
 
 ## 6. Operator checks
 
 `/guardian status` should identify `standalone` authority and explicitly report Guardian server-authentication state and whether signed Cerberus release identity is REQUIRED or OPTIONAL.
 
 `/guardian inspect <player>` is authoritative only for the player's current active standalone connection. Guardian does not persist historical manifests.
+
+For production backup/rollback/recovery steps, see `PRODUCTION_RUNBOOK.md`.
 
 ## 7. Firewall and exposure
 

@@ -28,4 +28,4 @@ Minecraft itself and platform/server/client binaries are not redistributed by Gu
 
 ## Legacy provenance
 
-Guardian began as a hard fork and substantial rewrite of BrandBlocker by Menacho and incorporates selected concepts/source lineage from BadWolfMC's GPLv3 eZProtector fork. See `docs/PROVENANCE.md` for the precise development/provenance boundary and attribution history.
+Guardian began as a hard fork and substantial rewrite of BrandBlocker by Menacho (`https://github.com/Menacho15/BrandBlocker`) and incorporates selected concepts/source lineage from BadWolfMC's GPLv3 fork of eZProtector by DoNotSpamPls (`https://github.com/DoNotSpamPls/eZProtector`). See `docs/PROVENANCE.md` for the precise development/provenance boundary and attribution history.

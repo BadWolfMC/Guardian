@@ -8,7 +8,7 @@ import java.util.Set;
 /**
  * Platform-neutral client-class and JAVA_UNKNOWN brand policy used by each named admission profile.
  *
- * <p>Phase 3 composes this immutable client-policy component with mod/artifact policy in
+ * <p>The Admission evaluator composes this immutable client-policy component with mod/artifact policy in
  * {@code com.badwolfmc.guardian.core.policy.AdmissionProfile}.</p>
  */
 public final class AdmissionPolicy {

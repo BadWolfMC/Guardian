@@ -12,7 +12,7 @@ Locale files and `artifacts.yml` have independent schemas and remain at their ex
 
 ## Supported pre-1.0 upgrade
 
-Guardian contains exactly one automatic compatibility migration: **final Phase 6 / pre-1.0 release-candidate schema 1 -> public schema 2**.
+Guardian contains exactly one automatic compatibility migration: **final internal pre-1.0 schema 1 -> public schema 2**.
 
 On startup, before normal activation:
 
@@ -58,7 +58,7 @@ If startup cannot migrate safely, Guardian fails closed rather than guessing at 
 
 ## Rollback before public release closeout
 
-The schema-2 host/policy files are not intended to be consumed by the older Phase 6 binaries. If a release-candidate rollback is required:
+The schema-2 host/policy files are not intended to be consumed by the older internal schema-1 binaries. If a release-candidate rollback is required:
 
 1. stop Guardian/Paper/Velocity cleanly;
 2. restore the previous plugin JAR(s);
@@ -66,3 +66,6 @@ The schema-2 host/policy files are not intended to be consumed by the older Phas
 4. keep the newer files separately for diagnosis rather than asking the older binary to reinterpret them.
 
 Do not rotate or replace any of the three key domains merely because a schema rollback is being performed.
+
+
+For network deployment order, rollback under pressure, and key mismatch recovery, see `PRODUCTION_RUNBOOK.md`.

@@ -3,9 +3,10 @@
   "id": "cerberus",
   "version": "${version}",
   "name": "Cerberus",
-  "description": "BadWolfMC Guardian client companion for Fabric mod-manifest policy enforcement.",
+  "description": "Guardian client companion for Fabric mod-manifest policy enforcement.",
   "authors": ["BadWolfMC"],
   "license": "GPL-3.0-only",
+  "icon": "assets/cerberus/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [

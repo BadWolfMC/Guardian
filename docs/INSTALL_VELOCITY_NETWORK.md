@@ -1,6 +1,6 @@
 # Guardian on a Velocity network
 
-BadWolfMC's preferred deployment uses Guardian-Velocity as the single network Admission authority and Guardian-Paper on each backend as an authenticated assertion consumer plus optional Protection host.
+For a Velocity network, use Guardian-Velocity as the single network Admission authority and Guardian-Paper on each backend as an authenticated assertion consumer plus optional Protection host. This is also the topology used by BadWolfMC.
 
 ## 1. Topology
 
@@ -73,3 +73,8 @@ One proxy session receives one authoritative Admission evaluation. Moving Alpha 
 ## 8. Network security
 
 The proxy assertion HMAC is defense in depth, not a substitute for backend isolation. Firewalls/network policy should prevent untrusted direct backend connections.
+
+
+## 9. Production deployment and rollback
+
+For the recommended proxy-first/backend-by-backend deployment order, backups, rollback, emergency Admission recovery, and key mismatch diagnosis, follow `PRODUCTION_RUNBOOK.md`.

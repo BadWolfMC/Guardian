@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * that was never present with one that disappeared after Guardian had relied on it.
  *
  * <p>The generation is part of the security boundary: an observation is trustworthy only when the
- * provider state remained unchanged for its duration. Phase 4's positive-evidence precedence still
+ * provider state remained unchanged for its duration. Guardian's positive-evidence precedence still
  * applies across providers, but a provider that reconfigures during its own observation contributes
  * {@link BedrockSignal#ERROR} rather than stale positive or negative evidence.</p>
  */

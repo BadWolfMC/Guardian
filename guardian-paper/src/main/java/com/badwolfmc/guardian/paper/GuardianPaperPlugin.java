@@ -250,7 +250,7 @@ public final class GuardianPaperPlugin extends JavaPlugin {
                 getLogger().info("Guardian artifact catalog validated with " + entries + " exact artifact entries.");
             }
         } catch (ArtifactCatalogException ex) {
-            // In Phase 3, standalone Admission policy validation has already rejected an invalid catalog
+            // Standalone Admission policy validation has already rejected an invalid catalog
             // when policy authority needs it. Keep this later surface warning non-fatal for deployments
             // where Admission is disabled or policy authority lives at Velocity.
             getLogger().warning("Guardian artifact catalog is not ready for import: " + DiagnosticText.oneLine(ex.getMessage()));

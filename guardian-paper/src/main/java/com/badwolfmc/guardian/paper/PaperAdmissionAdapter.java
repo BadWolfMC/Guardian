@@ -60,7 +60,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Guardian-Paper Admission adapter preserving the Phase 0 proven transport boundaries.
+ * Guardian-Paper Admission adapter preserving the supported configuration/PLAY transport boundaries.
  *
  * <p>In standalone authority mode it preserves the proven hybrid transport: CONFIGURATION handles brand
  * and Cerberus presence/protocol, while compatible Fabric clients complete the nonce exchange in
@@ -423,7 +423,7 @@ final class PaperAdmissionAdapter implements Listener, PluginMessageListener {
         }
 
         // Paper's supported CONFIGURATION send path has the channel-registration limitation proven
-        // during feasibility testing. Only the nonce challenge/response moves into bounded quarantined PLAY.
+        // on supported Paper/Fabric APIs. Only the nonce challenge/response moves into bounded quarantined PLAY.
         session.requirePlayHandshake();
     }
 

@@ -16,7 +16,7 @@ The selected locale is configured in host `config.yml`. `en_us` remains the requ
 - Guardian inserts internal/player/configured values as unparsed placeholders where appropriate; do not convert untrusted values into executable MiniMessage markup.
 - Keep disconnect messages concise enough to be useful on the Minecraft disconnect screen.
 - On Paper, `messages.help-url` in `config.yml` is administrator-owned text inserted where `<help_url>` is present. Point it at the canonical Cerberus download/setup/support page for your deployment.
-- On Velocity, the equivalent fallback destination is `meta.help-url` in the locale catalog; customize it before deployment if the packaged BadWolfMC URL is not appropriate.
+- On Velocity, the equivalent fallback destination is `meta.help-url` in the locale catalog; customize it before deployment if the packaged project URL is not appropriate for your distribution/support channel.
 
 ## Workflow
 

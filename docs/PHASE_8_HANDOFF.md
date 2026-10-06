@@ -9,6 +9,13 @@ Phase 7 is formally closed at 366 green tests with metadata/version parity verif
 
 Do not begin this 26.3 handoff until Phase 7.5 explicitly closes. Phase 8 remains a platform-version port rather than a continuation of release-preparedness work.
 
+
+## Phase 7.5 release-process inheritance
+
+When Phase 7.5 closes, Phase 8 inherits the CI -> offline signing -> draft GitHub Release chain. A platform port must not move the Cerberus release-signing private key into CI or reintroduce local rebuilding of the unsigned signing input. The final Paper/Velocity release JARs remain exact CI outputs; the final Cerberus release is the locally/offline signed derivative of the exact checked CI unsigned artifact.
+
+The production runbook, packaged dual-domain defaults, project-facing support URL, Cerberus icon, and public repository maintenance files are release surfaces to preserve unless the 26.3 port has a concrete reason to change them.
+
 ## Entering invariant
 
 Phase 8 inherits the public 1.0 architecture; it is a platform-version port, not an opportunity to redesign Guardian/Cerberus security semantics.

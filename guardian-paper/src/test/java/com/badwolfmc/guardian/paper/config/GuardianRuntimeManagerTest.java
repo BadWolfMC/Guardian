@@ -28,7 +28,7 @@ class GuardianRuntimeManagerTest {
 
         assertEquals(2, snapshot.settings().schemaVersion());
         assertTrue(snapshot.settings().admissionEnabled());
-        assertFalse(snapshot.settings().protectionEnabled());
+        assertTrue(snapshot.settings().protectionEnabled());
         assertEquals(ClientAction.REQUIRE_CERBERUS,
             snapshot.requireAdmissionPolicy().defaultProfile().clientPolicy()
                 .configuredAction(ClientClassification.JAVA_FABRIC));
@@ -195,7 +195,7 @@ class GuardianRuntimeManagerTest {
                 writeDefaults(
                     defaultResource("config.yml")
                         .replace("admission:\n    enabled: true", "admission:\n    enabled: " + admission)
-                        .replace("protection:\n    enabled: false", "protection:\n    enabled: " + protection)
+                        .replace("protection:\n    enabled: true", "protection:\n    enabled: " + protection)
                 );
                 GuardianRuntimeSnapshot snapshot = new GuardianRuntimeManager(
                     tempDir.resolve("config.yml"), tempDir.resolve("locales")).loadInitial();

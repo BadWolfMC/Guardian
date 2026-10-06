@@ -1,85 +1,181 @@
-# Release process
+# Guardian / Cerberus release process
 
-Guardian's release flow is intentionally conservative, but the normal path is short once the three key domains are already provisioned.
+This is the normal release path for Guardian-Paper, Guardian-Velocity, and an official signed Cerberus-Fabric client. It is designed around GitHub Actions + the GitHub web UI + the local PowerShell release manager; GitHub CLI is not required.
 
-## Normal release day — plain-language walkthrough
+The Cerberus release-signing private key remains offline and **never enters GitHub Actions**.
 
-For an ordinary release, think of the process as **build → sign Cerberus → checksum → inspect → publish**.
+## Normal path
 
-### Step 1 — choose the release version
+### 1. Choose the release version
 
-Pick the version you intend to publish, for example:
+Use SemVer for public releases and release candidates, for example:
 
 ```text
+1.0.0-rc.1
 1.0.0
+1.0.1
 ```
 
-Use that same value everywhere. Guardian-Paper, Guardian-Velocity, the unsigned Cerberus build, and the signed Cerberus release identity must all agree on it.
+Internal historical `0.1.0-phase*` versions are development provenance only and are not a compatibility promise.
 
-### Step 2 — run the Release Candidate workflow
+### 2. Run the GitHub Release Candidate workflow
 
-In GitHub Actions, run **Release Candidate** and enter the version from step 1.
+In the repository's **Actions** tab:
 
-That workflow runs the Java 25 / Gradle wrapper gate, builds the three unsigned artifacts, checks for accidentally packaged private-key material, writes checksums for the staged JARs, and uploads the release-candidate bundle.
+1. choose **Release Candidate**;
+2. click **Run workflow**;
+3. enter the exact version; and
+4. wait for the complete Java 25 / Gradle 9.7.1 gate to pass.
 
-CI intentionally does **not** have the Cerberus release-signing private key.
+The workflow builds/tests one exact commit and uploads an artifact named:
 
-### Step 3 — sign Cerberus on the release-manager machine
+```text
+guardian-<version>-release-input
+```
 
-The release manager keeps the Cerberus signing key offline/private. Point the helper at the release output directory rather than inventing a filename yourself:
+It contains:
+
+```text
+guardian-paper-<version>.jar
+guardian-velocity-<version>.jar
+cerberus-fabric-<version>-unsigned.jar
+cerberus-release-tools-<version>.jar
+LICENSE
+THIRD_PARTY_NOTICES.md
+RELEASE_INPUT.json
+SHA256SUMS-CI.txt
+```
+
+`RELEASE_INPUT.json` records the version, exact Git commit SHA, repository, GitHub Actions run ID, and run attempt. `SHA256SUMS-CI.txt` commits to every file that the local finalizer consumes, including the release-input manifest and the CI-built release-tool JAR.
+
+The unsigned Cerberus JAR and release-tool JAR are **signing inputs**, not public client release assets. The local finalizer uses the CI-built signer/verifier from that same candidate instead of recompiling release code from whatever happens to be in the local checkout.
+
+### 3. Download the exact CI artifact
+
+Open the successful workflow run in the GitHub web UI and download the release-input artifact. Extract it into a clean local directory such as:
+
+```text
+<repo>\release-input\
+```
+
+Do not rebuild Cerberus locally. The release manager deliberately signs the exact CI-built unsigned JAR using the checksummed CI-built release-tool JAR from the same workflow run. This keeps the normal signing path independent of GitHub CLI, a local Gradle build, or locally recompiled signer code. Java 25 is still required to run the release tool.
+
+### 4. Finalize the release offline/locally
+
+Use the release-signing private key, its matching public verification key, and the Guardian server-authentication trust-anchor set intended for this Cerberus release:
+
+```powershell
+.\tools\release-manager.ps1 `
+  -Action finalize-release `
+  -Version 1.0.0-rc.1 `
+  -InputDirectory .\release-input `
+  -OutputDirectory .\release-final `
+  -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
+  -ReleasePublicKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.pub `
+  -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt
+```
+
+The finalizer fails closed unless all of the following are true:
+
+- the CI input manifest/version is valid;
+- all CI checksums match;
+- Paper, Velocity, and unsigned Cerberus metadata all report the requested version;
+- the output directory is empty;
+- the signed output does not already exist;
+- Cerberus signing consumes the explicit CI-built unsigned JAR rather than rebuilding it;
+- signing and signature verification run from the checksummed CI-built release-tool JAR;
+- the finished Cerberus signature verifies against the supplied release public key;
+- optional embedded Guardian server-authentication trust anchors exactly match the supplied trust file;
+- required license/notice/icon/release-identity resources are present;
+- no private-key-like resources, PEM private keys, or obvious machine-local build paths are present in publishable text resources; and
+- the final directory contains only the intended public release files.
+
+A successful run ends with:
+
+```text
+READY TO UPLOAD
+```
+
+### 5. Inspect `release-final/`
+
+The final directory is deliberately small:
+
+```text
+guardian-paper-<version>.jar
+guardian-velocity-<version>.jar
+cerberus-fabric-<version>-signed.jar
+LICENSE
+THIRD_PARTY_NOTICES.md
+RELEASE_PROVENANCE.txt
+SHA256SUMS.txt
+```
+
+`RELEASE_PROVENANCE.txt` records the exact CI source commit/repository/run identity plus the unsigned/final artifact hashes, CI release-tool hash, release public-key hash, and server-auth trust-file hash (when used). The final `SHA256SUMS.txt` covers every publishable file except itself.
+
+The unsigned Cerberus JAR must **not** be copied into this directory.
+
+You can rerun the final verification without signing again:
+
+```powershell
+.\tools\release-manager.ps1 `
+  -Action verify-release `
+  -Version 1.0.0-rc.1 `
+  -ArtifactDirectory .\release-final `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0-rc.1.jar `
+  -ReleasePublicKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.pub `
+  -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt
+```
+
+### 6. Create a draft GitHub Release
+
+Use GitHub's web interface:
+
+1. open **Releases** -> **Draft a new release**;
+2. create/select tag `v<version>` at the exact source commit recorded in `RELEASE_PROVENANCE.txt`;
+3. mark RC versions as pre-releases;
+4. drag the **contents of `release-final/`** into the release assets area; and
+5. save it as a **draft** first.
+
+Do not commit release JARs into the repository. `release-input/`, `release-final/`, and `release-artifacts/` are ignored local staging directories; binary release assets belong in GitHub Actions artifacts or GitHub Releases.
+
+### 7. Smoke-test the draft artifacts
+
+Test the actual draft assets, not a locally rebuilt replacement. For an RC/final release, use the small risk-based production matrix in `PRODUCTION_RUNBOOK.md`.
+
+At minimum verify:
+
+- clean Guardian-Paper startup/status/validate;
+- clean Guardian-Velocity startup/status/validate for proxy releases;
+- signed Fabric/Cerberus Admission using the finished signed JAR;
+- representative Guardian Protection execution/visibility; and
+- one backend switch on a Velocity-authoritative deployment.
+
+### 8. Publish the draft
+
+Only after the final verifier and smoke tests pass, publish the draft GitHub Release. Keep the final release directory and `RELEASE_PROVENANCE.txt` with your release records.
+
+---
+
+## Lower-level signing only
+
+For unusual/manual recovery work, `sign-cerberus` remains available. It **requires an explicit unsigned input JAR** and will not build one for you:
 
 ```powershell
 .\tools\release-manager.ps1 `
   -Action sign-cerberus `
-  -Version 1.0.0 `
+  -Version 1.0.0-rc.1 `
+  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.0-rc.1-unsigned.jar `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0-rc.1.jar `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
   -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt `
-  -OutputDirectory D:\GuardianRelease\1.0.0
+  -OutputDirectory .\release-final
 ```
 
-The helper creates:
-
-```text
-D:\GuardianRelease\1.0.0\cerberus-fabric-1.0.0-signed.jar
-```
-
-It also prints the SHA-256 of the finished JAR. The signer's **Canonical SHA-256** is a different value used by Cerberus release identity metadata; both are expected to exist.
-
-If an exact file path is genuinely useful, `-SignedOutput` remains available, but its filename must contain the requested release version.
-
-### Step 4 — put the final artifacts in one directory
-
-Place the release Paper JAR, Velocity JAR, **signed** Cerberus JAR, `LICENSE`, and `THIRD_PARTY_NOTICES.md` together in the final release directory.
-
-Do not publish the unsigned Cerberus JAR as the official client artifact when signed-release enforcement is part of the intended deployment.
-
-### Step 5 — write final checksums
-
-```powershell
-.\tools\release-manager.ps1 `
-  -Action checksums `
-  -ArtifactDirectory D:\GuardianRelease\1.0.0
-```
-
-This writes `SHA256SUMS.txt` for every JAR in that directory.
-
-### Step 6 — inspect, smoke-test, and publish
-
-Before publication:
-
-- verify every artifact reports the intended version;
-- inspect JAR entry lists for private-key/config leakage;
-- confirm expected license/NOTICE resources are present;
-- perform the small release-candidate live checks in `PHASE_7_VERIFICATION.md`; and
-- publish the final artifacts plus `SHA256SUMS.txt`, `LICENSE`, and `THIRD_PARTY_NOTICES.md`.
-
-That is the normal release flow. The sections below cover first-time key creation, rotation, and lower-level details.
-
----
+The helper refuses to overwrite an existing signed output. The finished-file SHA-256 printed by the helper is different from the canonical SHA-256 embedded/signed by Cerberus release identity; both are expected.
 
 ## First-time or rotation-only key generation
 
-These are **not** steps you repeat for every release.
+These are not per-release steps.
 
 ### Cerberus release-signing identity
 
@@ -92,7 +188,7 @@ These are **not** steps you repeat for every release.
 Outputs:
 
 - `cerberus-release-signing.key` — PKCS#8 PEM private key; offline/private.
-- `cerberus-release-signing.pub` — base64 X.509/SPKI public key; place in authoritative `policy.yml` as needed.
+- `cerberus-release-signing.pub` — base64 X.509/SPKI public key; safe to place in authoritative `policy.yml` as needed.
 
 The generator refuses to overwrite an existing identity.
 
@@ -104,63 +200,10 @@ The generator refuses to overwrite an existing identity.
   -OutputDirectory D:\GuardianKeys\server-auth-next
 ```
 
-Keep the private key on Guardian Admission authorities only. Build the public trust-anchor set used by Cerberus according to the staged rotation procedure in `KEY_MANAGEMENT.md`.
+Keep the private key only on the active Guardian Admission authority. Build the public old+new trust-anchor set according to `KEY_MANAGEMENT.md`.
 
-## What the helper guarantees
+## CI trust boundary
 
-For `sign-cerberus`, the helper requires:
+The Release Candidate workflow has read-only repository permissions and no release-signing private key. Its job ends after producing a checksummed signing-input artifact for one exact commit: the tested Guardian/Cerberus binaries plus the release signer/verifier compiled from that same source.
 
-- an explicit validated release version;
-- an explicit Cerberus release-signing private-key path; and
-- either an explicit output directory, which produces `cerberus-fabric-<version>-signed.jar`, or an explicit version-bearing `SignedOutput` file path.
-
-It passes the release version into Gradle, so the Fabric metadata and signed release identity use the same version as the output artifact. The underlying signer refuses to overwrite the unsigned input path.
-
-The source remains correct for the Phase 6 Loom finding: Minecraft 26.2 non-obfuscated Fabric uses `jar`, not `remapJar`, as the signing input.
-
-## Automated release-candidate gate
-
-The manual **Release Candidate** workflow accepts versions matching:
-
-```text
-[0-9A-Za-z][0-9A-Za-z._-]{0,63}
-```
-
-It performs:
-
-```text
-Java 25 / Gradle wrapper validation
-clean test
-Guardian-Paper JAR
-Guardian-Velocity JAR
-unsigned Cerberus-Fabric build
-private-key/resource leakage scan
-SHA256SUMS.txt for staged JARs
-release-candidate artifact upload
-```
-
-CI deliberately has no Cerberus release-signing private key.
-
-## Required artifact inspection
-
-Before publication:
-
-- inspect all JAR entry lists;
-- reject any `proxy-assertion.key`, `guardian-server-auth.key`, release private key, PEM/private-key resource, developer absolute path, or administrator-local config;
-- confirm Paper/Velocity JARs contain `META-INF/LICENSE-GPL-3.0.txt`, `META-INF/THIRD-PARTY-NOTICES.md`, and `META-INF/licenses/Apache-2.0.txt`;
-- confirm Cerberus contains GPL/notice material and only intended public server-auth trust anchors/release identity metadata; and
-- verify version metadata in Paper plugin metadata, Velocity plugin metadata/status, Fabric metadata, and the signed Cerberus release identity.
-
-## Minimal release live checks
-
-Phase 7 should not recreate the Phase 6 adversarial matrix. For a final RC, perform only changes-sensitive checks:
-
-1. clean standalone startup from packaged defaults and `/guardian status`/`validate`;
-2. representative schema-1 upgrade on a copy of a Phase 6 config/policy and verify backup + preserved values/comments;
-3. signed Cerberus happy path with the final signed JAR;
-4. one wrong Guardian server-auth key check if client-facing wording/trust anchors changed; and
-5. Velocity-authoritative happy path if Velocity packaging/config changed.
-
-## License/notice audit
-
-Guardian's distributable Paper and Velocity JARs shade SnakeYAML Engine. Its Apache-2.0 license is bundled. Paper/Velocity/Fabric/Geyser/Floodgate/LuckPerms APIs are build/provided integrations rather than shaded runtime payloads in Guardian's final JARs; their license references remain documented in `THIRD_PARTY_NOTICES.md`.
+The local release manager crosses the deliberate manual security boundary: it verifies those exact CI bytes, runs the CI-built release tool, signs only the Cerberus input, constructs the publishable set, and verifies the result. GitHub receives only the final public assets when the operator uploads them to a draft release.

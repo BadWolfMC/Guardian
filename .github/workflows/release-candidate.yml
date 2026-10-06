@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Artifact version (for example 1.0.0-rc.1)'
+        description: 'Release version (for example 1.0.0-rc.1)'
         required: true
         type: string
 permissions:
@@ -14,39 +14,63 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
           java-version: '25'
           cache: gradle
       - name: Verify wrapper
-        uses: gradle/actions/wrapper-validation@v6
-      - name: Validate release-candidate version
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Validate release version
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$RELEASE_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$ ]]; then
-            echo "Release version must match ^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$" >&2
+          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
+            echo "Release version must be SemVer-like MAJOR.MINOR.PATCH with optional prerelease/build metadata." >&2
             exit 1
           fi
       - name: Clean build/test gate
-        run: ./gradlew --no-daemon clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build "-PguardianVersion=$RELEASE_VERSION"
-      - name: Stage release-candidate artifacts
+        run: ./gradlew --no-daemon clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build :cerberus-fabric:releaseToolJar "-PguardianVersion=$RELEASE_VERSION"
+      - name: Stage offline-signing input
         shell: bash
         run: |
           set -euo pipefail
-          mkdir release-artifacts
-          cp "guardian-paper/build/libs/guardian-paper-$RELEASE_VERSION.jar" release-artifacts/
-          cp "guardian-velocity/build/libs/guardian-velocity-$RELEASE_VERSION.jar" release-artifacts/
-          cp "cerberus-fabric/build/libs/cerberus-fabric-$RELEASE_VERSION.jar" release-artifacts/
-          cp LICENSE THIRD_PARTY_NOTICES.md release-artifacts/
-          (cd release-artifacts && sha256sum *.jar > SHA256SUMS.txt)
+          mkdir release-input
+          cp "guardian-paper/build/libs/guardian-paper-$RELEASE_VERSION.jar" "release-input/guardian-paper-$RELEASE_VERSION.jar"
+          cp "guardian-velocity/build/libs/guardian-velocity-$RELEASE_VERSION.jar" "release-input/guardian-velocity-$RELEASE_VERSION.jar"
+          cp "cerberus-fabric/build/libs/cerberus-fabric-$RELEASE_VERSION.jar" "release-input/cerberus-fabric-$RELEASE_VERSION-unsigned.jar"
+          cp "cerberus-fabric/build/libs/cerberus-release-tools-$RELEASE_VERSION.jar" "release-input/cerberus-release-tools-$RELEASE_VERSION.jar"
+          cp LICENSE THIRD_PARTY_NOTICES.md release-input/
+          cat > release-input/RELEASE_INPUT.json <<JSON
+          {
+            "schema": 1,
+            "version": "$RELEASE_VERSION",
+            "sourceCommit": "$GITHUB_SHA",
+            "repository": "$GITHUB_REPOSITORY",
+            "workflowRunId": "$GITHUB_RUN_ID",
+            "workflowRunAttempt": "$GITHUB_RUN_ATTEMPT"
+          }
+          JSON
+          (
+            cd release-input
+            sha256sum \
+              "guardian-paper-$RELEASE_VERSION.jar" \
+              "guardian-velocity-$RELEASE_VERSION.jar" \
+              "cerberus-fabric-$RELEASE_VERSION-unsigned.jar" \
+              "cerberus-release-tools-$RELEASE_VERSION.jar" \
+              LICENSE \
+              THIRD_PARTY_NOTICES.md \
+              RELEASE_INPUT.json \
+              > SHA256SUMS-CI.txt
+          )
       - name: Reject private-key/resource leakage
         shell: bash
         run: |
           set -euo pipefail
-          for jar in release-artifacts/*.jar; do
+          for jar in release-input/*.jar; do
             if unzip -Z1 "$jar" | grep -Eiq '(^|/)(proxy-assertion\.key|guardian-server-auth\.key|cerberus-release-signing\.key|[^/]+\.(pem|key|p8|pk8))$'; then
               echo "Private-key-like resource name found in $jar" >&2
               exit 1
@@ -61,9 +85,9 @@ jobs:
               exit 1
             fi
           done
-      - name: Upload release candidate
-        uses: actions/upload-artifact@v7
+      - name: Upload offline-signing input
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: guardian-${{ inputs.version }}-release-candidate
-          path: release-artifacts/
+          name: guardian-${{ inputs.version }}-release-input
+          path: release-input/
           if-no-files-found: error
