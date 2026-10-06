@@ -11,8 +11,8 @@ The Cerberus release-signing private key remains offline and **never enters GitH
 Use SemVer for public releases and release candidates, for example:
 
 ```text
-1.0.0
-1.0.1-rc.1
+1.0.1
+1.0.2-rc.1
 1.1.0
 ```
 
@@ -67,7 +67,7 @@ Use the release-signing private key, its matching public verification key, and t
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0 `
+  -Version 1.0.1 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
@@ -125,9 +125,9 @@ You can rerun the final verification without signing again:
 ```powershell
 .\tools\release-manager.ps1 `
   -Action verify-release `
-  -Version 1.0.0 `
+  -Version 1.0.1 `
   -ArtifactDirectory .\release-final `
-  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0.jar `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.1.jar `
   -ReleasePublicKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.pub `
   -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt
 ```
@@ -169,9 +169,9 @@ For unusual/manual recovery work, `sign-cerberus` remains available. It **requir
 ```powershell
 .\tools\release-manager.ps1 `
   -Action sign-cerberus `
-  -Version 1.0.0 `
-  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.0-unsigned.jar `
-  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0.jar `
+  -Version 1.0.1 `
+  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.1-unsigned.jar `
+  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.1.jar `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `
   -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt `
   -OutputDirectory .\release-final

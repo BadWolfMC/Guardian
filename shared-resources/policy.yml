@@ -56,6 +56,10 @@ profiles:
       required: {}
 
       # Explicit rules are keyed by administrator-owned stable rule IDs.
+      # Version predicates support exact text, trailing-prefix wildcards, and dotted-numeric
+      # comparisons. For numeric comparison, +build metadata is ignored: >=1.8.7 matches
+      # 1.8.7+fabric.26.2 and newer dotted-numeric versions. Other custom suffixes are not
+      # assigned a guessed ordering.
       # Example:
       # rules:
       #   allow-sodium:

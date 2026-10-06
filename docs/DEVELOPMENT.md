@@ -44,7 +44,7 @@ For an official release, finalize the complete downloaded CI release-input bundl
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0 `
+  -Version 1.0.1 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
@@ -121,6 +121,6 @@ The parse/normalize/validate/snapshot/evaluate path belongs in `guardian-core` a
 
 `artifacts.yml` is exact-artifact identity data only. Adding a catalog entry must not change admission by itself. `HASH_REQUIRED` policy must explicitly use `catalog: true` and/or direct `sha256` declarations. Catalog scans do not mutate an already active immutable policy snapshot; reload/validation is a separate operation.
 
-Supported version predicates are deliberately bounded: `*`, exact strings, one trailing prefix wildcard, or whitespace-separated dotted-numeric comparison terms such as `>=1.2 <2.0`. Do not add a general-purpose expression language or silently impose semver ordering on arbitrary Fabric version strings.
+Supported version predicates are deliberately bounded: `*`, exact strings, one trailing prefix wildcard, or whitespace-separated dotted-numeric comparison terms such as `>=1.2 <2.0`. Numeric comparison may ignore an optional `+` build-metadata suffix on an otherwise dotted-numeric observed version (for example, `>=1.8.7` matches `1.8.7+fabric.26.2`). Do not add a general-purpose expression language or silently impose ordering on pre-release/custom Fabric version strings.
 
 The cross-adapter invariant is strict: equivalent profile/classification/manifest inputs against the same shared snapshot must reach the same policy result from standalone Paper and Velocity. Paper in `velocity` authority mode is not a second admission-policy authority.

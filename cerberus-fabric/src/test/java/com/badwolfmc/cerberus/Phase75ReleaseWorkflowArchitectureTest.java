@@ -90,7 +90,7 @@ class Phase75ReleaseWorkflowArchitectureTest {
         String manager = Files.readString(Path.of("../tools/release-manager.ps1"));
         String release = Files.readString(Path.of("../.github/workflows/release-candidate.yml"));
 
-        assertTrue(rootBuild.contains("def guardianVersion = rootProject.providers.gradleProperty('guardianVersion').orElse('1.0.0').get()"));
+        assertTrue(rootBuild.contains("def guardianVersion = rootProject.providers.gradleProperty('guardianVersion').orElse('1.0.1').get()"));
         assertTrue(rootBuild.contains("def semVerPattern"));
         assertTrue(rootBuild.contains("optional prerelease/build metadata"));
         assertTrue(rootBuild.contains("\\+([0-9A-Za-z-]+"), "root Gradle validation must accept SemVer build metadata");
@@ -112,7 +112,7 @@ class Phase75ReleaseWorkflowArchitectureTest {
         assertTrue(release.contains("guardian-${{ inputs.version }}-test-reports"));
         assertTrue(release.contains("if-no-files-found: warn"));
         assertTrue(ci.contains(".\\tools\\test-release-workflow.ps1"));
-        assertTrue(smoke.contains("1.0.0-ci.smoke+windows"));
+        assertTrue(smoke.contains("1.0.1-ci.smoke+windows"));
         assertTrue(smoke.contains("-Action generate-release-key"));
         assertTrue(smoke.contains("-Action generate-server-identity"));
         assertTrue(smoke.contains("-Action finalize-release"));

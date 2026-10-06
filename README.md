@@ -113,7 +113,7 @@ Linux/macOS:
 ./gradlew clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
 ```
 
-The source default is `1.0.0`. An explicit SemVer build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
+The source default is `1.0.1`. An explicit SemVer build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
 
 ## Release signing
 
@@ -132,7 +132,7 @@ Example local finalization:
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0 `
+  -Version 1.0.1 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `

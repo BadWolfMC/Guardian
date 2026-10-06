@@ -19,8 +19,24 @@ class VersionPredicateTest {
         assertTrue(range.matches("1.2"));
         assertTrue(range.matches("1.9.9"));
         assertFalse(range.matches("2.0"));
-        assertFalse(range.matches("1.9+fabric"), "range ordering is intentionally numeric-dotted only");
         assertTrue(VersionPredicate.parse("=1.2").matches("1.2.0"));
+    }
+
+    @Test
+    void numericRangesIgnoreBuildMetadataOnDottedNumericVersions() {
+        VersionPredicate minimum = VersionPredicate.parse(">=1.8.7");
+        assertTrue(minimum.matches("1.8.7+fabric.26.2"));
+        assertTrue(minimum.matches("1.8.8+fabric.26.2"));
+        assertTrue(minimum.matches("1.9.0+fabric.26.2"));
+        assertTrue(minimum.matches("2.0.0+fabric.26.2"));
+        assertFalse(minimum.matches("1.8.6+fabric.26.2"));
+
+        assertTrue(VersionPredicate.parse("=1.8.7").matches("1.8.7+fabric.26.2"));
+        assertFalse(VersionPredicate.parse("1.8.7").matches("1.8.7+fabric.26.2"),
+            "exact text matching must remain distinct from numeric equality");
+        assertFalse(minimum.matches("1.8.8-beta"),
+            "pre-release/custom suffixes must not receive guessed numeric ordering");
+        assertFalse(minimum.matches("1.8.8+"), "empty build metadata is not a comparable numeric candidate");
     }
 
     @Test

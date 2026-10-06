@@ -188,6 +188,40 @@ class AdmissionPolicyEvaluatorTest {
     }
 
     @Test
+    void minimumVersionRuleAcceptsFabricBuildMetadata() {
+        ModRule rule = new ModRule(
+            "allow-bettergrass",
+            "bettergrass",
+            ModRuleAction.ALLOW,
+            List.of(new ArtifactAcceptance(
+                VersionPredicate.parse(">=1.8.7"),
+                ArtifactVerification.VERSION_ONLY,
+                Set.of(),
+                Map.of()
+            ))
+        );
+        ModPolicy policy = new ModPolicy(
+            ModPolicyMode.ALLOWLIST,
+            OriginPolicyAction.DENY,
+            OriginPolicyAction.DENY,
+            Set.of(),
+            Map.of(),
+            Map.of("bettergrass", rule)
+        );
+        ResolvedAdmissionProfile profile = resolved(AdmissionPolicy.defaults(), policy, Map.of());
+
+        assertEquals(DecisionOutcome.ALLOW, evaluator.evaluateManifest(profile,
+            manifest(archive("bettergrass", "1.8.7+fabric.26.2", HASH_A))).decision().outcome());
+        assertEquals(DecisionOutcome.ALLOW, evaluator.evaluateManifest(profile,
+            manifest(archive("bettergrass", "2.0.0+fabric.26.2", HASH_A))).decision().outcome());
+
+        PolicyEvaluation tooOld = evaluator.evaluateManifest(profile,
+            manifest(archive("bettergrass", "1.8.6+fabric.26.2", HASH_A)));
+        assertTrue(tooOld.violations().stream().anyMatch(v ->
+            v.code() == PolicyViolationCode.VERSION_NOT_ACCEPTED && v.modId().equals("bettergrass")));
+    }
+
+    @Test
     void versionOnlyAndExactHashRulesSupportSeveralVersionsAndHashes() {
         ArtifactAcceptance one = new ArtifactAcceptance(VersionPredicate.parse("1.0"),
             ArtifactVerification.HASH_REQUIRED, Set.of(HASH_A, HASH_B), Map.of());
