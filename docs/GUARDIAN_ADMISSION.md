@@ -91,7 +91,7 @@ cerberus-release-trust:
   ed25519-public-keys: []
 ```
 
-When `required: true`, at least one trusted Ed25519 public key is required. Each list item is the base64 encoding of an X.509 SubjectPublicKeyInfo DER public key. Up to eight keys may be configured at once so an administrator can overlap old/new public keys during a simple release-key rotation. Only the public key belongs in Guardian policy. The release private key must remain outside the repository, Minecraft client, Guardian-Paper, and Guardian-Velocity.
+When `required: true`, at least one trusted Ed25519 public key is required. Each list item is the base64 encoding of an X.509 SubjectPublicKeyInfo DER public key. Up to eight keys may be configured at once so an administrator can overlap old/new public keys during a simple release-key rotation. Only the public key belongs in Guardian policy. The normal release finalizer publishes that key as `cerberus-release-signing.pub`; copy its **base64 contents** into this list. Do not substitute the public-key file SHA-256, signed/unsigned JAR SHA-256, or Cerberus canonical digest. The release private key must remain outside the repository, Minecraft client, Guardian-Paper, and Guardian-Velocity.
 
 An official release is produced from the exact CI-built unsigned Cerberus JAR with the release-manager helper. The normal path is `finalize-release`, which validates the complete GitHub Actions release-input bundle, signs that exact Cerberus JAR with the offline key, verifies the finished result, and stages only publishable files:
 

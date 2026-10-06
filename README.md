@@ -140,7 +140,7 @@ Example local finalization:
   -GuardianServerPublicKeys D:\GuardianKeys\server-auth-trust.txt
 ```
 
-The final directory contains the CI-built Paper/Velocity JARs, the signed Cerberus JAR, license/notices, release provenance, and final SHA-256 checksums. The unsigned Cerberus input is deliberately not a public release asset. See [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) for the full operator procedure.
+The final directory contains the CI-built Paper/Velocity JARs, the signed Cerberus JAR, the public Cerberus release-verification key, license/notices, release provenance, and final SHA-256 checksums. The unsigned Cerberus input is deliberately not a public release asset. When signed-release trust is enabled, copy the **base64 contents** of `cerberus-release-signing.pub` into `policy.yml`; the SHA-256 values are release/provenance checks and are not the policy trust value. See [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) for the full operator procedure.
 
 ## Documentation
 

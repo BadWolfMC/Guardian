@@ -386,3 +386,30 @@ This follow-up is based on the operator-supplied post-checkpoint repository arch
 - operator Java 25 gate result before this follow-up: two stale expectation failures (`Phase6FilesystemHardeningTest.conventionalPrivateInfrastructureKeysAreIgnoredByGit` and `GuardianRuntimeManagerTest.loadsVersionedImmutableProductionSnapshot`) and no reported production-code failure
 
 The follow-up preserves the operator's README edits, corrects those stale expectations, fixes ambiguous PowerShell `$name:` interpolation in release-manager error strings, expands the public README permission inventory from the actual permission constants/evaluator surfaces, clarifies that `guardian.protection.visibility.bypass` is the aggregate visibility permission without a required trailing wildcard, and advances the repository source default to `1.0.0` across all modules as a release-readiness cleanup. Historical Phase 7 artifact/version records above remain unchanged.
+
+
+## Phase 7.5 real release rehearsal and final hardening input — 2026-10-06
+
+The first end-to-end public-release rehearsal used the real GitHub Actions release-input for:
+
+- repository: `BadWolfMC/Guardian`
+- source commit: `b4c34e136118eb84590d109e52d7a0531dd7764c`
+- workflow run ID / attempt: `37404931565` / `1`
+- rehearsal version: `1.0.0-rc.1`
+- CI unsigned Cerberus SHA-256: `9b79ea54aa5b7ff5943e5cdacdb60cac771cda3151e24d5a13743563183bb52b`
+- CI release-tool SHA-256: `40528cb96982b60d7e1364d3dbfa2a144e8163e5602fb60158327c6058777260`
+- final signed Cerberus SHA-256: `be8454982a7d4b3e4a732dd18ad22de0192573471c17287d501caf7c8381ca03`
+- final Guardian-Paper SHA-256: `8788b71e01b9daea3a23d5caa84096b73ec32b7d0110739f0c0db2ce43924f8d`
+- final Guardian-Velocity SHA-256: `bddf7bb6c7511371623fc46bfaf16a06da563fae87c3f854e5a0a8b53dc0560b`
+- release public-key file fingerprint recorded by provenance: `0afc70cd9cf8ad4f5b61ab109b8d93acd4f164cb04cf5bb358783949d4b0ca3b`
+- server-auth trust-file fingerprint: `c8c27b4f879927f3607644f8a1feab5d1b28af4e17ebeec290a24f12aa8c6d42`
+
+The downloaded input checksums and final checksums matched. Paper and Velocity remained byte-identical to CI. Independent inspection confirmed that the signed Cerberus logical contents differed from the unsigned CI input only by the intended Guardian release-identity and embedded server-authentication trust resources. The operator-reported Java 25 / Gradle 9.7.1 gate immediately preceding the rehearsal was green at 374 tests with zero failures/errors and the same 11 documented Windows symlink-privilege skips.
+
+The source archive supplied for the post-rehearsal hardening pass is:
+
+- archive: `Guardian(20261006-040456).zip`
+- SHA-256: `4161e5c793c45b58e69b0d88e03adf28c4c962f8787fa184aa408ff65c6a2b81`
+- intentionally omits retained `build/` and `.gradle/` state while retaining the rehearsal `release-input/` and `release-final/` directories for audit
+
+The post-rehearsal hardening adds centralized/aligned SemVer validation, publication/checking of the Cerberus release public key, a disposable-key Windows PowerShell CI release smoke, less noisy diagnostic test-report upload behavior, documentation closeout cleanup, and readability-only formatting of selected compressed helper/protocol classes. These source/tooling changes intentionally require a fresh RC/finalization rehearsal before any candidate is publishable; the earlier rehearsal remains provenance evidence, not the final release candidate.

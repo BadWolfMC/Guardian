@@ -25,15 +25,16 @@ jobs:
       - name: Verify wrapper
         uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       - name: Validate release version
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ ! "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-            echo "Release version must be SemVer-like MAJOR.MINOR.PATCH with optional prerelease/build metadata." >&2
-            exit 1
-          fi
+        run: ./gradlew --no-daemon help "-PguardianVersion=$RELEASE_VERSION"
       - name: Clean build/test gate
         run: ./gradlew --no-daemon clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build :cerberus-fabric:releaseToolJar "-PguardianVersion=$RELEASE_VERSION"
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: guardian-${{ inputs.version }}-test-reports
+          path: '**/build/test-results/test/*.xml'
+          if-no-files-found: warn
       - name: Stage offline-signing input
         shell: bash
         run: |

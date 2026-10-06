@@ -41,6 +41,8 @@ class Phase75ReleaseWorkflowArchitectureTest {
         assertTrue(manager.contains("release_input_checksums_sha256"));
         assertTrue(manager.contains("release_public_key_sha256"));
         assertTrue(manager.contains("server_auth_trust_sha256"));
+        assertTrue(manager.contains("cerberus-release-signing.pub"));
+        assertTrue(manager.contains("Published Cerberus release public key is not byte-identical"));
         assertTrue(manager.contains("READY TO UPLOAD"));
         assertTrue(manager.contains("Machine-local build path marker"));
         assertTrue(build.contains("-PcerberusUnsignedJar") || build.contains("cerberusUnsignedJar"));
@@ -79,6 +81,45 @@ class Phase75ReleaseWorkflowArchitectureTest {
         );
         assertTrue(immutableUse.matcher(workflow).find(), action + " must be pinned to a full commit SHA");
         assertFalse(workflow.contains(action + "@v"), action + " must not use a mutable version tag");
+    }
+
+    @Test
+    void releaseVersionValidationIsCentralizedAndSupportsSemVerBuildMetadata() throws Exception {
+        String rootBuild = Files.readString(Path.of("../build.gradle"));
+        String velocityBuild = Files.readString(Path.of("../guardian-velocity/build.gradle"));
+        String manager = Files.readString(Path.of("../tools/release-manager.ps1"));
+        String release = Files.readString(Path.of("../.github/workflows/release-candidate.yml"));
+
+        assertTrue(rootBuild.contains("def semVerPattern"));
+        assertTrue(rootBuild.contains("optional prerelease/build metadata"));
+        assertTrue(rootBuild.contains("\\+([0-9A-Za-z-]+"), "root Gradle validation must accept SemVer build metadata");
+        assertFalse(velocityBuild.contains("Guardian version must match"), "Velocity must use the root version validator");
+        assertTrue(manager.contains("$SemVerPattern"));
+        assertTrue(manager.contains("(?:\\+([0-9A-Za-z-]+"), "PowerShell validation must accept SemVer build metadata");
+        assertTrue(release.contains("./gradlew --no-daemon help \"-PguardianVersion=$RELEASE_VERSION\""));
+        assertFalse(release.contains("SemVer-like"), "the workflow must not maintain a third independent version regex");
+    }
+
+    @Test
+    void windowsCiExercisesActualPowerShellFinalizationWithDisposableKeys() throws Exception {
+        String ci = Files.readString(Path.of("../.github/workflows/ci.yml"));
+        String release = Files.readString(Path.of("../.github/workflows/release-candidate.yml"));
+        String smoke = Files.readString(Path.of("../tools/test-release-workflow.ps1"));
+
+        assertTrue(ci.contains("runs-on: windows-latest"));
+        assertTrue(ci.contains("if-no-files-found: warn"));
+        assertTrue(release.contains("guardian-${{ inputs.version }}-test-reports"));
+        assertTrue(release.contains("if-no-files-found: warn"));
+        assertTrue(ci.contains(".\\tools\\test-release-workflow.ps1"));
+        assertTrue(smoke.contains("1.0.0-ci.smoke+windows"));
+        assertTrue(smoke.contains("-Action generate-release-key"));
+        assertTrue(smoke.contains("-Action generate-server-identity"));
+        assertTrue(smoke.contains("-Action finalize-release"));
+        assertTrue(smoke.contains("-Action verify-release"));
+        assertTrue(smoke.contains("PowerShell release-workflow smoke passed with disposable keys."));
+        assertFalse(smoke.contains("GuardianSecrets"));
+        assertFalse(smoke.contains("C:\\Users\\"), "smoke tooling must not embed an operator-specific Windows path");
+        assertFalse(smoke.contains("D:\\"), "smoke tooling must not embed an operator-specific drive path");
     }
 
     @Test

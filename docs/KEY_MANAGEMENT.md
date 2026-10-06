@@ -52,12 +52,14 @@ This Ed25519 key signs canonical Cerberus release identity metadata.
 
 - **Private?** Yes, highly sensitive release-manager material.
 - **Lives:** offline/release-manager environment only. **Not** on Paper, Velocity, or client installations.
-- **Public material:** base64 X.509/SPKI public key belongs in `policy.yml` `cerberus-release-trust.ed25519-public-keys`.
+- **Public material:** base64 X.509/SPKI public key belongs in `policy.yml` `cerberus-release-trust.ed25519-public-keys`. The normal finalizer publishes that exact key as `cerberus-release-signing.pub` beside the release artifacts.
 - **Back up?** Yes, offline/encrypted with recovery ownership documented.
 - **Rotation:** policy supports multiple public keys. Add the new public key, deploy/reload Guardian, begin signing releases with the new private key, then remove the old public key after the old release population no longer needs acceptance.
 - **Compromise:** stop signing with the key, remove its public key from authoritative policy as quickly as your client rollout permits, generate a replacement identity, sign a new Cerberus release, and document the affected release window.
 
 Signed release identity is exact-artifact/compliance hardening. A hostile replaced client can still lie; this is **not remote attestation**.
+
+For policy configuration, use the **base64 key contents**, not any SHA-256 printed in `SHA256SUMS.txt` or `RELEASE_PROVENANCE.txt`. The public-key SHA-256 is only a fingerprint/provenance check. The final signed-JAR SHA-256 identifies the exact downloadable file, while the canonical Cerberus digest is the value covered by the release signature. None of those hashes substitutes for the Ed25519 public key in `policy.yml`.
 
 ## Generation, backup, and recovery practice
 

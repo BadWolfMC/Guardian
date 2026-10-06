@@ -39,22 +39,24 @@ Generate the **separate** Guardian server-authentication identity similarly:
   -OutputDirectory C:\secure\guardian-server-identity
 ```
 
-Sign the exact CI-built unsigned Cerberus JAR with an explicit destination:
+For an official release, finalize the complete downloaded CI release-input bundle rather than signing a locally built client:
 
 ```powershell
 .\tools\release-manager.ps1 `
-  -Action sign-cerberus `
-  -Version 1.0.0 `
-  -UnsignedCerberusJar .\release-input\cerberus-fabric-1.0.0-unsigned.jar `
-  -ReleaseToolJar .\release-input\cerberus-release-tools-1.0.0.jar `
+  -Action finalize-release `
+  -Version 1.0.0-rc.1 `
+  -InputDirectory .\release-input `
+  -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
-  -GuardianServerPublicKeys C:\secure\guardian-server-identity\guardian-server-auth.pub `
-  -OutputDirectory C:\release\1.0.0
+  -ReleasePublicKey C:\secure\cerberus-release\cerberus-release-signing.pub `
+  -GuardianServerPublicKeys C:\secure\guardian-server-identity\guardian-server-auth.pub
 ```
 
-The supported helper uses the CI-built release-tool JAR for normal offline signing. The underlying Gradle tasks remain available for development/automation, but direct Gradle signing requires an explicit `-PguardianVersion=...`, `-PcerberusUnsignedJar=...`, `-PcerberusReleasePrivateKey=...`, and `-PcerberusSignedOutput=...`. The release-signing private key, Guardian server-authentication private key, and Velocity/Paper `proxy-assertion.key` are three distinct trust domains and must not be reused. See `KEY_MANAGEMENT.md` and `RELEASE_PROCESS.md` for storage, deployment, staged rotation, compromise response, checksums, and the distinction between the signer's canonical digest and the finished-JAR SHA-256.
+The finalizer uses the CI-built release-tool JAR, preserves the exact CI Paper/Velocity bytes, signs the exact CI unsigned Cerberus JAR, publishes the matching `cerberus-release-signing.pub` public verification key, and verifies the complete final set. The lower-level `sign-cerberus` action and direct Gradle signing tasks remain available for deliberate development/recovery work; direct Gradle signing requires explicit `-PguardianVersion=...`, `-PcerberusUnsignedJar=...`, `-PcerberusReleasePrivateKey=...`, and `-PcerberusSignedOutput=...`. The release-signing private key, Guardian server-authentication private key, and Velocity/Paper `proxy-assertion.key` are three distinct trust domains and must not be reused. See `KEY_MANAGEMENT.md` and `RELEASE_PROCESS.md` for storage, deployment, staged rotation, compromise response, checksums, and the distinction between the Ed25519 public key, signer's canonical digest, and finished-JAR SHA-256.
 
 The signed release mechanism is provenance/compliance hardening only. It verifies the **reported** official release identity; a hostile modified client can still lie. Guardian server authentication protects stock Cerberus manifest disclosure and is likewise not remote attestation.
+
+CI also runs `tools/test-release-workflow.ps1` on a Windows runner with disposable generated keys. That smoke intentionally exercises the actual PowerShell finalizer/verifier and a SemVer version containing build metadata; it never uses production key material. You may run it locally when changing release tooling, but it performs a full disposable release build and is not required for ordinary source edits.
 
 ## VS Code Java project import
 

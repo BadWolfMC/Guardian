@@ -29,7 +29,7 @@ jobs:
         with:
           name: test-reports
           path: '**/build/test-results/test/*.xml'
-          if-no-files-found: error
+          if-no-files-found: warn
       - name: Upload unsigned build artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -39,3 +39,22 @@ jobs:
             guardian-velocity/build/libs/guardian-velocity-*.jar
             cerberus-fabric/build/libs/cerberus-fabric-*.jar
           if-no-files-found: error
+
+  release-tooling-smoke:
+    needs: test
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - name: Verify wrapper
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Exercise PowerShell release workflow with disposable keys
+        shell: powershell
+        run: .\tools\test-release-workflow.ps1

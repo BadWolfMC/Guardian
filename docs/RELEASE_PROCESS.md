@@ -85,6 +85,7 @@ The finalizer fails closed unless all of the following are true:
 - Cerberus signing consumes the explicit CI-built unsigned JAR rather than rebuilding it;
 - signing and signature verification run from the checksummed CI-built release-tool JAR;
 - the finished Cerberus signature verifies against the supplied release public key;
+- the exact supplied public verification key is copied into the final release as `cerberus-release-signing.pub` and remains byte-identical;
 - optional embedded Guardian server-authentication trust anchors exactly match the supplied trust file;
 - required license/notice/icon/release-identity resources are present;
 - no private-key-like resources, PEM private keys, or obvious machine-local build paths are present in publishable text resources; and
@@ -104,6 +105,7 @@ The final directory is deliberately small:
 guardian-paper-<version>.jar
 guardian-velocity-<version>.jar
 cerberus-fabric-<version>-signed.jar
+cerberus-release-signing.pub
 LICENSE
 THIRD_PARTY_NOTICES.md
 RELEASE_PROVENANCE.txt
@@ -111,6 +113,10 @@ SHA256SUMS.txt
 ```
 
 `RELEASE_PROVENANCE.txt` records the exact CI source commit/repository/run identity plus the unsigned/final artifact hashes, CI release-tool hash, release public-key hash, and server-auth trust-file hash (when used). The final `SHA256SUMS.txt` covers every publishable file except itself.
+
+`cerberus-release-signing.pub` is intentionally public. For `policy.yml` `cerberus-release-trust.ed25519-public-keys`, copy the file's **single base64 X.509/SPKI key line**. Do **not** paste the public-key file SHA-256, the signed Cerberus JAR SHA-256, the unsigned CI JAR SHA-256, or the canonical signed digest into that trust list. Those hashes serve provenance/integrity roles; Guardian's signed-release verifier needs the actual Ed25519 public key.
+
+Publishing the public key beside the release makes normal installation easier, but it does not create a separate trust channel by itself. Obtain it from the official BadWolfMC/Guardian release/project surface you already trust; `SHA256SUMS.txt` then protects accidental corruption within that release set.
 
 The unsigned Cerberus JAR must **not** be copied into this directory.
 
@@ -188,7 +194,7 @@ These are not per-release steps.
 Outputs:
 
 - `cerberus-release-signing.key` — PKCS#8 PEM private key; offline/private.
-- `cerberus-release-signing.pub` — base64 X.509/SPKI public key; safe to place in authoritative `policy.yml` as needed.
+- `cerberus-release-signing.pub` — base64 X.509/SPKI public key; safe to distribute publicly. Its base64 contents belong in authoritative `policy.yml` as needed. The normal finalizer also publishes this exact public key as a release asset.
 
 The generator refuses to overwrite an existing identity.
 

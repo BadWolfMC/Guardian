@@ -32,7 +32,7 @@ The Windows release manager adds two normal-path actions:
 - `finalize-release` — verify the downloaded CI input, sign exact Cerberus bytes, construct the public artifact directory, generate provenance/checksums, and run final verification;
 - `verify-release` — rerun final verification without signing again.
 
-The final directory is intentionally restricted to the two Guardian JARs, signed Cerberus JAR, LICENSE, third-party notices, release provenance, and final checksums. The verifier also rejects private-key-like resources/PEM material and obvious machine-local build paths in packaged text resources. The unsigned Cerberus input cannot accidentally become a final release asset through this workflow.
+The final directory is intentionally restricted to the two Guardian JARs, signed Cerberus JAR, the public Cerberus release-verification key (`cerberus-release-signing.pub`), LICENSE, third-party notices, release provenance, and final checksums. The verifier requires the published public key to remain byte-identical to the operator-supplied verification key, rejects private-key-like resources/PEM material and obvious machine-local build paths in packaged text resources, and excludes the unsigned Cerberus input from the publishable set.
 
 The public workflow deliberately remains compatible with GitHub Desktop + GitHub web UI. No GitHub CLI, API token, or release-signing secret is required in Actions. The operator uploads `release-final/` to a draft GitHub Release after local/offline verification.
 
@@ -99,3 +99,16 @@ Historical internal `0.1.0-phase*` versions and pre-release protocol/config shap
 ## 2026-10-05 operator follow-up
 
 The first Java 25 gate after the reviewed Phase 7.5 checkpoint exposed two stale test expectations rather than runtime defects: the filesystem-hardening test still expected literal per-key `.gitignore` entries after the repository moved to the stronger `*.key` rule, and the Paper runtime-default test still expected Protection to be disabled after Phase 7.5 intentionally enabled it. Both expectations were corrected. The same operator run exposed invalid PowerShell interpolation (`$name:`) in three release-manager error strings; those strings now use `${name}:`, and a static regression check guards the script against reintroducing that parser hazard.
+
+
+## 2026-10-06 post-rehearsal hardening
+
+The first complete GitHub Actions -> downloaded release-input -> offline/local finalization rehearsal passed for `1.0.0-rc.1`. A final review then tightened release ergonomics without changing runtime protocol/security behavior:
+
+- SemVer validation is owned by the root Gradle build and mirrored by the PowerShell release manager; the old Velocity-only filename/version regex is removed. This fixes the prior mismatch where valid SemVer build metadata was accepted by release tooling but rejected by the Velocity subproject.
+- `finalize-release` publishes the exact public Cerberus release-verification key as `cerberus-release-signing.pub`, includes it in final checksums, and `verify-release` requires it to match the supplied verification key. Documentation distinguishes the actual base64 Ed25519 key used in `policy.yml` from the several SHA-256 provenance/integrity values.
+- normal CI retains `main` + `develop` push/PR coverage and adds a dependent `windows-latest` smoke that runs the real PowerShell release workflow end-to-end with disposable generated keys. The smoke deliberately uses SemVer build metadata so Gradle, filenames, metadata expansion, PowerShell validation, signing, finalization, and verification exercise the same edge.
+- JUnit XML uploads are diagnostic and warn rather than creating a second failure when an earlier build step prevented tests from starting; Release Candidate runs now retain their test XML as well.
+- the historical Phase 0A sanity report is labeled as historical, and three unusually compressed protocol/release helper classes are reformatted for maintainability without changing wire format, canonicalization rules, or key-generation semantics.
+
+Because this changes release output/tooling after the successful rehearsal, that earlier RC remains evidence that the architecture works but is not the eventual publishable candidate. A fresh Java 25 CI gate, Windows release smoke, RC input, and finalization are required before Phase 7.5 closeout.

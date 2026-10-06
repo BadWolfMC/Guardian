@@ -2149,6 +2149,8 @@ Phase 7.5 should also review whether the current pre-1.0 versioning/release labe
 
 Public release/RC inputs use SemVer. During the Phase 7.5 release-readiness follow-up the source default advances to `1.0.0` across all modules; this source-version cleanup does not itself publish a release. Explicit RC/rehearsal builds may still use `-PguardianVersion=<version>` such as `1.0.0-rc.1`. Internal historical phase versions create no arbitrary compatibility promise.
 
+**Phase 7.5 post-rehearsal hardening (2026-10-06):** one real `1.0.0-rc.1` GitHub Actions -> offline finalization rehearsal passed before the final hardening pass. Version validation is now centralized in root Gradle and aligned with PowerShell, the final public set includes the exact checksummed `cerberus-release-signing.pub` verification key for policy bootstrap, normal CI adds a disposable-key Windows PowerShell finalization smoke, and test-report uploads are diagnostic rather than masking the primary failure. These changes do not alter protocol v1, schema 2, key-domain separation, or Admission/Protection authority boundaries, but they require one fresh RC/finalization run before Phase 7.5 can close.
+
 Do not begin the Minecraft/Paper/Fabric 26.3 port during Phase 7.5. Phase 8 starts only after the production-readiness pass is explicitly closed.
 
 ---

@@ -2,7 +2,7 @@
 
 ## Status
 
-**IMPLEMENTED; implementation-environment sanity checks passed, but the authoritative Java 25/Gradle, real Actions release-input, local PowerShell finalization, and focused live gates remain required before formal closeout.**
+**RELEASE CHAIN REHEARSED; the Java 25 gate, real GitHub Actions release-input, and local PowerShell finalization have passed on the pre-final-hardening candidate. The final hardening follow-up in this revision requires one fresh CI/RC/finalization run, and the focused live/rollback gates still remain before formal closeout.**
 
 Phase 7 remains the entering runtime/security baseline. Phase 7.5 changes are intentionally concentrated in release provenance, packaged defaults, repository/public documentation, release tooling, and operations/runbook material.
 
@@ -20,7 +20,7 @@ The Phase 7.5 implementation worktree has passed the following non-authoritative
 - the two new packaged-public-default checks execute successfully against the actual `config.yml` and `en_us.properties` resources.
 - the current signer/verifier was exercised directly with disposable Ed25519 identities against an unsigned retained Cerberus artifact; signing, canonical-digest verification, release-signature verification, and embedded Guardian server-authentication trust-anchor verification all passed.
 
-The implementation environment provides Java 21 only and cannot download the uncached Gradle 9.7.1 distribution, so it cannot truthfully record the authoritative Java 25 / Gradle 9.7.1 result. PowerShell is also unavailable there, so the complete `finalize-release` wrapper must be exercised on the intended Windows release machine using the exact artifact downloaded from the real GitHub Actions run.
+The original implementation environment provided Java 21 only and could not truthfully record the authoritative Java 25 / Gradle 9.7.1 or PowerShell result. Those operator/Actions gates were subsequently exercised as recorded below. The current final-hardening follow-up still requires a fresh run because it changes release tooling/output and adds two JUnit architecture checks plus a Windows PowerShell CI smoke job.
 
 ## Required automated gate
 
@@ -38,6 +38,36 @@ The first Java 25 / Gradle 9.7.1 run against the reviewed checkpoint executed **
 
 The same operator attempt to use the documented lower-level signing command exposed a PowerShell parser error caused by interpolating variables immediately before `:` in double-quoted strings. All three such release-manager strings now use `${name}:`, and the normal Admission documentation points administrators to the full `finalize-release` CI-input path rather than local `build/libs` signing.
 
+### Green operator/Actions gate and real release rehearsal
+
+After those corrections, the complete Java 25 / Gradle 9.7.1 gate returned to green at **374 tests, 0 failures/errors, and the same 11 documented Windows symlink-privilege skips**. GitHub CI also completed successfully after restoring the tracked executable bit on `gradlew` (`100755`); the earlier Linux `./gradlew: Permission denied` failure was repository mode metadata from a Windows branch reconstruction, not a Gradle/runtime defect.
+
+A real GitHub **Release Candidate** rehearsal then completed for `1.0.0-rc.1`:
+
+- repository: `BadWolfMC/Guardian`;
+- source commit: `b4c34e136118eb84590d109e52d7a0531dd7764c`;
+- workflow run: `37404931565`, attempt `1`;
+- CI unsigned Cerberus SHA-256: `9b79ea54aa5b7ff5943e5cdacdb60cac771cda3151e24d5a13743563183bb52b`;
+- CI release-tool SHA-256: `40528cb96982b60d7e1364d3dbfa2a144e8163e5602fb60158327c6058777260`;
+- final signed Cerberus SHA-256: `be8454982a7d4b3e4a732dd18ad22de0192573471c17287d501caf7c8381ca03`;
+- final Paper SHA-256: `8788b71e01b9daea3a23d5caa84096b73ec32b7d0110739f0c0db2ce43924f8d`; and
+- final Velocity SHA-256: `bddf7bb6c7511371623fc46bfaf16a06da563fae87c3f854e5a0a8b53dc0560b`.
+
+The downloaded `release-input/` checksums matched, local `finalize-release` succeeded using the exact CI-built unsigned client and CI-built release tool, final Paper/Velocity remained byte-identical to CI, and independent inspection found the signed Cerberus logical contents differed from the unsigned input only by the intended Guardian release-identity and server-authentication trust-anchor resources. The release public-key fingerprint recorded by that rehearsal was `0afc70cd9cf8ad4f5b61ab109b8d93acd4f164cb04cf5bb358783949d4b0ca3b`; that SHA-256 is a fingerprint, **not** the value configured in `policy.yml`.
+
+### Final hardening follow-up — fresh evidence required
+
+The post-rehearsal review made a small final set of release/tooling/code-quality changes:
+
+- SemVer validation is authoritative in the root Gradle build and is aligned with the PowerShell release manager; Velocity no longer carries a divergent version regex, and SemVer build metadata is accepted consistently.
+- normal finalization now publishes the exact `cerberus-release-signing.pub` verification key as a checksummed public release asset; policy documentation explicitly requires the file's base64 key contents rather than any SHA-256 value;
+- CI now exercises the actual PowerShell finalization/verification path on `windows-latest` with disposable generated keys, including a build-metadata version;
+- missing JUnit XML is diagnostic-only (`warn`) when an earlier build step prevents tests from starting, while real build/test failures remain authoritative; Release Candidate runs now retain test XML as diagnostics too;
+- the Phase 0A sanity report is explicitly historical; and
+- `ProtocolCodec`, `ManifestCanonicalizer`, and `CerberusReleaseIdentityGenerator` receive readability-only formatting/structure cleanup without protocol or cryptographic semantic changes.
+
+These changes supersede the `1.0.0-rc.1` rehearsal as the eventual publishable candidate. The next full Gradle gate is expected to contain **376 JUnit tests** before any additional test additions, plus the separate Windows PowerShell release-workflow smoke job. A fresh RC/finalization rehearsal must then confirm the new eight-file public release set including `cerberus-release-signing.pub`.
+
 ## Release-input rehearsal
 
 From a clean Git checkout with no retained `build/` or `.gradle/` project state:
@@ -50,12 +80,12 @@ From a clean Git checkout with no retained `build/` or `.gradle/` project state:
 
 ## Offline finalization rehearsal
 
-Using disposable or release-manager test identities, run:
+For the next rehearsal after the `1.0.0-rc.1` evidence above, use a fresh identifier such as `1.0.0-rc.2` so the resulting assets cannot be confused with the superseded candidate:
 
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.0-rc.1 `
+  -Version 1.0.0-rc.2 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey <offline-private-key> `
@@ -63,12 +93,13 @@ Using disposable or release-manager test identities, run:
   -GuardianServerPublicKeys <server-auth-public-trust-file>
 ```
 
-Expected final set:
+Expected final set for that rehearsal:
 
 ```text
-guardian-paper-1.0.0-rc.1.jar
-guardian-velocity-1.0.0-rc.1.jar
-cerberus-fabric-1.0.0-rc.1-signed.jar
+guardian-paper-1.0.0-rc.2.jar
+guardian-velocity-1.0.0-rc.2.jar
+cerberus-fabric-1.0.0-rc.2-signed.jar
+cerberus-release-signing.pub
 LICENSE
 THIRD_PARTY_NOTICES.md
 RELEASE_PROVENANCE.txt
@@ -78,6 +109,7 @@ SHA256SUMS.txt
 Verify that:
 
 - no unsigned Cerberus JAR is present;
+- `cerberus-release-signing.pub` is present, byte-identical to the supplied verification key, covered by final checksums, and its base64 contents (not its SHA-256) are suitable for `policy.yml`;
 - Paper/Velocity files are byte-identical to the checked CI inputs;
 - signed Cerberus derives from the checked unsigned input;
 - signing/verification uses the checked CI-built release-tool JAR rather than locally rebuilt release code;

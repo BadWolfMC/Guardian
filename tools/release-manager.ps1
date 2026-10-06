@@ -18,7 +18,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $Gradle = Join-Path $Root 'gradlew.bat'
-$SemVerPattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+$SemVerPattern = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'
+$ReleasePublicKeyAssetName = 'cerberus-release-signing.pub'
 
 function Require-PathArgument([string]$Value, [string]$Name) {
     if ([string]::IsNullOrWhiteSpace($Value)) { throw "$Name is required for action '$Action'." }
@@ -48,7 +49,7 @@ function Require-ExistingDirectory([string]$Value, [string]$Name) {
 function Require-Version([string]$Value) {
     if ([string]::IsNullOrWhiteSpace($Value)) { throw "Version is required for action '$Action'." }
     if ($Value -notmatch $SemVerPattern) {
-        throw 'Version must be SemVer-like MAJOR.MINOR.PATCH with optional prerelease/build metadata (for example 1.0.0-rc.1).'
+        throw 'Version must be valid SemVer MAJOR.MINOR.PATCH with optional prerelease/build metadata (for example 1.0.0-rc.1).'
     }
     return $Value
 }
@@ -251,7 +252,10 @@ function Verify-FinalRelease([string]$Directory, [string]$ReleaseVersion, [strin
     $paperName = "guardian-paper-$ReleaseVersion.jar"
     $velocityName = "guardian-velocity-$ReleaseVersion.jar"
     $cerberusName = "cerberus-fabric-$ReleaseVersion-signed.jar"
-    $required = @($paperName, $velocityName, $cerberusName, 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_PROVENANCE.txt', 'SHA256SUMS.txt')
+    $required = @(
+        $paperName, $velocityName, $cerberusName, $ReleasePublicKeyAssetName,
+        'LICENSE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_PROVENANCE.txt', 'SHA256SUMS.txt'
+    )
     Assert-ExactDirectoryFiles $Directory $required 'Final release directory'
 
     $checksumNames = @($required | Where-Object { $_ -ne 'SHA256SUMS.txt' })
@@ -260,6 +264,10 @@ function Verify-FinalRelease([string]$Directory, [string]$ReleaseVersion, [strin
     $paper = Join-Path $Directory $paperName
     $velocity = Join-Path $Directory $velocityName
     $cerberus = Join-Path $Directory $cerberusName
+    $publishedPublicKey = Join-Path $Directory $ReleasePublicKeyAssetName
+    if ((Get-Sha256 $publishedPublicKey) -ne (Get-Sha256 $PublicKey)) {
+        throw 'Published Cerberus release public key is not byte-identical to the supplied verification key.'
+    }
     Assert-JarVersion $paper 'paper' $ReleaseVersion
     Assert-JarVersion $velocity 'velocity' $ReleaseVersion
     Assert-JarVersion $cerberus 'cerberus' $ReleaseVersion
@@ -297,7 +305,7 @@ function Verify-FinalRelease([string]$Directory, [string]$ReleaseVersion, [strin
     if ([string]$provenance.paper_sha256 -ne (Get-Sha256 $paper)) { throw 'Release provenance Paper hash does not match final artifact.' }
     if ([string]$provenance.velocity_sha256 -ne (Get-Sha256 $velocity)) { throw 'Release provenance Velocity hash does not match final artifact.' }
     if ([string]$provenance.release_tool_sha256 -ne (Get-Sha256 $ToolJar)) { throw 'Release provenance release-tool hash does not match supplied CI release-tool JAR.' }
-    if ([string]$provenance.release_public_key_sha256 -ne (Get-Sha256 $PublicKey)) { throw 'Release provenance release-public-key hash does not match supplied verification key.' }
+    if ([string]$provenance.release_public_key_sha256 -ne (Get-Sha256 $publishedPublicKey)) { throw 'Release provenance release-public-key hash does not match published verification key.' }
     if ($null -eq $ServerTrust) {
         if ([string]$provenance.server_auth_trust_sha256 -ne 'none') { throw 'Release provenance expects Guardian server-auth trust anchors, but no trust file was supplied.' }
     } else {
@@ -305,7 +313,7 @@ function Verify-FinalRelease([string]$Directory, [string]$ReleaseVersion, [strin
         if ([string]$provenance.server_auth_trust_sha256 -ne (Get-Sha256 $ServerTrust)) { throw 'Release provenance server-auth trust hash does not match supplied trust file.' }
     }
 
-    $verifyArgs = @($cerberus, $ReleaseVersion, $PublicKey)
+    $verifyArgs = @($cerberus, $ReleaseVersion, $publishedPublicKey)
     if (-not [string]::IsNullOrWhiteSpace($ServerTrust)) { $verifyArgs += $ServerTrust }
     Invoke-ReleaseTool $ToolJar 'com.badwolfmc.cerberus.release.CerberusReleaseVerifier' $verifyArgs
 
@@ -403,6 +411,7 @@ try {
             Copy-Item -LiteralPath $velocityInput -Destination $velocityOutput
             Copy-Item -LiteralPath (Join-Path $input 'LICENSE') -Destination (Join-Path $out 'LICENSE')
             Copy-Item -LiteralPath (Join-Path $input 'THIRD_PARTY_NOTICES.md') -Destination (Join-Path $out 'THIRD_PARTY_NOTICES.md')
+            Copy-Item -LiteralPath $publicKey -Destination (Join-Path $out $ReleasePublicKeyAssetName)
             if ((Get-Sha256 $paperOutput) -ne (Get-Sha256 $paperInput)) { throw 'Final Paper artifact is not byte-identical to the checked CI input.' }
             if ((Get-Sha256 $velocityOutput) -ne (Get-Sha256 $velocityInput)) { throw 'Final Velocity artifact is not byte-identical to the checked CI input.' }
 
@@ -429,7 +438,10 @@ try {
                 "server_auth_trust_sha256=$(if ($null -eq $trust) { 'none' } else { Get-Sha256 $trust })"
             )
             [System.IO.File]::WriteAllLines((Join-Path $out 'RELEASE_PROVENANCE.txt'), $provenanceLines, [System.Text.UTF8Encoding]::new($false))
-            $finalChecksumNames = @($paperName, $velocityName, $signedName, 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_PROVENANCE.txt')
+            $finalChecksumNames = @(
+                $paperName, $velocityName, $signedName, $ReleasePublicKeyAssetName,
+                'LICENSE', 'THIRD_PARTY_NOTICES.md', 'RELEASE_PROVENANCE.txt'
+            )
             Write-Checksums $out $finalChecksumNames (Join-Path $out 'SHA256SUMS.txt')
             Verify-FinalRelease $out $releaseVersion $publicKey $trust $toolInput
             Write-Host 'READY TO UPLOAD: final release directory contains only publishable artifacts.'

@@ -1,4 +1,6 @@
-# Phase 0A — sanity report
+# Historical Phase 0A sanity report
+
+> **Historical snapshot:** this document records the Phase 0A feasibility state only. It is not a description of the current Guardian/Cerberus implementation. For current release readiness use `PHASE_7_5_VERIFICATION.md`; for current architecture/operations use the README and administrator documentation.
 
 ## Live result
 
@@ -45,9 +47,9 @@ This revision:
 
 See `DEVELOPMENT.md` for the one-time Java language-server reset steps.
 
-## Scope checks
+## Historical scope checks
 
-The selected architecture still contains no:
+At the time of Phase 0A, the selected architecture contained no:
 
 - server NMS/CraftBukkit dependency;
 - reflection into Minecraft implementation internals;
@@ -60,4 +62,4 @@ The selected architecture still contains no:
 - production policy engine;
 - artifact hashing/signing implementation.
 
-Signed official Cerberus artifact identity is recorded only as a Phase 6 exploration item.
+Signed official Cerberus artifact identity was recorded only as a future Phase 6 exploration item at this historical checkpoint; it is implemented in the current codebase.
