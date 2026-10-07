@@ -14,9 +14,9 @@ For a Velocity network, Guardian-Velocity can act as the Admission authority wit
 ## Requirements
 
 - Java 25
-- Paper 26.2 for Guardian-Paper
+- Paper 26.3 for Guardian-Paper
 - Velocity 4.x for Guardian-Velocity deployments
-- Fabric Loader 0.19.5+ and Fabric API for Cerberus on Minecraft 26.2
+- Fabric Loader 0.19.5+ and Fabric API for Cerberus on Minecraft 26.3
 - Optional integrations: LuckPerms, Geyser, and Floodgate
 
 ## Install
@@ -113,7 +113,7 @@ Linux/macOS:
 ./gradlew clean test :guardian-paper:jar :guardian-velocity:jar :cerberus-fabric:build
 ```
 
-The source default is `1.0.1`. An explicit SemVer build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
+The source default is `1.0.2`. An explicit SemVer build version can still be supplied with `-PguardianVersion=<version>`; the source version does not by itself publish a GitHub release.
 
 ## Release signing
 
@@ -132,7 +132,7 @@ Example local finalization:
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.1 `
+  -Version 1.0.2 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey D:\GuardianKeys\cerberus-release\cerberus-release-signing.key `

@@ -49,6 +49,12 @@ class GuardianPaperResourcesTest {
     }
 
     @Test
+    void phase8PaperMetadataTargetsApi263() throws Exception {
+        ClassLoader loader = GuardianPaperResourcesTest.class.getClassLoader();
+        assertResourceContains(loader, "plugin.yml", "api-version: '26.3'");
+    }
+
+    @Test
     void paperVersionComesFromGradleExpandedPluginMetadata() throws Exception {
         String build = Files.readString(Path.of("build.gradle"));
         String command = Files.readString(Path.of(

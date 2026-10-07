@@ -10,6 +10,13 @@ Guardian's public-release host/policy schema begins at **2**:
 
 Locale files and `artifacts.yml` have independent schemas and remain at their existing schema versions.
 
+
+## Current platform line
+
+Guardian/Cerberus `1.0.2` targets Minecraft/Paper/Fabric 26.3 on Java 25. Configuration schema 2, protocol v1, key files, Admission policy semantics, and Protection semantics remain unchanged by the platform port.
+
+Treat a move from the prior 26.2 binary line as a coordinated platform/binary update rather than a configuration migration: update Paper backends and the Cerberus client environment to 26.3, deploy the matching Guardian-Paper/Guardian-Velocity/Cerberus release set, and preserve the existing Guardian data directory and three key domains. Do not attempt to make the 1.0.2 Cerberus build serve both Minecraft 26.2 and 26.3 through compatibility shims.
+
 ## Legacy schema-1 migration
 
 Guardian contains exactly one automatic compatibility migration: **legacy schema 1 -> public schema 2**. This primarily exists for installations that ran an internal pre-1.0 build before upgrading to the public release line.

@@ -6,7 +6,7 @@ Small, focused fixes and documentation improvements are welcome. For substantial
 
 - Java 25
 - repository Gradle wrapper (Gradle 9.7.1)
-- Minecraft/Paper/Fabric 26.2 until the separately gated platform-port work changes that target
+- Minecraft/Paper/Fabric 26.3
 
 Run the full gate before proposing a code change:
 

@@ -98,7 +98,7 @@ An official release is produced from the exact CI-built unsigned Cerberus JAR wi
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.1 `
+  -Version 1.0.2 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release-signing.key `
@@ -288,7 +288,7 @@ Guardian deliberately uses a bounded, administrator-readable language rather tha
 Supported forms are:
 
 - `*` — any version;
-- exact text, for example `0.9.1+mc26.2`;
+- exact text, for example `0.9.1+mc26.3`;
 - one trailing prefix wildcard, for example `0.9.*` or `build-2026.*`;
 - whitespace-separated dotted-numeric comparisons, for example `>=1.2 <2.0`.
 
@@ -300,9 +300,9 @@ accept:
     verification: VERSION_ONLY
 ```
 
-matches `1.8.7+fabric.26.2`, `1.8.8+fabric.26.2`, `1.9.0+fabric.26.2`, and `2.0.0+fabric.26.2`. It does not match `1.8.6+fabric.26.2`.
+matches `1.8.7+fabric.26.3`, `1.8.8+fabric.26.3`, `1.9.0+fabric.26.3`, and `2.0.0+fabric.26.3`. It does not match `1.8.6+fabric.26.3`.
 
-Only a dotted-numeric version optionally followed by dot-separated `+` build metadata receives numeric ordering. Other suffix forms, including pre-release/custom text such as `1.8.8-beta`, fail numeric comparison rather than receiving guessed ordering; use exact or prefix matching when those strings need to be addressed directly. Exact text matching remains literal, so `version: "1.8.7"` does not match `1.8.7+fabric.26.2`, while the numeric equality predicate `version: "=1.8.7"` does.
+Only a dotted-numeric version optionally followed by dot-separated `+` build metadata receives numeric ordering. Other suffix forms, including pre-release/custom text such as `1.8.8-beta`, fail numeric comparison rather than receiving guessed ordering; use exact or prefix matching when those strings need to be addressed directly. Exact text matching remains literal, so `version: "1.8.7"` does not match `1.8.7+fabric.26.3`, while the numeric equality predicate `version: "=1.8.7"` does.
 
 Contradictory numeric conjunctions such as `>=2.0 <1.0` are rejected during parsing rather than becoming silent never-match rules.
 
@@ -323,7 +323,7 @@ rules:
     mod: iris
     action: ALLOW
     accept:
-      - version: "2.0.0+mc26.2"
+      - version: "2.0.0+mc26.3"
         verification: HASH_REQUIRED
         sha256:
           - "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

@@ -2,10 +2,10 @@
 ## Authoritative Project Plan and Implementation Contract
 
 **Project:** BadWolfMC Guardian / Cerberus
-**Document status:** Living implementation contract; Phase 0 complete; Phase 1 architecture revised for Guardian Protection
+**Document status:** Living implementation contract; Phases 0-7.5 complete; Phase 8 26.3 port in progress
 **Initial target:** Minecraft / Paper 26.2, Java 25
-**Future target:** 26.3 after Paper 26.3 reaches a stable API
-**Date:** 2026-09-24
+**Current target:** Minecraft / Paper 26.3, Java 25
+**Date:** 2026-10-06
 
 ---
 
@@ -2153,23 +2153,48 @@ Public release/RC inputs use SemVer. During the Phase 7.5 release-readiness foll
 
 **Phase 7.5 formal closeout (2026-10-06): COMPLETE.** The final Java 25 evidence is 376 tests with 0 failures, 0 errors, and 11 documented Windows symlink-privilege skips. Normal CI passed the dependent disposable-key Windows PowerShell release smoke; its post-job Gradle cache-save lock warning is non-gating runner noise. The fresh `1.0.0-rc.2` GitHub Release Candidate -> downloaded release-input -> offline `finalize-release` -> `verify-release` chain passed for commit `ddcad249c4837fdcf68c1c3a00d8fda0ecbb2da5`, workflow run `37418021934` / attempt `1`. The intended eight-file final public set, checksums, signed Cerberus provenance, published release public key, private-key/path leakage checks, focused live policy/inspection/Protection/reload matrix, rc.1 rollback/restoration rehearsal, and real-Git hygiene checks all passed. No first-public-release blocker remains in Phase 7.5.
 
-Phase 7.5 is closed. Phase 8 is unblocked by this prerequisite but remains a separate Minecraft/Paper/Fabric 26.3 platform port. By operator decision, the stable `1.0.0` Minecraft/Paper 26.2 release must first be published and retained, and Paper 26.3 must be sufficiently stable to target deliberately.
+Phase 7.5 is closed. Phase 8 is a separate Minecraft/Paper/Fabric 26.3 platform port. The operator has confirmed that the required stable `1.0.0` Minecraft/Paper 26.2 release was published and retained. The exact Phase 8 source archive additionally carries a finalized `1.0.1`/26.2 release set, which is the stable baseline for the port.
 
 ---
 
 ## Phase 8 — Minecraft 26.3 port
 
-**Goal:** Port only after the Paper 26.3 API is stable enough to target intentionally.
+**Goal:** Produce the maintained 26.3-compatible Guardian/Cerberus line without reopening settled Admission, Protection, protocol, policy, privacy, or release-security architecture unless a concrete 26.3 compatibility defect requires it.
+
+**Phase 8 implementation contract (adopted 2026-10-06):** the frozen prior release line is Guardian/Cerberus `1.0.1` for Minecraft/Paper/Fabric 26.2. The Phase 8 development/release line is `1.0.2` and targets 26.3 only. Do not introduce reflection, runtime platform probing, duplicate adapters, or other compatibility shims merely to keep one source tree running on both 26.2 and 26.3. The published 1.0.1 release preserves the 26.2 line.
+
+The reviewed Phase 8 platform set is:
+
+- Java 25;
+- Gradle wrapper 9.7.1;
+- Minecraft 26.3;
+- Paper API `26.3.build.+`;
+- Fabric Loader 0.19.5;
+- Fabric API `0.162.0+26.3`;
+- Fabric Loom 1.18.2;
+- Velocity API `4.2.1-SNAPSHOT`;
+- Geyser API `2.11.2-SNAPSHOT`;
+- Floodgate API `2.2.5-SNAPSHOT`;
+- LuckPerms API 5.5.
+
+The upstream `SNAPSHOT` coordinates above are legitimate published API coordinates and are not Guardian prerelease markers. Paper retains the dynamic `26.3.build.+` form rather than arbitrarily pinning one beta build.
+
+The initial compatibility review finds the supported public Paper connection/configuration/validation and Protection APIs still present in 26.3; Fabric's published 26.3 removals do not target Guardian's Loader origin/containment or networking APIs; and the current official Velocity/Geyser/Floodgate/LuckPerms dependency coordinates remain compatible with Guardian's integrations. Therefore the first port slice changes platform/dependency targets and current documentation/tests only. The selected standalone CONFIGURATION + bounded quarantined PLAY design remains authoritative unless focused 26.3 live evidence demonstrates a cleaner supported public-API path with the same externally observable behavior.
 
 Tasks:
 
-- update Paper target;
-- update Fabric/Fabric API target;
-- test CONFIGURATION behavior;
-- retest Velocity configuration behavior;
-- retest Geyser/Floodgate compatibility;
-- remove any obsolete 26.2-only workaround rather than accumulating unnecessary compatibility code;
-- rerun complete security and deployment matrices.
+- update the Paper/Minecraft/Fabric/Loom targets and platform metadata;
+- preserve Java 25 and the existing Gradle wrapper unless a concrete build requirement forces a change;
+- compile/test all modules against the reviewed 26.3 dependency set;
+- retest standalone CONFIGURATION behavior and the bounded PLAY fallback;
+- retest Velocity awaited CONFIGURATION, assertion-only backend behavior, and one backend switch;
+- retest Geyser/Floodgate Bedrock classification through supported APIs;
+- perform one representative Guardian Protection execution/visibility check;
+- remove an obsolete 26.2-only workaround only when evidence shows it is obsolete;
+- rerun the relevant final security/privacy/release audit without mechanically repeating unrelated adversarial matrices;
+- update current release/install/development documentation while preserving historical 26.2 phase records as historical evidence.
+
+`docs/PHASE_8_IMPLEMENTATION.md` records the compatibility matrix and port changes. `docs/PHASE_8_VERIFICATION.md` records the open Java 25 gate, focused live matrix, and final release/security audit.
 
 ---
 
@@ -2393,4 +2418,6 @@ Phase 4 closes the Bedrock-origin gap. Both possible Admission authorities use s
 
 For BadWolfMC's production topology, Phase 5 now supplies the completed operational productionization: strict Velocity host configuration, production assertion-key lifecycle, distinct Paper/proxy command authorities, bounded active inspection, host-local reload/validation, authority-correct artifact administration, and production logging. The Java 25 / Gradle 9.7.1 gate and focused live matrix are green, BRIDGE-003/004 are retired, and Phase 6 can now concentrate on adversarial/security hardening rather than unfinished operations work.
 
-Phase 6 is closed. It preserved that architecture while hardening exact-connection lifecycle ownership, proxy replay/timestamp/key boundaries, provider outages, inspection/logging bounds, administrator filesystem reads, directory/ambiguous origins, and protocol abuse surfaces. It also adopted two deliberately narrow Ed25519 mechanisms: signed official Cerberus release provenance and Guardian-to-Cerberus player-bound challenge authentication for manifest privacy. Neither mechanism is documented as hostile-client remote attestation. Phase 7 subsequently completed installability, operator UX, documentation, configuration evolution, and release packaging at a 366-test green gate. Phase 7.5 completed final production/public-repository hardening on 26.2 at a 376-test gate plus the `1.0.0-rc.2` release rehearsal/live/rollback matrix. The source default is the stable `1.0.0` baseline; the final release-preparation pass removes verification-only Cerberus runtime switches and release-facing pre-public wording before the `1.0.0` GitHub release is cut. Phase 8 remains the separate 26.3 port.
+Phase 6 is closed. It preserved that architecture while hardening exact-connection lifecycle ownership, proxy replay/timestamp/key boundaries, provider outages, inspection/logging bounds, administrator filesystem reads, directory/ambiguous origins, and protocol abuse surfaces. It also adopted two deliberately narrow Ed25519 mechanisms: signed official Cerberus release provenance and Guardian-to-Cerberus player-bound challenge authentication for manifest privacy. Neither mechanism is documented as hostile-client remote attestation. Phase 7 subsequently completed installability, operator UX, documentation, configuration evolution, and release packaging at a 366-test green gate. Phase 7.5 completed final production/public-repository hardening on 26.2 at a 376-test gate plus the `1.0.0-rc.2` release rehearsal/live/rollback matrix. The later supplied Phase 8 baseline is the finalized stable `1.0.1`/26.2 tree; its retained Gradle reports contain 378 tests with zero failures/errors and 11 documented skips, and its retained 1.0.1 release checksums/provenance reverify.
+
+Phase 8 is now active as the intentionally narrow 26.3 platform port. The current candidate advances the source default to `1.0.2`, Paper/Minecraft/Fabric targets to 26.3, Fabric API to `0.162.0+26.3`, and Loom to 1.18.2 while retaining Java 25, Gradle 9.7.1, Loader 0.19.5, Velocity 4.2.1-SNAPSHOT, Geyser 2.11.2-SNAPSHOT, Floodgate 2.2.5-SNAPSHOT, and LuckPerms 5.5. No concrete API regression has yet required a change to Guardian Admission, Guardian Protection, protocol v1, schema 2, manifest ownership, key domains, or the standalone hybrid CONFIGURATION + bounded PLAY fallback. Phase 8 remains open pending the Java 25 build gate, focused 26.3 live evidence, and final release/security/privacy audit.

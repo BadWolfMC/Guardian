@@ -1,10 +1,10 @@
 # Standalone Guardian-Paper deployment
 
-This guide is for a Paper 26.2 server where Guardian-Paper itself owns Admission. No Velocity module is required.
+This guide is for a Paper 26.3 server where Guardian-Paper itself owns Admission. No Velocity module is required.
 
 ## 1. Install
 
-1. Run Java 25 and Paper 26.2.
+1. Run Java 25 and Paper 26.3.
 2. Place the Guardian-Paper JAR in `plugins/`.
 3. Start once and stop cleanly so `plugins/Guardian/` is created.
 4. Confirm `config.yml` contains `admission.authority: standalone`.
