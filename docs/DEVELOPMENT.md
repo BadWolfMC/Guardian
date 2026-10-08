@@ -19,6 +19,8 @@ Do not replace the wrapper with a system Gradle installation. The authoritative 
 
 The wrapper currently resolves Gradle 9.7.1.
 
+The current platform target is Minecraft/Paper 26.3 with Fabric Loader 0.19.5 and Fabric API 0.162.0+26.3. Guardian keeps the Paper dependency on the supported dynamic `26.3.build.+` line.
+
 ## Release identities and official Cerberus signing
 
 `tools/release-manager.ps1` is the supported human-facing wrapper around the offline release tasks. It deliberately keeps private-key and release destinations explicit; the normal path derives a version-bearing signed JAR filename inside the requested output directory. CI never receives the Cerberus release-signing private key.
@@ -44,7 +46,7 @@ For an official release, finalize the complete downloaded CI release-input bundl
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.1 `
+  -Version 1.0.2 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release\cerberus-release-signing.key `
@@ -121,6 +123,6 @@ The parse/normalize/validate/snapshot/evaluate path belongs in `guardian-core` a
 
 `artifacts.yml` is exact-artifact identity data only. Adding a catalog entry must not change admission by itself. `HASH_REQUIRED` policy must explicitly use `catalog: true` and/or direct `sha256` declarations. Catalog scans do not mutate an already active immutable policy snapshot; reload/validation is a separate operation.
 
-Supported version predicates are deliberately bounded: `*`, exact strings, one trailing prefix wildcard, or whitespace-separated dotted-numeric comparison terms such as `>=1.2 <2.0`. Numeric comparison may ignore an optional `+` build-metadata suffix on an otherwise dotted-numeric observed version (for example, `>=1.8.7` matches `1.8.7+fabric.26.2`). Do not add a general-purpose expression language or silently impose ordering on pre-release/custom Fabric version strings.
+Supported version predicates are deliberately bounded: `*`, exact strings, one trailing prefix wildcard, or whitespace-separated dotted-numeric comparison terms such as `>=1.2 <2.0`. Numeric comparison may ignore an optional `+` build-metadata suffix on an otherwise dotted-numeric observed version (for example, `>=1.8.7` matches `1.8.7+fabric.26.3`). Do not add a general-purpose expression language or silently impose ordering on pre-release/custom Fabric version strings.
 
 The cross-adapter invariant is strict: equivalent profile/classification/manifest inputs against the same shared snapshot must reach the same policy result from standalone Paper and Velocity. Paper in `velocity` authority mode is not a second admission-policy authority.

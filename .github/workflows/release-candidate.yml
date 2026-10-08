@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (for example 1.0.0 or 1.0.1-rc.1)'
+        description: 'Release version (for example 1.0.2 or 1.0.2-rc.1)'
         required: true
         type: string
 permissions:

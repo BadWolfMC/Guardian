@@ -15,7 +15,8 @@
 !.vscode/settings.json
 !.vscode/extensions.json
 
-# Project ephemera
+# VS Code Java / Eclipse Buildship compiler output
+**/bin/
 
 # Local release staging. Release binaries belong in GitHub Actions artifacts or
 # GitHub Releases, never in source control.

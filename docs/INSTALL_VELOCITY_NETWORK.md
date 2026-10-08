@@ -2,6 +2,8 @@
 
 For a Velocity network, use Guardian-Velocity as the single network Admission authority and Guardian-Paper on each backend as an authenticated assertion consumer plus optional Protection host. This is also the topology used by BadWolfMC.
 
+Run Java 25, a current Velocity 4.x build compatible with the documented 4.2.1 API line, and Paper 26.3 on each backend. Cerberus clients for this Guardian release target Minecraft 26.3.
+
 ## 1. Topology
 
 ```text

@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * <p>Supported forms are: {@code *}; exact strings; one trailing {@code *} prefix wildcard;
  * and whitespace-separated numeric dotted comparisons such as {@code >=1.2 <2.0}. Comparator
  * operands deliberately accept only dotted numeric versions. Observed versions may append
- * {@code +} build metadata (for example {@code 1.8.7+fabric.26.2}); that metadata is ignored
+ * {@code +} build metadata (for example {@code 1.8.7+fabric.26.3}); that metadata is ignored
  * for numeric comparison. Other non-numeric/mod-specific versions remain fully supported through
  * exact and prefix matching rather than guessed ordering.</p>
  */

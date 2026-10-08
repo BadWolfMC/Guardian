@@ -462,3 +462,27 @@ The post-Phase-7.5 release-preparation pass is based on the operator-supplied re
 This pass is release cleanup rather than a new architecture phase. It removes the verification-only `guardian.cerberus.dev.*` fault-injection/protocol/manifest switches from the public Cerberus client, removes the remaining production-source test-only Velocity session constructor, replaces release-facing pre-public/development wording with stable-product wording, and updates stable `1.0.0` examples in the release/operator documentation. The supported standalone CONFIGURATION + PLAY fallback, protocol v1, schema 2, Admission/Protection authority boundaries, signed Cerberus provenance, Guardian server authentication, and three-key-domain model are unchanged.
 
 Because runtime source changes in this pass, the retained 376-test build and `1.0.0-rc.2` artifacts remain historical verification/rehearsal evidence only. The actual `1.0.0` public release must be built/tested from the final post-cleanup commit through the normal GitHub release-input -> offline finalization -> verification -> draft-release smoke path.
+
+## Phase 8 26.3 port input and compatibility candidate — 2026-10-06
+
+The Phase 8 compatibility/port pass is based on the exact operator-supplied archive:
+
+- archive: `Guardian(20261006-225143).zip`
+- SHA-256: `0c8a43e7ab7c74a2b7ee6b881eab8bee2a1fbf14860a33f49596e63ed40e799d`
+- entering source default: `1.0.1`
+- entering platform target: Minecraft/Paper/Fabric 26.2
+- retained Gradle XML: **378 tests, 0 failures, 0 errors, 11 documented skips**
+- retained finalized release: `1.0.1`
+- retained release source commit: `ce03f99d2f33a3256268d7814443c596533f75bb`
+- retained release workflow run ID / attempt: `37480780048` / `1`
+- retained signed Cerberus SHA-256: `402fd557014e577abbc388157a521dc507e922fb94340186e2c5f6cc2a27847b`
+- retained Guardian-Paper SHA-256: `ab8670605b3f2b7cd2928163d54511b17d71709ef14b5026afd29a03e4da5940`
+- retained Guardian-Velocity SHA-256: `c857b4cfa02ea1f8cb551340246f9a45d6aa067e2478348f5c060f066dd26302`
+- retained release public-key SHA-256: `0afc70cd9cf8ad4f5b61ab109b8d93acd4f164cb04cf5bb358783949d4b0ca3b`
+- retained server-auth trust-file SHA-256: `c8c27b4f879927f3607644f8a1feab5d1b28af4e17ebeec290a24f12aa8c6d42`
+
+The retained `release-final/SHA256SUMS.txt` re-verifies completely against the supplied 1.0.1 release directory. The operator has separately confirmed that the Phase 8 handoff's prerequisite stable `1.0.0`/26.2 public release was published and retained; the development archive is not treated as the canonical record of that external GitHub publication event.
+
+The compatibility review selects `1.0.2` as the Phase 8 release line and targets Minecraft 26.3, Paper `26.3.build.+`, Fabric API `0.162.0+26.3`, and Fabric Loom 1.18.2 while retaining Java 25, Gradle 9.7.1, Fabric Loader 0.19.5, Velocity API `4.2.1-SNAPSHOT`, Geyser API `2.11.2-SNAPSHOT`, Floodgate API `2.2.5-SNAPSHOT`, and LuckPerms API 5.5. No protocol, schema, trust-domain, manifest-ownership, or Admission/Protection authority change is introduced by this candidate.
+
+The current execution sandbox has Java 21 rather than the required Java 25, so this provenance entry intentionally does **not** claim a post-port Gradle build result. The Java 25 gate and focused 26.3 live evidence remain open in `PHASE_8_VERIFICATION.md`; final 1.0.2 release provenance/checksums must be recorded only after those gates pass.

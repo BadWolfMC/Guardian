@@ -118,7 +118,7 @@ That validated runtime is exposed through `/guardian validate` and `/guardian re
 
 Permission-provider-specific immediate refresh hooks are not required for correctness. Stale client visibility is never treated as the execution security boundary; execution filtering remains authoritative.
 
-## Paper 26.2 API placement
+## Paper 26.3 API placement
 
 Guardian Protection uses supported Paper APIs only:
 
