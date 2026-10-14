@@ -5,7 +5,7 @@ plugins {
 dependencies {
     api project(':guardian-protocol')
     implementation "org.snakeyaml:snakeyaml-engine:${snakeyaml_engine_version}"
-    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation platform('org.junit:junit-bom:6.1.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
