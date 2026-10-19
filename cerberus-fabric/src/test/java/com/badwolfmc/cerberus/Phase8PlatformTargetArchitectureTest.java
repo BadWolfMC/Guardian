@@ -39,9 +39,12 @@ class Phase8PlatformTargetArchitectureTest {
     }
 
     @Test
-    void phase8UsesPatchReleaseVersionForThePlatformPort() throws Exception {
+    void phase8PlatformPortKeepsReleaseVersionCentralized() throws Exception {
         String rootBuild = Files.readString(Path.of("../build.gradle"));
-        assertTrue(rootBuild.contains("orElse('1.0.2').get()"));
+        assertTrue(rootBuild.contains("providers.gradleProperty('guardianVersion')"),
+            "root Gradle must own the shared release version");
+        assertTrue(rootBuild.contains("version = guardianVersion"),
+            "all Guardian modules must inherit the centrally validated release version");
     }
 
     private static Properties loadProperties(Path path) throws IOException {

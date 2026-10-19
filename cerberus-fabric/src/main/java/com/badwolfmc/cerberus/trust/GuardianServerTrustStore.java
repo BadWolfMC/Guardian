@@ -43,6 +43,11 @@ public final class GuardianServerTrustStore {
         return GuardianChallengeCrypto.verify(trustedKeys, challenge, localPlayerId, clock);
     }
 
+    public static GuardianChallengeCrypto.VerificationResult verificationResult(Challenge challenge, UUID localPlayerId) {
+        if (localPlayerId == null) return GuardianChallengeCrypto.VerificationResult.PLAYER_ID_MISMATCH;
+        return GuardianChallengeCrypto.verifyWithReason(TRUSTED_KEYS, challenge, localPlayerId, Clock.systemUTC());
+    }
+
     static List<PublicKey> loadEmbedded() {
         ModContainer cerberus = FabricLoader.getInstance().getModContainer("cerberus").orElse(null);
         if (cerberus == null) return List.of();

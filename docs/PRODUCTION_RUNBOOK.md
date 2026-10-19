@@ -169,7 +169,7 @@ Symptoms:
 - Cerberus withholds its manifest; and
 - Guardian eventually fails closed (normally `CERBERUS_TIMEOUT`).
 
-Action: verify the active authority is using the private key corresponding to a public trust anchor embedded in the deployed Cerberus release. Use staged old+new public anchors for rotation.
+Action: first check the affected client's clock against the proxy's synchronized UTC time: authenticated challenges allow only 2 seconds of clock skew and have a 15-second validity window. Then verify the active authority uses the private key corresponding to a public trust anchor embedded in that exact Cerberus JAR (compare the affected player's JAR SHA-256 with the official release). An untrusted client log warning proves the challenge arrived but not whether the cause was clock skew, expiry, UUID mismatch, or an unknown/bad signature. Use staged old+new public anchors for rotation. The configurable handshake timeout defaults to 10 seconds (maximum 30); increasing it does not fix an untrusted signed challenge. Prefer testing 15-20 seconds rather than immediately using 30: Velocity's stock `advanced.read-timeout` is 30,000 ms and can terminate an idle connection before a 30-second Guardian wait completes. Review the deployed proxy setting and idle traffic before tuning near that ceiling.
 
 ### Cerberus release-signing key
 

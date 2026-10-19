@@ -14,13 +14,21 @@ import java.util.regex.Pattern;
  * and whitespace-separated numeric dotted comparisons such as {@code >=1.2 <2.0}. Comparator
  * operands deliberately accept only dotted numeric versions. Observed versions may append
  * {@code +} build metadata (for example {@code 1.8.7+fabric.26.3}); that metadata is ignored
- * for numeric comparison. Other non-numeric/mod-specific versions remain fully supported through
- * exact and prefix matching rather than guessed ordering.</p>
+ * for numeric comparison. Fabric-style {@code mc26.3-} prefixes and trailing {@code -fabric}
+ * markers are also recognized. Supported alpha/beta/rc/pre/preview labels are treated as
+ * prereleases of their own numeric core (below the corresponding final release). Opaque/custom
+ * versions remain fully supported through exact and prefix matching.</p>
  */
 public final class VersionPredicate {
     private static final Pattern COMPARATOR = Pattern.compile("(>=|<=|>|<|==|=)([0-9]+(?:\\.[0-9]+)*)");
+    // Recognize only well-defined numeric forms. Do not search for an arbitrary digit sequence
+    // inside opaque versions; that would accidentally authorize unrelated mod builds.
     private static final Pattern NUMERIC_CANDIDATE = Pattern.compile(
-        "([0-9]+(?:\\.[0-9]+)*)(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?"
+        "(?:mc[0-9]+(?:\\.[0-9]+)*-)?" +
+        "([0-9]+(?:\\.[0-9]+)*)" +
+        "(-(?i:alpha|beta|rc|pre|preview)(?:[.-][0-9A-Za-z-]+)*)?" +
+        "(?:-fabric)?" +
+        "(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?"
     );
     private static final int MAX_EXPRESSION_CHARS = 192;
 
@@ -93,8 +101,12 @@ public final class VersionPredicate {
         Matcher candidateMatcher = NUMERIC_CANDIDATE.matcher(version);
         if (!candidateMatcher.matches()) return false;
         List<BigInteger> candidate = numericParts(candidateMatcher.group(1));
+        boolean prerelease = candidateMatcher.group(2) != null;
         for (Term term : terms) {
             int compared = compareNumeric(candidate, term.version());
+            // A prerelease of 0.9.3 is newer than 0.9.2 but older than 0.9.3 final.
+            // Comparator operands deliberately remain dotted-numeric final releases.
+            if (compared == 0 && prerelease) compared = -1;
             boolean match = switch (term.operator()) {
                 case ">" -> compared > 0;
                 case ">=" -> compared >= 0;

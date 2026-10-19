@@ -12,9 +12,14 @@ class Phase6GuardianServerAuthenticationArchitectureTest {
     @Test
     void pinnedCerberusVerifiesChallengeBeforeManifestDisclosure() throws Exception {
         String client = Files.readString(Path.of("src/main/java/com/badwolfmc/cerberus/CerberusClient.java"));
-        int trustCheck = client.indexOf("GuardianServerTrustStore.verify(challenge, localPlayerId)");
+        int trustCheck = client.indexOf("GuardianServerTrustStore.verificationResult(challenge, localPlayerId)");
+        int verifiedGate = client.indexOf("if (verification != GuardianChallengeCrypto.VerificationResult.VERIFIED)", trustCheck);
+        int rejectionReturn = client.indexOf("return;", verifiedGate);
         int collectManifest = client.indexOf("FabricManifestCollector.collect(capabilities)");
         assertTrue(trustCheck >= 0, "Cerberus must verify the Guardian challenge");
+        assertTrue(verifiedGate > trustCheck, "only VERIFIED challenges may reach manifest collection");
+        assertTrue(rejectionReturn > verifiedGate && rejectionReturn < collectManifest,
+            "rejected Guardian challenges must return without collecting/disclosing the manifest");
         assertTrue(collectManifest > trustCheck, "manifest collection/disclosure must happen only after server authentication");
         assertTrue(client.contains("context.client().getUser().getProfileId()"),
             "challenge verification must bind to the local authenticated session UUID");

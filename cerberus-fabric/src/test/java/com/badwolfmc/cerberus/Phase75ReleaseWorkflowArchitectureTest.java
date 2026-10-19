@@ -75,6 +75,15 @@ class Phase75ReleaseWorkflowArchitectureTest {
         }
     }
 
+    private static String defaultGuardianVersion(String rootBuild) {
+        Pattern declaration = Pattern.compile(
+            "def guardianVersion = rootProject\\.providers\\.gradleProperty\\('guardianVersion'\\)\\.orElse\\('([^']+)'\\)\\.get\\(\\)"
+        );
+        var match = declaration.matcher(rootBuild);
+        assertTrue(match.find(), "Guardian's release default must be declared through the root Gradle version provider");
+        return match.group(1);
+    }
+
     private static void assertActionPinned(String workflow, String action) {
         Pattern immutableUse = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses:\\s+" + Pattern.quote(action) + "@[0-9a-f]{40}(?:\\s+#.*)?$"
@@ -90,7 +99,8 @@ class Phase75ReleaseWorkflowArchitectureTest {
         String manager = Files.readString(Path.of("../tools/release-manager.ps1"));
         String release = Files.readString(Path.of("../.github/workflows/release-candidate.yml"));
 
-        assertTrue(rootBuild.contains("def guardianVersion = rootProject.providers.gradleProperty('guardianVersion').orElse('1.0.2').get()"));
+        assertTrue(!defaultGuardianVersion(rootBuild).isBlank(),
+            "the current default version must use the shared Gradle version provider");
         assertTrue(rootBuild.contains("def semVerPattern"));
         assertTrue(rootBuild.contains("optional prerelease/build metadata"));
         assertTrue(rootBuild.contains("\\+([0-9A-Za-z-]+"), "root Gradle validation must accept SemVer build metadata");
@@ -112,7 +122,9 @@ class Phase75ReleaseWorkflowArchitectureTest {
         assertTrue(release.contains("guardian-${{ inputs.version }}-test-reports"));
         assertTrue(release.contains("if-no-files-found: warn"));
         assertTrue(ci.contains(".\\tools\\test-release-workflow.ps1"));
-        assertTrue(smoke.contains("1.0.2-ci.smoke+windows"));
+        String defaultVersion = defaultGuardianVersion(Files.readString(Path.of("../build.gradle")));
+        assertTrue(smoke.contains(defaultVersion + "-ci.smoke+windows"),
+            "the Windows smoke release must track the current Gradle default version");
         assertTrue(smoke.contains("-Action generate-release-key"));
         assertTrue(smoke.contains("-Action generate-server-identity"));
         assertTrue(smoke.contains("-Action finalize-release"));

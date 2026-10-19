@@ -98,7 +98,7 @@ An official release is produced from the exact CI-built unsigned Cerberus JAR wi
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.2 `
+  -Version 1.0.3 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release-signing.key `
@@ -292,7 +292,7 @@ Supported forms are:
 - one trailing prefix wildcard, for example `0.9.*` or `build-2026.*`;
 - whitespace-separated dotted-numeric comparisons, for example `>=1.2 <2.0`.
 
-Numeric comparisons use the dotted-numeric portion of the observed version. An optional `+` build-metadata suffix is ignored for ordering, so a minimum rule such as:
+Numeric comparisons use the dotted-numeric mod version. An optional `+` build-metadata suffix is ignored for ordering. Guardian also recognizes observed versions with an `mc26.3-`-style Minecraft prefix, a trailing `-fabric` marker, and conventional `-alpha`, `-beta`, `-rc`, `-pre`, or `-preview` prerelease identifiers (including numbered forms such as `-beta.1-fabric`). These delimiters are **not subtraction**. For example, a minimum rule such as:
 
 ```yaml
 accept:
@@ -302,7 +302,7 @@ accept:
 
 matches `1.8.7+fabric.26.3`, `1.8.8+fabric.26.3`, `1.9.0+fabric.26.3`, and `2.0.0+fabric.26.3`. It does not match `1.8.6+fabric.26.3`.
 
-Only a dotted-numeric version optionally followed by dot-separated `+` build metadata receives numeric ordering. Other suffix forms, including pre-release/custom text such as `1.8.8-beta`, fail numeric comparison rather than receiving guessed ordering; use exact or prefix matching when those strings need to be addressed directly. Exact text matching remains literal, so `version: "1.8.7"` does not match `1.8.7+fabric.26.3`, while the numeric equality predicate `version: "=1.8.7"` does.
+A rule of `>=0.9.2` also matches `mc26.3-0.9.3-beta.1-fabric`, but **does not** match `mc26.3-0.9.2-beta.1-fabric`: a prerelease is lower than the final release with the same numeric core. Comparators still accept only dotted-numeric **final** versions as rule operands; ambiguous/opaque observed forms (such as `1.8.8-custom`) do not receive guessed ordering. The `mc26.3-` prefix is ignored for **mod version comparison**, not independently checked for Minecraft compatibility. Administrators remain responsible for the Minecraft/client policy. Exact text matching is literal: `version: "1.8.7"` does not match `1.8.7+fabric.26.3`, while `version: "=1.8.7"` does.
 
 Contradictory numeric conjunctions such as `>=2.0 <1.0` are rejected during parsing rather than becoming silent never-match rules.
 

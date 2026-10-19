@@ -13,9 +13,11 @@ Locale files and `artifacts.yml` have independent schemas and remain at their ex
 
 ## Current platform line
 
-Guardian/Cerberus `1.0.2` targets Minecraft/Paper/Fabric 26.3 on Java 25. Configuration schema 2, protocol v1, key files, Admission policy semantics, and Protection semantics remain unchanged by the platform port.
+Guardian/Cerberus `1.0.2` and subsequent `1.0.3` target Minecraft/Paper/Fabric 26.3 on Java 25. Configuration schema 2, protocol v1, key files, Admission policy semantics, and Protection semantics remain unchanged by the platform port.
 
-Treat a move from the prior 26.2 binary line as a coordinated platform/binary update rather than a configuration migration: update Paper backends and the Cerberus client environment to 26.3, deploy the matching Guardian-Paper/Guardian-Velocity/Cerberus release set, and preserve the existing Guardian data directory and three key domains. Do not attempt to make the 1.0.2 Cerberus build serve both Minecraft 26.2 and 26.3 through compatibility shims.
+Treat a move from the prior 26.2 binary line as a coordinated platform/binary update rather than a configuration migration: update Paper backends and the Cerberus client environment to 26.3, deploy the matching Guardian-Paper/Guardian-Velocity/Cerberus release set, and preserve the existing Guardian data directory and three key domains. Do not attempt to make a 26.3 Cerberus build serve both Minecraft 26.2 and 26.3 through compatibility shims.
+
+For the `1.0.3` diagnostic rollout only, a correctly signed Cerberus `1.0.3` client may connect to an existing Guardian `1.0.2` authority before the server JARs are upgraded: the wire protocol and required capabilities remain v1, and Guardian does not demand equal product versions. This requires the **same trusted Cerberus release-signing key**, the **same embedded Guardian server trust anchors**, and an admission policy that permits Cerberus `1.0.3` (including version/hash checks, if configured). This is not a promise of compatibility between different Minecraft platform lines or future protocol changes.
 
 ## Legacy schema-1 migration
 

@@ -13,7 +13,7 @@ public final class GuardianProtocol {
     public static final int MAX_RELATIONSHIP_DEPTH = 16;
     public static final long MAX_ARTIFACT_BYTES = 512L * 1024L * 1024L;
     public static final int MAX_RESPONSES_PER_CHALLENGE = 1;
-    public static final long MAX_HANDSHAKE_MILLIS = 10_000L;
+    public static final long MAX_HANDSHAKE_MILLIS = 30_000L;
 
     public static final long CAP_CANONICAL_MANIFEST_V1 = 1L;
     public static final long CAP_CONTAINMENT_RELATIONSHIPS = 1L << 1;
