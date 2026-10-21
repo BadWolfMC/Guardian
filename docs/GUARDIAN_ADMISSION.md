@@ -401,3 +401,49 @@ Scanning `artifact-import/` records exact identities in `artifacts.yml` and refr
 ## Validation and live checks
 
 Use `validate` before activating policy changes and `reload` only after validation succeeds. For production changes, follow the focused smoke/recovery checks in `PRODUCTION_RUNBOOK.md`; historical phase verification files remain in `docs/` for implementation provenance rather than as routine administrator instructions.
+
+
+### Profile inheritance (Guardian 1.0.3+)
+
+Admission schema 2 supports an optional single-parent `inherit` key. For example:
+
+```yaml
+profiles:
+  default:
+    priority: 0
+    # Full baseline: clients, unknown-brands, mods
+  staff:
+    inherit: default
+    priority: 100
+    mods:
+      rules:
+        allow-staff-tools:
+          mod: stafftools
+          action: ALLOW
+  admin:
+    inherit: staff
+    priority: 200
+    mods:
+      rules:
+        allow-admin-tools:
+          mod: admintools
+          action: ALLOW
+```
+
+`default → staff → admin` means staff has all public allowances plus stafftools,
+and admin has both plus admintools. Assign **only** `guardian.admission.profile.staff`
+to a staff member: inheritance is not permission inheritance. Identity overrides and
+priority-based selection still choose exactly one effective profile. Every profile
+must declare its own unique `priority`. Clients merge by client class; unknown-brand
+mode and brand list merge by field; mod mode/origins inherit with explicit field
+overrides; baselines union; required and explicit mod rules accumulate.
+
+An inherited rule cannot be silently replaced: a child override must use the **same
+rule ID, mod ID, collection** (`required` versus `rules`), and `override: true`.
+Rules with another ID for the same inherited mod are invalid. Rule deletion is not
+supported. Replacing a required rule does not remove its required status. Inherited
+version predicates and SHA-256 restrictions are unchanged unless intentionally
+replaced through the explicit override mechanism. Root profiles must include every
+required section. Unknown parents, cycles, malformed `inherit`, and chains exceeding
+16 levels fail validation. Bad reloads never replace the active policy snapshot.
+Older Guardian binaries do not recognize `inherit`; expand profiles before rollback.

@@ -106,6 +106,28 @@ class VelocityRuntimeManagerTest {
     }
 
     @Test
+    void invalidInheritanceReloadKeepsActiveVelocityPolicyAndGeneration() throws Exception {
+        writeDefaults();
+        Path policy = tempDir.resolve("policy.yml");
+        String originalYaml = resource("policy.yml");
+        assertTrue(originalYaml.contains("\n  default:\n"), "default profile anchor missing from policy fixture");
+        String inherited = originalYaml.replace("\n  default:\n",
+            "\n  staff:\n    inherit: default\n    priority: 100\n  default:\n");
+        Files.writeString(policy, inherited, StandardCharsets.UTF_8);
+        VelocityRuntimeManager manager = new VelocityRuntimeManager(tempDir);
+        VelocityRuntimeSnapshot original = manager.loadInitial();
+        assertNotNull(original.admissionPolicy().profile("staff"));
+
+        String invalid = inherited.replace("inherit: default", "inherit: staff");
+        Files.writeString(policy, invalid, StandardCharsets.UTF_8);
+        VelocityConfigurationException error = assertThrows(VelocityConfigurationException.class, manager::reload);
+        assertTrue(error.getMessage().contains("cannot inherit itself"));
+        assertSame(original, manager.current());
+        assertEquals(1L, manager.current().generation());
+        assertEquals(invalid, Files.readString(policy, StandardCharsets.UTF_8));
+    }
+
+    @Test
     void repeatedFailedReloadsNeverAdvanceGenerationOrReplaceActiveSnapshot() throws Exception {
         writeDefaults();
         VelocityRuntimeManager manager = new VelocityRuntimeManager(tempDir);

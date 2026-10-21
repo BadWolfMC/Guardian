@@ -25,7 +25,7 @@ In the repository's **Actions** tab:
 1. choose **Release Candidate**;
 2. click **Run workflow**;
 3. enter the exact version; and
-4. wait for the complete Java 25 / Gradle 9.7.1 gate to pass.
+4. wait for the complete Java 25 / Gradle 9.8.1 gate to pass.
 
 The workflow builds/tests one exact commit and uploads an artifact named:
 

@@ -15,7 +15,7 @@ For a Velocity network, Guardian-Velocity can act as the Admission authority wit
 
 - Java 25
 - Paper 26.3 for Guardian-Paper
-- Velocity 4.x for Guardian-Velocity deployments
+- Velocity 4.3.0 for Guardian-Velocity deployments (API version; no individual server build pinned)
 - Fabric Loader 0.19.5+ and Fabric API for Cerberus on Minecraft 26.3
 - Optional integrations: LuckPerms, Geyser, and Floodgate
 
@@ -99,7 +99,7 @@ guardian.protection.notify
 
 ## Build
 
-Use the repository Gradle wrapper with Java 25. The wrapper is pinned to Gradle 9.7.1.
+Use the repository Gradle wrapper with Java 25. The wrapper is pinned to Gradle 9.8.1.
 
 Windows:
 

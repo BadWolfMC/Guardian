@@ -43,6 +43,7 @@ public final class AdmissionPolicyLoader {
     public static final int SCHEMA_VERSION = 2;
     public static final int MAX_POLICY_BYTES = 1024 * 1024;
     private static final int MAX_PROFILES = 64;
+    private static final int MAX_INHERITANCE_DEPTH = 16;
     private static final int MAX_RULES_PER_PROFILE = 512;
     private static final int MAX_ACCEPTANCES_PER_RULE = 128;
     private static final int MAX_BRAND_RULES = 256;
@@ -52,7 +53,7 @@ public final class AdmissionPolicyLoader {
     private static final Pattern MOD_ID = Pattern.compile("[a-z][a-z0-9_-]{1,63}");
     private static final Set<String> ROOT_KEYS = Set.of(
         "schema-version", "default-profile", "identity-overrides", "profiles", "cerberus-release-trust");
-    private static final Set<String> PROFILE_KEYS = Set.of("priority", "clients", "unknown-brands", "mods");
+    private static final Set<String> PROFILE_KEYS = Set.of("inherit", "priority", "clients", "unknown-brands", "mods");
     private static final Set<String> CLIENT_KEYS = Set.of("bedrock", "vanilla", "optifine", "fabric", "unknown");
     private static final Set<String> UNKNOWN_BRAND_KEYS = Set.of("mode", "brands");
     private static final Set<String> MODS_KEYS = Set.of("mode", "origins", "baseline", "required", "rules");
@@ -92,20 +93,31 @@ public final class AdmissionPolicyLoader {
             throw error(policyPath, "profiles exceeds " + MAX_PROFILES + " profiles");
         }
 
-        LinkedHashMap<String, AdmissionProfile> profiles = new LinkedHashMap<>();
-        HashSet<Integer> priorities = new HashSet<>();
+        // Normalize first so references and cycle checks cannot bypass duplicate-name validation.
+        LinkedHashMap<String, Map<String, Object>> definitions = new LinkedHashMap<>();
         for (Map.Entry<String, Object> raw : rawProfiles.entrySet()) {
             String profileId = normalizedProfileId(raw.getKey(), policyPath);
-            if (profiles.containsKey(profileId)) {
+            if (definitions.containsKey(profileId)) {
                 throw error(policyPath, "duplicate normalized profile id '" + profileId + "'");
             }
-            AdmissionProfile profile = parseProfile(profileId, raw.getValue(), catalog, policyPath);
+            Map<String, Object> definition = map(raw.getValue(), policyPath, "profiles." + profileId);
+            rejectUnknown(definition, PROFILE_KEYS, policyPath, "profiles." + profileId);
+            definitions.put(profileId, definition);
+        }
+        LinkedHashMap<String, Map<String, Object>> resolved = new LinkedHashMap<>();
+        // Cache total ancestor depth too: a cached parent must not hide a too-deep child chain.
+        LinkedHashMap<String, Integer> resolvedDepths = new LinkedHashMap<>();
+        LinkedHashMap<String, AdmissionProfile> profiles = new LinkedHashMap<>();
+        HashSet<Integer> priorities = new HashSet<>();
+        for (String profileId : definitions.keySet()) {
+            Map<String, Object> effective = resolveProfile(profileId, definitions, resolved, resolvedDepths,
+                new LinkedHashSet<>(), policyPath);
+            AdmissionProfile profile = parseProfile(profileId, effective, catalog, policyPath);
             if (!priorities.add(profile.priority())) {
                 throw error(policyPath, "profile priority " + profile.priority()
                     + " is used more than once; profile priorities must be unique for deterministic resolution");
             }
             profiles.put(profileId, profile);
-            // Validate the stable administrator-facing permission form now, not at connection time.
             try {
                 AdmissionPermissions.profile(profileId);
             } catch (IllegalArgumentException ex) {
@@ -122,6 +134,154 @@ public final class AdmissionPolicyLoader {
             }
         }
         return new AdmissionPolicySnapshot(schema, defaultProfile, profiles, overrides, releaseTrust);
+    }
+
+    /** Resolve and validate one acyclic chain at load time; never retain mutable YAML maps in the snapshot. */
+    private static Map<String, Object> resolveProfile(
+        String id, Map<String, Map<String, Object>> definitions,
+        Map<String, Map<String, Object>> cache, Map<String, Integer> depths,
+        LinkedHashSet<String> visiting, Path path
+    ) throws AdmissionPolicyException {
+        if (cache.containsKey(id)) return cache.get(id);
+        if (!visiting.add(id)) throw error(path, "profile inheritance cycle: " + visiting + " -> " + id);
+        if (visiting.size() > MAX_INHERITANCE_DEPTH) {
+            throw error(path, "profile inheritance exceeds " + MAX_INHERITANCE_DEPTH + " levels at '" + id + "'");
+        }
+        Map<String, Object> child = definitions.get(id);
+        if (child == null) throw error(path, "unknown inherited profile '" + id + "'");
+        String context = "profiles." + id;
+        Map<String, Object> result;
+        int depth = 1;
+        if (child.containsKey("inherit")) {
+            String parent = normalizedProfileId(scalarString(child.get("inherit"), path, context + ".inherit"), path);
+            if (parent.equals(id)) throw error(path, context + " cannot inherit itself");
+            if (!definitions.containsKey(parent)) {
+                throw error(path, context + " inherits unknown profile '" + parent + "'");
+            }
+            for (String key : List.of("clients", "unknown-brands", "mods")) {
+                if (child.containsKey(key) && child.get(key) == null) {
+                    throw error(path, context + "." + key + " must not be null");
+                }
+            }
+            Map<String, Object> parentPolicy = resolveProfile(parent, definitions, cache, depths, visiting, path);
+            depth = depths.get(parent) + 1;
+            if (depth > MAX_INHERITANCE_DEPTH) {
+                throw error(path, "profile inheritance exceeds " + MAX_INHERITANCE_DEPTH + " levels at '" + id + "'");
+            }
+            result = mergeProfile(parentPolicy, child, path, context);
+        } else {
+            // Preserve old independent-profile validation. An override marker in a root is invalid.
+            result = new LinkedHashMap<>(child);
+        }
+        visiting.remove(id);
+        cache.put(id, result);
+        depths.put(id, depth);
+        return result;
+    }
+
+    private static Map<String, Object> mergeProfile(
+        Map<String, Object> parent, Map<String, Object> child, Path path, String context
+    ) throws AdmissionPolicyException {
+        LinkedHashMap<String, Object> merged = new LinkedHashMap<>();
+        // Priority belongs to the child only, including when absent (which fails the usual parser).
+        if (child.containsKey("priority")) merged.put("priority", child.get("priority"));
+        merged.put("clients", mergeFields(parent.get("clients"), child.get("clients"), CLIENT_KEYS,
+            path, context + ".clients"));
+        merged.put("unknown-brands", mergeFields(parent.get("unknown-brands"), child.get("unknown-brands"),
+            UNKNOWN_BRAND_KEYS, path, context + ".unknown-brands"));
+        Map<String, Object> parentMods = map(parent.get("mods"), path, context + ".parent.mods");
+        Map<String, Object> childMods = child.containsKey("mods")
+            ? map(child.get("mods"), path, context + ".mods") : Map.of();
+        rejectUnknown(childMods, MODS_KEYS, path, context + ".mods");
+        for (String key : List.of("mode", "origins", "baseline", "required", "rules")) {
+            if (childMods.containsKey(key) && childMods.get(key) == null) {
+                throw error(path, context + ".mods." + key + " must not be null");
+            }
+        }
+        LinkedHashMap<String, Object> mods = new LinkedHashMap<>();
+        mods.put("mode", childMods.getOrDefault("mode", parentMods.get("mode")));
+        mods.put("origins", mergeFields(parentMods.get("origins"), childMods.get("origins"),
+            ORIGIN_KEYS, path, context + ".mods.origins"));
+        List<Object> baseline = new ArrayList<>(list(parentMods.get("baseline"), path, context + ".parent.mods.baseline"));
+        if (childMods.containsKey("baseline")) {
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            for (Object value : baseline) seen.add(normalizedModId(scalarString(value, path, context + ".mods.baseline"), path));
+            LinkedHashSet<String> additions = new LinkedHashSet<>();
+            for (Object value : list(childMods.get("baseline"), path, context + ".mods.baseline")) {
+                String mod = normalizedModId(scalarString(value, path, context + ".mods.baseline"), path);
+                if (!additions.add(mod)) throw error(path, context + ".mods.baseline contains duplicate mod '" + mod + "'");
+                if (seen.add(mod)) baseline.add(mod);
+            }
+        }
+        mods.put("baseline", baseline);
+        mods.put("required", mergeRules(parentMods.get("required"), childMods.get("required"),
+            path, context + ".mods.required", true));
+        mods.put("rules", mergeRules(parentMods.get("rules"), childMods.get("rules"),
+            path, context + ".mods.rules", false));
+        // Recheck collisions across both collections, including rules introduced by the child.
+        Map<String, Object> required = map(mods.get("required"), path, context + ".mods.required");
+        Map<String, Object> rules = map(mods.get("rules"), path, context + ".mods.rules");
+        for (String ruleId : required.keySet()) {
+            if (rules.containsKey(ruleId)) throw error(path, context + " duplicates inherited rule id '" + ruleId + "'");
+        }
+        mods.put("required", required);
+        mods.put("rules", rules);
+        merged.put("mods", mods);
+        return merged;
+    }
+
+    private static Map<String, Object> mergeFields(
+        Object parentValue, Object childValue, Set<String> allowed, Path path, String context
+    ) throws AdmissionPolicyException {
+        LinkedHashMap<String, Object> merged = new LinkedHashMap<>(map(parentValue, path, context + ".parent"));
+        if (childValue != null) {
+            Map<String, Object> child = map(childValue, path, context);
+            rejectUnknown(child, allowed, path, context);
+            merged.putAll(child);
+        }
+        return merged;
+    }
+
+    private static Map<String, Object> mergeRules(
+        Object parentValue, Object childValue, Path path, String context, boolean required
+    ) throws AdmissionPolicyException {
+        LinkedHashMap<String, Object> result = new LinkedHashMap<>(map(parentValue, path, context + ".parent"));
+        if (childValue == null) return result;
+        Map<String, Object> additions = map(childValue, path, context);
+        for (Map.Entry<String, Object> entry : additions.entrySet()) {
+            String id = normalizedRuleId(entry.getKey(), path);
+            Map<String, Object> value = map(entry.getValue(), path, context + "." + id);
+            Set<String> keys = required ? REQUIRED_KEYS : RULE_KEYS;
+            LinkedHashSet<String> permitted = new LinkedHashSet<>(keys);
+            permitted.add("override");
+            rejectUnknown(value, permitted, path, context + "." + id);
+            boolean override = value.containsKey("override")
+                && Boolean.TRUE.equals(value.get("override"));
+            if (value.containsKey("override") && !(value.get("override") instanceof Boolean)) {
+                throw error(path, context + "." + id + ".override must be true or false");
+            }
+            String mod = normalizedModId(string(value, "mod", path, context + "." + id), path);
+            Object inherited = result.get(id);
+            if ((inherited != null) != override) {
+                throw error(path, context + "." + id + (inherited == null
+                    ? " has override=true without an inherited rule" : " collides with inherited rule; use override: true"));
+            }
+            if (inherited != null) {
+                String originalMod = normalizedModId(string(map(inherited, path, context + "." + id),
+                    "mod", path, context + "." + id), path);
+                if (!originalMod.equals(mod)) throw error(path, context + "." + id + " override changes inherited mod");
+            }
+            for (Map.Entry<String, Object> existing : result.entrySet()) {
+                if (existing.getKey().equals(id)) continue;
+                String existingMod = normalizedModId(string(map(existing.getValue(), path, context),
+                    "mod", path, context), path);
+                if (existingMod.equals(mod)) throw error(path, context + " duplicates inherited mod '" + mod + "'");
+            }
+            LinkedHashMap<String, Object> clean = new LinkedHashMap<>(value);
+            clean.remove("override");
+            result.put(id, clean);
+        }
+        return result;
     }
 
     private static AdmissionProfile parseProfile(

@@ -2421,3 +2421,58 @@ For BadWolfMC's production topology, Phase 5 now supplies the completed operatio
 Phase 6 is closed. It preserved that architecture while hardening exact-connection lifecycle ownership, proxy replay/timestamp/key boundaries, provider outages, inspection/logging bounds, administrator filesystem reads, directory/ambiguous origins, and protocol abuse surfaces. It also adopted two deliberately narrow Ed25519 mechanisms: signed official Cerberus release provenance and Guardian-to-Cerberus player-bound challenge authentication for manifest privacy. Neither mechanism is documented as hostile-client remote attestation. Phase 7 subsequently completed installability, operator UX, documentation, configuration evolution, and release packaging at a 366-test green gate. Phase 7.5 completed final production/public-repository hardening on 26.2 at a 376-test gate plus the `1.0.0-rc.2` release rehearsal/live/rollback matrix. The later supplied Phase 8 baseline is the finalized stable `1.0.1`/26.2 tree; its retained Gradle reports contain 378 tests with zero failures/errors and 11 documented skips, and its retained 1.0.1 release checksums/provenance reverify.
 
 Phase 8 is now active as the intentionally narrow 26.3 platform port. The current candidate advances the source default to `1.0.2`, Paper/Minecraft/Fabric targets to 26.3, Fabric API to `0.162.0+26.3`, and Loom to 1.18.2 while retaining Java 25, Gradle 9.7.1, Loader 0.19.5, Velocity 4.2.1-SNAPSHOT, Geyser 2.11.2-SNAPSHOT, Floodgate 2.2.5-SNAPSHOT, and LuckPerms 5.5. No concrete API regression has yet required a change to Guardian Admission, Guardian Protection, protocol v1, schema 2, manifest ownership, key domains, or the standalone hybrid CONFIGURATION + bounded PLAY fallback. Phase 8 remains open pending the Java 25 build gate, focused 26.3 live evidence, and final release/security/privacy audit.
+
+
+### Profile inheritance (Guardian 1.0.3+)
+
+Admission schema 2 supports an optional single-parent `inherit` key. For example:
+
+```yaml
+profiles:
+  default:
+    priority: 0
+    # Full baseline: clients, unknown-brands, mods
+  staff:
+    inherit: default
+    priority: 100
+    mods:
+      rules:
+        allow-staff-tools:
+          mod: stafftools
+          action: ALLOW
+  admin:
+    inherit: staff
+    priority: 200
+    mods:
+      rules:
+        allow-admin-tools:
+          mod: admintools
+          action: ALLOW
+```
+
+`default → staff → admin` means staff has all public allowances plus stafftools,
+and admin has both plus admintools. Assign **only** `guardian.admission.profile.staff`
+to a staff member: inheritance is not permission inheritance. Identity overrides and
+priority-based selection still choose exactly one effective profile. Every profile
+must declare its own unique `priority`. Clients merge by client class; unknown-brand
+mode and brand list merge by field; mod mode/origins inherit with explicit field
+overrides; baselines union; required and explicit mod rules accumulate.
+
+An inherited rule cannot be silently replaced: a child override must use the **same
+rule ID, mod ID, collection** (`required` versus `rules`), and `override: true`.
+Rules with another ID for the same inherited mod are invalid. Rule deletion is not
+supported. Replacing a required rule does not remove its required status. Inherited
+version predicates and SHA-256 restrictions are unchanged unless intentionally
+replaced through the explicit override mechanism. Root profiles must include every
+required section. Unknown parents, cycles, malformed `inherit`, and chains exceeding
+16 levels fail validation. Bad reloads never replace the active policy snapshot.
+Older Guardian binaries do not recognize `inherit`; expand profiles before rollback.
+
+### Guardian 1.0.3 release-candidate build-tool alignment (October 2026)
+
+This note supersedes **toolchain/dependency versions only** in the historical Phase 8 candidate paragraphs above; earlier phase test counts, verification status, and provenance remain historical. The current source retains Guardian/Cerberus `1.0.3`, Java 25, Minecraft/Paper/Fabric 26.3, and all existing Admission, Protection, signing, and protocol behavior.
+
+- Repository wrapper and the root `wrapper` task both target **Gradle 9.8.1**, with the same official distribution checksum.
+- Guardian-Velocity compiles against **Velocity API `4.3.0`**. This pins the API *version*, not an individual Velocity proxy server build.
+- The operator reports that the complete Java 25 build/test gate with `-Pvelocity_api_version="4.3.0"` passed on this 1.0.3 repository (`BUILD SUCCESSFUL`, 35 tasks executed). This is build compatibility evidence, **not** a claim of a completed Velocity 4.3.0 staging/live admission matrix.
+- No release version, wire protocol, Admission policy schema, runtime handshake, or platform adapter implementation changed as part of this toolchain alignment.

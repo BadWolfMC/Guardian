@@ -253,6 +253,28 @@ class GuardianRuntimeManagerTest {
     }
 
     @Test
+    void invalidInheritanceReloadKeepsActivePaperPolicyAndGeneration() throws Exception {
+        GuardianRuntimeManager manager = managerWithDefaults();
+        Path policy = tempDir.resolve("policy.yml");
+        String originalYaml = defaultResource("policy.yml");
+        assertTrue(originalYaml.contains("\n  default:\n"), "default profile anchor missing from policy fixture");
+        String inherited = originalYaml.replace("\n  default:\n",
+            "\n  staff:\n    inherit: default\n    priority: 100\n  default:\n");
+        Files.writeString(policy, inherited, StandardCharsets.UTF_8);
+        GuardianRuntimeSnapshot original = manager.loadInitial();
+        assertNotNull(original.requireAdmissionPolicy().profile("staff"));
+
+        String invalid = inherited.replace("inherit: default", "inherit: staff");
+        Files.writeString(policy, invalid, StandardCharsets.UTF_8);
+        GuardianConfigurationException error = assertThrows(GuardianConfigurationException.class, manager::reload);
+        assertEquals(GuardianConfigurationException.Kind.ADMISSION_POLICY, error.kind());
+        assertTrue(error.getMessage().contains("cannot inherit itself"));
+        assertSame(original, manager.current());
+        assertEquals(1L, manager.current().generation());
+        assertEquals(invalid, Files.readString(policy, StandardCharsets.UTF_8));
+    }
+
+    @Test
     void repeatedFailedReloadsNeverAdvanceGenerationOrReplaceActiveSnapshot() throws Exception {
         GuardianRuntimeManager manager = managerWithDefaults();
         GuardianRuntimeSnapshot original = manager.loadInitial();

@@ -42,7 +42,7 @@ subprojects {
 // Keep the repository wrapper authoritative. Build this project with ./gradlew
 // (or gradlew.bat on Windows), not an arbitrary system Gradle installation.
 tasks.named('wrapper') {
-    gradleVersion = '9.7.1'
+    gradleVersion = '9.8.1'
     distributionType = Wrapper.DistributionType.BIN
-    distributionSha256Sum = 'acd53f1edaf02f1a8ff99879f8a34b302661a057d9b063ae9e35b552f804d20a'
+    distributionSha256Sum = 'dce76f55f8e251a3a1f130eb120f30b3d271de2b76c9b0729d316b5a1b6dc01f'
 }

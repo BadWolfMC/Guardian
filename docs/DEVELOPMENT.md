@@ -17,7 +17,7 @@ Do not replace the wrapper with a system Gradle installation. The authoritative 
 - `gradle/wrapper/gradle-wrapper.jar`
 - `gradle/wrapper/gradle-wrapper.properties`
 
-The wrapper currently resolves Gradle 9.7.1.
+The wrapper currently resolves Gradle 9.8.1. Guardian-Velocity compiles against the Velocity 4.3.0 API (no individual server build pinned).
 
 The current platform target is Minecraft/Paper 26.3 with Fabric Loader 0.19.5 and Fabric API 0.162.0+26.3. Guardian keeps the Paper dependency on the supported dynamic `26.3.build.+` line.
 
@@ -91,7 +91,7 @@ If the language server or Gradle importer still selects the wrong JDK, set `java
 
 `.gradle/` and every `build/` directory are local generated state and are ignored by Git. They are safe to delete when Gradle/VS Code is not actively using them.
 
-The `.gradle/8.9`, `.gradle/9.2.0`, and `.gradle/9.7.1` folders are **not bundled Gradle distributions**. They are per-project caches from builds run with those Gradle versions. Loom also stores large mapped Minecraft artifacts under `.gradle/loom-cache/`.
+Directories such as `.gradle/9.7.1` and `.gradle/9.8.1` are **not bundled Gradle distributions**. They are per-project caches from builds run with those Gradle versions. Loom also stores large mapped Minecraft artifacts under `.gradle/loom-cache/`.
 
 To reclaim the space on Windows:
 

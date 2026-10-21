@@ -1,5 +1,7 @@
 # Phase 8 verification — Minecraft/Paper/Fabric 26.3 port
 
+> Historical Phase 8 checkpoint: the OPEN status and dependency versions below describe the October 6, 2026 port candidate, not the subsequent Guardian 1.0.3 release candidate. For the current Gradle wrapper and Velocity API versions, see `docs/DEVELOPMENT.md` and `gradle.properties`.
+
 **Status:** OPEN — compatibility review and source port are complete; Java 25 automated and focused live evidence remain required.
 
 ## Entering evidence
