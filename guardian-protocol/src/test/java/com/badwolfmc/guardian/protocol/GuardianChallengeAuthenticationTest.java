@@ -34,6 +34,30 @@ class GuardianChallengeAuthenticationTest {
     }
 
     @Test
+    void localChallengeDiagnosticsDistinguishClockUuidAndSignatureProblems() throws Exception {
+        KeyPair trusted = KeyPairGenerator.getInstance(GuardianChallengeCrypto.ALGORITHM).generateKeyPair();
+        KeyPair untrusted = KeyPairGenerator.getInstance(GuardianChallengeCrypto.ALGORITHM).generateKeyPair();
+        UUID player = UUID.randomUUID();
+        long caps = GuardianProtocol.REQUIRED_CAPABILITIES | GuardianProtocol.CAP_AUTHENTICATED_GUARDIAN_CHALLENGE;
+        Challenge challenge = signed(trusted.getPrivate(), caps, bytes((byte) 4, GuardianProtocol.NONCE_BYTES),
+            player, NOW, NOW + 10_000L);
+
+        assertEquals(GuardianChallengeCrypto.VerificationResult.VERIFIED,
+            GuardianChallengeCrypto.verifyWithReason(List.of(trusted.getPublic()), challenge, player, fixedClock(NOW)));
+        assertEquals(GuardianChallengeCrypto.VerificationResult.CHALLENGE_FROM_FUTURE,
+            GuardianChallengeCrypto.verifyWithReason(List.of(trusted.getPublic()), challenge, player,
+                fixedClock(NOW - GuardianProtocol.GUARDIAN_CHALLENGE_AUTH_CLOCK_SKEW_MILLIS - 1L)));
+        assertEquals(GuardianChallengeCrypto.VerificationResult.CHALLENGE_EXPIRED,
+            GuardianChallengeCrypto.verifyWithReason(List.of(trusted.getPublic()), challenge, player,
+                fixedClock(NOW + 10_000L + GuardianProtocol.GUARDIAN_CHALLENGE_AUTH_CLOCK_SKEW_MILLIS)));
+        assertEquals(GuardianChallengeCrypto.VerificationResult.PLAYER_ID_MISMATCH,
+            GuardianChallengeCrypto.verifyWithReason(List.of(trusted.getPublic()), challenge,
+                UUID.randomUUID(), fixedClock(NOW)));
+        assertEquals(GuardianChallengeCrypto.VerificationResult.UNTRUSTED_SIGNATURE,
+            GuardianChallengeCrypto.verifyWithReason(List.of(untrusted.getPublic()), challenge, player, fixedClock(NOW)));
+    }
+
+    @Test
     void uuidBindingBlocksCrossPlayerRelayAndWrongKey() throws Exception {
         KeyPair trusted = KeyPairGenerator.getInstance(GuardianChallengeCrypto.ALGORITHM).generateKeyPair();
         KeyPair other = KeyPairGenerator.getInstance(GuardianChallengeCrypto.ALGORITHM).generateKeyPair();

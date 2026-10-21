@@ -17,6 +17,10 @@ cerberus-release-trust:
   ed25519-public-keys: []
 
 profiles:
+  # Child profiles can declare inherit: default and only their differences.
+  # Chains are supported: admin -> staff -> default (up to 16 levels).
+  # Inherited rules are additive; replacements require the same rule ID and mod ID
+  # plus override: true. Profile priorities must be unique and are never inherited.
   default:
     # Named-profile permissions are guardian.admission.profile.<profile-id>.
     # Priorities must be unique so multiple permission matches always resolve deterministically.
@@ -76,3 +80,21 @@ profiles:
       #         verification: HASH_REQUIRED
       #         catalog: true
       rules: {}
+
+  # Example (enable and customize if needed):
+  # staff:
+  #   inherit: default
+  #   priority: 100
+  #   mods:
+  #     rules:
+  #       allow-staff-tools:
+  #         mod: stafftools
+  #         action: ALLOW
+  # admin:
+  #   inherit: staff
+  #   priority: 200
+  #   mods:
+  #     rules:
+  #       allow-admin-tools:
+  #         mod: admintools
+  #         action: ALLOW

@@ -98,7 +98,7 @@ An official release is produced from the exact CI-built unsigned Cerberus JAR wi
 ```powershell
 .\tools\release-manager.ps1 `
   -Action finalize-release `
-  -Version 1.0.2 `
+  -Version 1.0.3 `
   -InputDirectory .\release-input `
   -OutputDirectory .\release-final `
   -ReleasePrivateKey C:\secure\cerberus-release-signing.key `
@@ -292,7 +292,7 @@ Supported forms are:
 - one trailing prefix wildcard, for example `0.9.*` or `build-2026.*`;
 - whitespace-separated dotted-numeric comparisons, for example `>=1.2 <2.0`.
 
-Numeric comparisons use the dotted-numeric portion of the observed version. An optional `+` build-metadata suffix is ignored for ordering, so a minimum rule such as:
+Numeric comparisons use the dotted-numeric mod version. An optional `+` build-metadata suffix is ignored for ordering. Guardian also recognizes observed versions with an `mc26.3-`-style Minecraft prefix, a trailing `-fabric` marker, and conventional `-alpha`, `-beta`, `-rc`, `-pre`, or `-preview` prerelease identifiers (including numbered forms such as `-beta.1-fabric`). These delimiters are **not subtraction**. For example, a minimum rule such as:
 
 ```yaml
 accept:
@@ -302,7 +302,7 @@ accept:
 
 matches `1.8.7+fabric.26.3`, `1.8.8+fabric.26.3`, `1.9.0+fabric.26.3`, and `2.0.0+fabric.26.3`. It does not match `1.8.6+fabric.26.3`.
 
-Only a dotted-numeric version optionally followed by dot-separated `+` build metadata receives numeric ordering. Other suffix forms, including pre-release/custom text such as `1.8.8-beta`, fail numeric comparison rather than receiving guessed ordering; use exact or prefix matching when those strings need to be addressed directly. Exact text matching remains literal, so `version: "1.8.7"` does not match `1.8.7+fabric.26.3`, while the numeric equality predicate `version: "=1.8.7"` does.
+A rule of `>=0.9.2` also matches `mc26.3-0.9.3-beta.1-fabric`, but **does not** match `mc26.3-0.9.2-beta.1-fabric`: a prerelease is lower than the final release with the same numeric core. Comparators still accept only dotted-numeric **final** versions as rule operands; ambiguous/opaque observed forms (such as `1.8.8-custom`) do not receive guessed ordering. The `mc26.3-` prefix is ignored for **mod version comparison**, not independently checked for Minecraft compatibility. Administrators remain responsible for the Minecraft/client policy. Exact text matching is literal: `version: "1.8.7"` does not match `1.8.7+fabric.26.3`, while `version: "=1.8.7"` does.
 
 Contradictory numeric conjunctions such as `>=2.0 <1.0` are rejected during parsing rather than becoming silent never-match rules.
 
@@ -401,3 +401,49 @@ Scanning `artifact-import/` records exact identities in `artifacts.yml` and refr
 ## Validation and live checks
 
 Use `validate` before activating policy changes and `reload` only after validation succeeds. For production changes, follow the focused smoke/recovery checks in `PRODUCTION_RUNBOOK.md`; historical phase verification files remain in `docs/` for implementation provenance rather than as routine administrator instructions.
+
+
+### Profile inheritance (Guardian 1.0.3+)
+
+Admission schema 2 supports an optional single-parent `inherit` key. For example:
+
+```yaml
+profiles:
+  default:
+    priority: 0
+    # Full baseline: clients, unknown-brands, mods
+  staff:
+    inherit: default
+    priority: 100
+    mods:
+      rules:
+        allow-staff-tools:
+          mod: stafftools
+          action: ALLOW
+  admin:
+    inherit: staff
+    priority: 200
+    mods:
+      rules:
+        allow-admin-tools:
+          mod: admintools
+          action: ALLOW
+```
+
+`default → staff → admin` means staff has all public allowances plus stafftools,
+and admin has both plus admintools. Assign **only** `guardian.admission.profile.staff`
+to a staff member: inheritance is not permission inheritance. Identity overrides and
+priority-based selection still choose exactly one effective profile. Every profile
+must declare its own unique `priority`. Clients merge by client class; unknown-brand
+mode and brand list merge by field; mod mode/origins inherit with explicit field
+overrides; baselines union; required and explicit mod rules accumulate.
+
+An inherited rule cannot be silently replaced: a child override must use the **same
+rule ID, mod ID, collection** (`required` versus `rules`), and `override: true`.
+Rules with another ID for the same inherited mod are invalid. Rule deletion is not
+supported. Replacing a required rule does not remove its required status. Inherited
+version predicates and SHA-256 restrictions are unchanged unless intentionally
+replaced through the explicit override mechanism. Root profiles must include every
+required section. Unknown parents, cycles, malformed `inherit`, and chains exceeding
+16 levels fail validation. Bad reloads never replace the active policy snapshot.
+Older Guardian binaries do not recognize `inherit`; expand profiles before rollback.

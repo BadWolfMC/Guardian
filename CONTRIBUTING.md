@@ -5,7 +5,7 @@ Small, focused fixes and documentation improvements are welcome. For substantial
 ## Development requirements
 
 - Java 25
-- repository Gradle wrapper (Gradle 9.7.1)
+- repository Gradle wrapper (Gradle 9.8.1)
 - Minecraft/Paper/Fabric 26.3
 
 Run the full gate before proposing a code change:

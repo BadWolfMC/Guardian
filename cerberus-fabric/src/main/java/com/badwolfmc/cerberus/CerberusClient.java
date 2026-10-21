@@ -5,6 +5,7 @@ import com.badwolfmc.cerberus.network.PresencePayload;
 import com.badwolfmc.cerberus.network.ResponsePayload;
 import com.badwolfmc.guardian.protocol.Challenge;
 import com.badwolfmc.guardian.protocol.CerberusReleaseIdentity;
+import com.badwolfmc.guardian.protocol.GuardianChallengeCrypto;
 import com.badwolfmc.guardian.protocol.GuardianProtocol;
 import com.badwolfmc.guardian.protocol.Manifest;
 import com.badwolfmc.guardian.protocol.Presence;
@@ -54,7 +55,7 @@ public final class CerberusClient implements ClientModInitializer {
 
     private static void registerConfigurationTransport() {
         ClientConfigurationNetworking.registerGlobalReceiver(ChallengePayload.TYPE, (payload, context) -> {
-            LOGGER.info("Guardian CONFIGURATION challenge received; responding.");
+            LOGGER.info("Guardian CONFIGURATION challenge received; validating server identity.");
             respondToChallenge(payload, context.responseSender(), "CONFIGURATION",
                 context.client().getUser().getProfileId());
         });
@@ -120,10 +121,17 @@ public final class CerberusClient implements ClientModInitializer {
         try {
             Challenge challenge = ProtocolCodec.decodeChallenge(payload.bytes());
 
-            if (GuardianServerTrustStore.requiresAuthenticatedChallenge()
-                && !GuardianServerTrustStore.verify(challenge, localPlayerId)) {
-                LOGGER.warn("Ignoring unauthenticated or untrusted Guardian {} challenge; Cerberus manifest was not disclosed.", phase);
-                return;
+            if (GuardianServerTrustStore.requiresAuthenticatedChallenge()) {
+                // Verify once against one clock snapshot. Diagnostics must describe the same
+                // result that controls whether the manifest is disclosed.
+                GuardianChallengeCrypto.VerificationResult verification =
+                    GuardianServerTrustStore.verificationResult(challenge, localPlayerId);
+                if (verification != GuardianChallengeCrypto.VerificationResult.VERIFIED) {
+                    LOGGER.warn("Ignoring unauthenticated or untrusted Guardian {} challenge (reason={}); Cerberus manifest was not disclosed. "
+                            + "For future/expired challenges check computer clock synchronization; for untrusted signatures check the official Cerberus JAR.",
+                        phase, verification);
+                    return;
+                }
             }
 
             // Re-announce presence when Guardian actively challenges us. On Velocity, the initial

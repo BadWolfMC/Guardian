@@ -37,6 +37,7 @@ admission:
   standalone:
     # These are the default standalone transport timings. They are runtime
     # settings, not protocol constants, and may be retuned without a schema bump.
+    # Default 10s; configurable 1-30s. This does not extend signed-challenge validity.
     handshake-timeout-seconds: 10
     challenge-channel-wait-ticks: 40
 

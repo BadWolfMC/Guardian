@@ -55,7 +55,29 @@ public final class GuardianChallengeCrypto {
         }
     }
 
+    /** Local-only diagnostic; not returned to the server or encoded on the wire. */
+    public enum VerificationResult {
+        VERIFIED,
+        MISSING_AUTHENTICATION,
+        PLAYER_ID_MISMATCH,
+        NO_TRUSTED_KEYS,
+        INVALID_LIFETIME,
+        CHALLENGE_FROM_FUTURE,
+        CHALLENGE_EXPIRED,
+        UNTRUSTED_SIGNATURE
+    }
+
     public static boolean verify(
+        List<PublicKey> trustedKeys,
+        Challenge challenge,
+        UUID expectedPlayerId,
+        Clock clock
+    ) {
+        return verifyWithReason(trustedKeys, challenge, expectedPlayerId, clock)
+            == VerificationResult.VERIFIED;
+    }
+
+    public static VerificationResult verifyWithReason(
         List<PublicKey> trustedKeys,
         Challenge challenge,
         UUID expectedPlayerId,
@@ -66,7 +88,9 @@ public final class GuardianChallengeCrypto {
         Objects.requireNonNull(expectedPlayerId, "expectedPlayerId");
         Objects.requireNonNull(clock, "clock");
         GuardianChallengeAuthentication auth = challenge.authentication();
-        if (auth == null || trustedKeys.isEmpty() || !expectedPlayerId.equals(auth.playerId())) return false;
+        if (auth == null) return VerificationResult.MISSING_AUTHENTICATION;
+        if (!expectedPlayerId.equals(auth.playerId())) return VerificationResult.PLAYER_ID_MISMATCH;
+        if (trustedKeys.isEmpty()) return VerificationResult.NO_TRUSTED_KEYS;
 
         long issued = auth.issuedAtEpochMillis();
         long expires = auth.expiresAtEpochMillis();
@@ -74,9 +98,11 @@ public final class GuardianChallengeCrypto {
         try {
             lifetime = Math.subtractExact(expires, issued);
         } catch (ArithmeticException ex) {
-            return false;
+            return VerificationResult.INVALID_LIFETIME;
         }
-        if (lifetime <= 0 || lifetime > GuardianProtocol.GUARDIAN_CHALLENGE_AUTH_TTL_MILLIS) return false;
+        if (lifetime <= 0 || lifetime > GuardianProtocol.GUARDIAN_CHALLENGE_AUTH_TTL_MILLIS) {
+            return VerificationResult.INVALID_LIFETIME;
+        }
 
         long now = clock.millis();
         long latestAcceptableIssue;
@@ -85,18 +111,19 @@ public final class GuardianChallengeCrypto {
             latestAcceptableIssue = Math.addExact(now, GuardianProtocol.GUARDIAN_CHALLENGE_AUTH_CLOCK_SKEW_MILLIS);
             earliestAcceptableExpiry = Math.subtractExact(now, GuardianProtocol.GUARDIAN_CHALLENGE_AUTH_CLOCK_SKEW_MILLIS);
         } catch (ArithmeticException ex) {
-            return false;
+            return VerificationResult.INVALID_LIFETIME;
         }
-        if (issued > latestAcceptableIssue || expires <= earliestAcceptableExpiry) return false;
+        if (issued > latestAcceptableIssue) return VerificationResult.CHALLENGE_FROM_FUTURE;
+        if (expires <= earliestAcceptableExpiry) return VerificationResult.CHALLENGE_EXPIRED;
 
         byte[] message = signingMessage(
             challenge.protocolVersion(), challenge.requiredCapabilities(), challenge.nonce(),
             auth.playerId(), issued, expires);
         byte[] signature = auth.ed25519Signature();
         for (PublicKey key : trustedKeys) {
-            if (verifyOne(key, message, signature)) return true;
+            if (verifyOne(key, message, signature)) return VerificationResult.VERIFIED;
         }
-        return false;
+        return VerificationResult.UNTRUSTED_SIGNATURE;
     }
 
     private static boolean verifyOne(PublicKey key, byte[] message, byte[] signature) {

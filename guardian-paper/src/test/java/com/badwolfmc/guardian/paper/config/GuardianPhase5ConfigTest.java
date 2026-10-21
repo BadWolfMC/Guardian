@@ -29,6 +29,15 @@ class GuardianPhase5ConfigTest {
     }
 
     @Test
+    void standaloneHandshakeTimeoutAllowsThirtySecondsButRejectsThirtyOne() throws Exception {
+        GuardianConfigLoader loader = new GuardianConfigLoader();
+        assertEquals(30, loader.load(writeConfig(defaultConfig().replace(
+            "handshake-timeout-seconds: 10", "handshake-timeout-seconds: 30"))).handshakeTimeoutSeconds());
+        assertThrows(GuardianConfigurationException.class, () -> loader.load(writeConfig(
+            defaultConfig().replace("handshake-timeout-seconds: 10", "handshake-timeout-seconds: 31"))));
+    }
+
+    @Test
     void velocityAuthorityRequiresCopiedVelocityKey() throws Exception {
         Path config = writeConfig(defaultConfig().replace("authority: standalone", "authority: velocity"));
         GuardianConfigurationException ex = assertThrows(

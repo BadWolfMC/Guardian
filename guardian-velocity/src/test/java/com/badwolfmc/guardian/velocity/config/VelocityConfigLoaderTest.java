@@ -85,6 +85,16 @@ class VelocityConfigLoaderTest {
     }
 
     @Test
+    void handshakeTimeoutAllowsThirtySecondsButRejectsThirtyOne() throws Exception {
+        writeKey(new byte[32]);
+        VelocityConfigLoader loader = new VelocityConfigLoader();
+        assertEquals(30, loader.load(writeConfig(defaultConfig().replace(
+            "handshake-timeout-seconds: 10", "handshake-timeout-seconds: 30"))).handshakeTimeoutSeconds());
+        assertThrows(VelocityConfigurationException.class, () -> loader.load(writeConfig(
+            defaultConfig().replace("handshake-timeout-seconds: 10", "handshake-timeout-seconds: 31"))));
+    }
+
+    @Test
     void wrongDeploymentAndUnknownKeysFailClosed() throws Exception {
         writeKey(new byte[32]);
         VelocityConfigLoader loader = new VelocityConfigLoader();

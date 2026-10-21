@@ -21,7 +21,7 @@ class Phase8PlatformTargetArchitectureTest {
         assertEquals("0.19.5", properties.getProperty("fabric_loader_version"));
         assertEquals("0.162.0+26.3", properties.getProperty("fabric_api_version"));
         assertEquals("1.18.2", properties.getProperty("fabric_loom_version"));
-        assertEquals("4.2.1-SNAPSHOT", properties.getProperty("velocity_api_version"));
+        assertEquals("4.3.0", properties.getProperty("velocity_api_version"));
         assertEquals("2.11.2-SNAPSHOT", properties.getProperty("geyser_api_version"));
         assertEquals("2.2.5-SNAPSHOT", properties.getProperty("floodgate_api_version"));
         assertEquals("5.5", properties.getProperty("luckperms_api_version"));
@@ -39,9 +39,12 @@ class Phase8PlatformTargetArchitectureTest {
     }
 
     @Test
-    void phase8UsesPatchReleaseVersionForThePlatformPort() throws Exception {
+    void phase8PlatformPortKeepsReleaseVersionCentralized() throws Exception {
         String rootBuild = Files.readString(Path.of("../build.gradle"));
-        assertTrue(rootBuild.contains("orElse('1.0.2').get()"));
+        assertTrue(rootBuild.contains("providers.gradleProperty('guardianVersion')"),
+            "root Gradle must own the shared release version");
+        assertTrue(rootBuild.contains("version = guardianVersion"),
+            "all Guardian modules must inherit the centrally validated release version");
     }
 
     private static Properties loadProperties(Path path) throws IOException {
